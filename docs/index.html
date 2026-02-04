@@ -176,6 +176,87 @@
         font-size: clamp(14px, 2.4vw, 16px);
         letter-spacing: 2px;
       }
+
+      .slideshow {
+        position: fixed;
+        right: 24px;
+        bottom: 96px;
+        width: clamp(180px, 24vw, 260px);
+        aspect-ratio: 3 / 4;
+        padding: 10px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.45);
+        box-shadow: 0 18px 40px rgba(91, 42, 63, 0.25);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(10px);
+        z-index: 3;
+      }
+
+      .slideshow img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 12px;
+        transition: opacity 0.6s ease;
+      }
+
+      .slideshow figcaption {
+        position: absolute;
+        left: 14px;
+        bottom: 12px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        color: #fff;
+        background: rgba(255, 77, 109, 0.75);
+        letter-spacing: 1px;
+      }
+
+      .slideshow img.is-fading {
+        opacity: 0;
+      }
+
+      .play-button {
+        position: fixed;
+        right: 24px;
+        bottom: 24px;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        border: none;
+        background: #ff4d6d;
+        color: #fff;
+        font-size: 22px;
+        cursor: pointer;
+        box-shadow: 0 12px 24px rgba(255, 77, 109, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 3;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .play-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 16px 30px rgba(255, 77, 109, 0.45);
+      }
+
+      @media (max-width: 720px) {
+        .slideshow {
+          right: 50%;
+          transform: translateX(50%);
+          bottom: 110px;
+          width: 58vw;
+        }
+
+        .play-button {
+          right: 50%;
+          transform: translateX(50%);
+        }
+      }
     </style>
   </head>
   <body>
@@ -188,9 +269,35 @@
       <p>愿你的笑容，点亮我的每一天。</p>
       <div class="signature">— 永远为你心动</div>
     </div>
+    <figure class="slideshow" id="slideshow">
+      <img id="photo-frame" src="" alt="甜蜜回放" />
+      <figcaption>甜蜜回放</figcaption>
+    </figure>
+    <button
+      class="play-button"
+      id="photo-toggle"
+      type="button"
+      aria-label="暂停播放"
+      aria-pressed="true"
+    >
+      <span id="toggle-icon">⏸</span>
+    </button>
     <script>
       const layer = document.getElementById("floating-layer");
       const baseCount = 3;
+      const photoList = [
+        "photos/8502666de9ffcde6886fd18ff9be590.png",
+        "photos/img.png",
+      ];
+      const slideshow = document.getElementById("slideshow");
+      const photoFrame = document.getElementById("photo-frame");
+      const toggleButton = document.getElementById("photo-toggle");
+      const toggleIcon = document.getElementById("toggle-icon");
+      const intervalMs = 3000;
+      let queue = [];
+      let timer = null;
+      let playing = true;
+      let currentPhoto = "";
 
       function spawnHeart() {
         const heart = document.createElement("div");
@@ -212,6 +319,79 @@
       }
 
       window.setInterval(spawnHeart, 260);
+
+      function shuffle(list) {
+        const copy = [...list];
+        for (let i = copy.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [copy[i], copy[j]] = [copy[j], copy[i]];
+        }
+        return copy;
+      }
+
+      function nextPhoto() {
+        if (!queue.length) {
+          queue = shuffle(photoList);
+        }
+        let next = queue.shift();
+        if (photoList.length > 1 && next === currentPhoto) {
+          queue.push(next);
+          next = queue.shift();
+        }
+        currentPhoto = next;
+        return next;
+      }
+
+      function showPhoto(src) {
+        if (!src) {
+          return;
+        }
+        photoFrame.classList.add("is-fading");
+        window.setTimeout(() => {
+          photoFrame.src = src;
+        }, 180);
+      }
+
+      function startLoop() {
+        timer = window.setInterval(() => {
+          showPhoto(nextPhoto());
+        }, intervalMs);
+      }
+
+      function stopLoop() {
+        if (timer) {
+          window.clearInterval(timer);
+          timer = null;
+        }
+      }
+
+      function updateButton() {
+        toggleIcon.textContent = playing ? "⏸" : "▶";
+        toggleButton.setAttribute("aria-pressed", String(playing));
+        toggleButton.setAttribute("aria-label", playing ? "暂停播放" : "播放照片");
+      }
+
+      if (!photoList.length) {
+        slideshow.style.display = "none";
+        toggleButton.style.display = "none";
+      } else {
+        photoFrame.addEventListener("load", () => {
+          photoFrame.classList.remove("is-fading");
+        });
+        showPhoto(nextPhoto());
+        startLoop();
+        updateButton();
+        toggleButton.addEventListener("click", () => {
+          playing = !playing;
+          updateButton();
+          if (playing) {
+            showPhoto(nextPhoto());
+            startLoop();
+          } else {
+            stopLoop();
+          }
+        });
+      }
     </script>
   </body>
 </html>
