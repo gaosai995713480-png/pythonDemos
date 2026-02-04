@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>心动告白</title>
+    <style>
+      :root {
+        --bg-1: #ff9a9e;
+        --bg-2: #fad0c4;
+        --bg-3: #ffd1ff;
+        --heart: #ff4d6d;
+        --heart-glow: rgba(255, 77, 109, 0.55);
+        --text: #5b2a3f;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle at top, var(--bg-3), transparent 55%),
+          linear-gradient(135deg, var(--bg-1), var(--bg-2));
+        color: var(--text);
+        font-family: "KaiTi", "STKaiti", "Songti SC", "Noto Serif SC", serif;
+        overflow: hidden;
+      }
+
+      .stage {
+        position: relative;
+        text-align: center;
+        padding: 32px;
+        z-index: 2;
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: clamp(28px, 5vw, 42px);
+        letter-spacing: 4px;
+      }
+
+      p {
+        margin: 0;
+        font-size: clamp(16px, 3vw, 20px);
+        opacity: 0.85;
+      }
+
+      .heart {
+        width: clamp(140px, 26vw, 200px);
+        height: clamp(140px, 26vw, 200px);
+        margin: 28px auto 12px;
+        position: relative;
+        transform: rotate(-45deg);
+        background: var(--heart);
+        animation: beat 1.2s ease-in-out infinite;
+        box-shadow: 0 0 40px var(--heart-glow);
+      }
+
+      .heart::before,
+      .heart::after {
+        content: "";
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        background: var(--heart);
+        border-radius: 50%;
+      }
+
+      .heart::before {
+        top: -50%;
+        left: 0;
+      }
+
+      .heart::after {
+        left: 50%;
+        top: 0;
+      }
+
+      .glow-ring {
+        position: absolute;
+        inset: -18%;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.4);
+        animation: ripple 2.4s ease-out infinite;
+      }
+
+      .floating-layer {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      .floating-heart {
+        position: absolute;
+        left: var(--x);
+        bottom: -15vh;
+        width: var(--size);
+        height: var(--size);
+        background: rgba(255, 77, 109, 0.75);
+        transform: rotate(-45deg);
+        filter: drop-shadow(0 0 10px rgba(255, 77, 109, 0.45));
+        animation: float var(--float-duration) ease-in forwards;
+      }
+
+      .floating-heart::before,
+      .floating-heart::after {
+        content: "";
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background: inherit;
+        border-radius: 50%;
+      }
+
+      .floating-heart::before {
+        top: -50%;
+        left: 0;
+      }
+
+      .floating-heart::after {
+        top: 0;
+        left: 50%;
+      }
+
+      @keyframes beat {
+        0%,
+        100% {
+          transform: rotate(-45deg) scale(1);
+        }
+        50% {
+          transform: rotate(-45deg) scale(1.08);
+        }
+      }
+
+      @keyframes ripple {
+        0% {
+          opacity: 0.7;
+          transform: scale(0.8);
+        }
+        70% {
+          opacity: 0;
+          transform: scale(1.35);
+        }
+        100% {
+          opacity: 0;
+          transform: scale(1.35);
+        }
+      }
+
+      @keyframes float {
+        0% {
+          transform: translateY(0) rotate(-45deg) scale(0.7);
+          opacity: 0;
+        }
+        12% {
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(-120vh) rotate(-45deg) scale(1.4);
+          opacity: 0;
+        }
+      }
+
+      .signature {
+        margin-top: 10px;
+        font-size: clamp(14px, 2.4vw, 16px);
+        letter-spacing: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="floating-layer" id="floating-layer"></div>
+    <div class="stage">
+      <h1>胡路路，我喜欢你</h1>
+      <div class="heart">
+        <div class="glow-ring"></div>
+      </div>
+      <p>愿你的笑容，点亮我的每一天。</p>
+      <div class="signature">— 永远为你心动</div>
+    </div>
+    <script>
+      const layer = document.getElementById("floating-layer");
+      const baseCount = 3;
+
+      function spawnHeart() {
+        const heart = document.createElement("div");
+        heart.className = "floating-heart";
+        const size = 10 + Math.random() * 18;
+        const duration = 4 + Math.random() * 4.5;
+        const left = Math.random() * 100;
+        heart.style.setProperty("--size", `${size}px`);
+        heart.style.setProperty("--float-duration", `${duration}s`);
+        heart.style.setProperty("--x", `${left}vw`);
+        layer.appendChild(heart);
+        window.setTimeout(() => {
+          heart.remove();
+        }, duration * 1000);
+      }
+
+      for (let i = 0; i < baseCount; i += 1) {
+        spawnHeart();
+      }
+
+      window.setInterval(spawnHeart, 260);
+    </script>
+  </body>
+</html>
