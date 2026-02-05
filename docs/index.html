@@ -395,25 +395,36 @@
       }
 
       @media (max-width: 720px) {
+        body {
+          align-items: flex-start;
+          padding-top: 24px;
+        }
+
+        .stage {
+          padding: 24px 22px 140px;
+        }
+
         .lyrics {
-          margin-bottom: 100px;
+          margin-bottom: 20px;
           line-height: 1.7;
         }
 
         .heart {
-          width: clamp(120px, 40vw, 170px);
-          height: clamp(120px, 40vw, 170px);
-          margin-top: 30px;
+          width: clamp(110px, 42vw, 160px);
+          height: clamp(110px, 42vw, 160px);
+          margin-top: 18px;
+          margin-bottom: 28px;
         }
 
         .slideshow {
-          right: 16px;
-          bottom: 100px;
-          width: clamp(140px, 40vw, 190px);
+          right: 12px;
+          bottom: 84px;
+          width: clamp(120px, 42vw, 170px);
         }
 
         .play-button {
-          right: 16px;
+          right: 12px;
+          bottom: 18px;
           transform: none;
         }
       }
