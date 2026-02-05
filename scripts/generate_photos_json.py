@@ -7,9 +7,11 @@ from pathlib import Path
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
 
 
-def generate_for(base_dir: Path) -> None:
-    photos_dir = base_dir / "photos"
-    output_path = base_dir / "photos.json"
+def main() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    docs_dir = repo_root / "docs"
+    photos_dir = docs_dir / "photos"
+    output_path = docs_dir / "photos.json"
 
     images = []
     if photos_dir.exists():
@@ -25,14 +27,6 @@ def generate_for(base_dir: Path) -> None:
     output_path.write_text(
         json.dumps(images, ensure_ascii=True, indent=2), encoding="utf-8"
     )
-
-
-def main() -> None:
-    repo_root = Path(__file__).resolve().parents[1]
-    for name in ("docs", "static"):
-        base_dir = repo_root / name
-        if base_dir.exists():
-            generate_for(base_dir)
 
 
 if __name__ == "__main__":

@@ -56,12 +56,13 @@
       .heart {
         width: clamp(140px, 26vw, 200px);
         height: clamp(140px, 26vw, 200px);
-        margin: 60px auto 46px;
+        margin: 40px auto 46px;
         position: relative;
         transform: rotate(-45deg);
         background: var(--heart);
         animation: beat 1.2s ease-in-out infinite;
         box-shadow: 0 0 40px var(--heart-glow);
+        z-index: 1;
       }
 
       .heart::before,
@@ -178,12 +179,14 @@
       }
 
       .lyrics {
-        margin: 8px 0 36px;
+        margin: 8px 0 120px;
         min-height: 24px;
         font-size: clamp(15px, 3vw, 20px);
         letter-spacing: 2px;
         color: #7a2f47;
         text-shadow: 0 4px 10px rgba(255, 255, 255, 0.6);
+        position: relative;
+        z-index: 3;
       }
 
 
@@ -393,14 +396,14 @@
 
       @media (max-width: 720px) {
         .lyrics {
-          margin-bottom: 26px;
+          margin-bottom: 100px;
           line-height: 1.7;
         }
 
         .heart {
           width: clamp(120px, 40vw, 170px);
           height: clamp(120px, 40vw, 170px);
-          margin-top: 12px;
+          margin-top: 30px;
         }
 
         .slideshow {

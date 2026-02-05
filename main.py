@@ -236,10 +236,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 def run_love_page(port: int) -> None:
     base_dir = Path(__file__).resolve().parent
-    static_dir = base_dir / "static"
-    if not static_dir.exists():
-        raise FileNotFoundError("static directory is missing.")
-    photos_dir = static_dir / "photos"
+    web_dir = base_dir / "docs"
+    if not web_dir.exists():
+        raise FileNotFoundError("docs directory is missing.")
+    photos_dir = web_dir / "photos"
 
     class QuietHandler(SimpleHTTPRequestHandler):
         def log_message(self, format: str, *args: object) -> None:
@@ -271,10 +271,10 @@ def run_love_page(port: int) -> None:
                 return
             super().do_GET()
 
-    handler = functools.partial(QuietHandler, directory=str(static_dir))
+    handler = functools.partial(QuietHandler, directory=str(web_dir))
     with ThreadingHTTPServer(("127.0.0.1", port), handler) as server:
         host, real_port = server.server_address
-        url = f"http://{host}:{real_port}/love.html"
+        url = f"http://{host}:{real_port}/index.html"
         logging.info("Love page ready: %s", url)
         try:
             webbrowser.open(url, new=1)
