@@ -11,12 +11,16 @@ jobs:
       DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
       DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-      DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+      DEPLOY_KEY_B64: ${{ secrets.DEPLOY_KEY_B64 }}
     steps:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          printf '%s' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          if [ -z "$DEPLOY_KEY_B64" ]; then
+            echo "DEPLOY_KEY_B64 is empty. Add it in GitHub Secrets."
+            exit 1
+          fi
+          printf '%s' "$DEPLOY_KEY_B64" | base64 -d > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           if ! [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]; then
             echo "DEPLOY_PORT secret invalid. Set it to a number like 22."
