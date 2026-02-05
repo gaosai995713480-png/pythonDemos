@@ -289,6 +289,83 @@
         }
       }
 
+      .danmu-layer {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+        z-index: 3;
+      }
+
+      .danmu-item {
+        position: absolute;
+        right: -20%;
+        top: 0;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.75);
+        color: #5b2a3f;
+        font-size: 14px;
+        letter-spacing: 1px;
+        white-space: nowrap;
+        box-shadow: 0 10px 22px rgba(91, 42, 63, 0.2);
+        animation: danmu-move linear forwards;
+        animation-duration: var(--duration, 12s);
+        animation-delay: var(--delay, 0s);
+      }
+
+      @keyframes danmu-move {
+        from {
+          transform: translateX(0);
+          opacity: 0;
+        }
+        6% {
+          opacity: 1;
+        }
+        to {
+          transform: translateX(-140vw);
+          opacity: 0;
+        }
+      }
+
+      .danmu-bar {
+        position: fixed;
+        left: 24px;
+        right: 96px;
+        bottom: 24px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.68);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 16px 30px rgba(91, 42, 63, 0.2);
+        z-index: 4;
+      }
+
+      .danmu-bar input {
+        flex: 1;
+        border: none;
+        background: transparent;
+        font-size: 14px;
+        color: #5b2a3f;
+        outline: none;
+      }
+
+      .danmu-bar input::placeholder {
+        color: rgba(91, 42, 63, 0.6);
+      }
+
+      .danmu-bar button {
+        border: none;
+        padding: 6px 14px;
+        border-radius: 999px;
+        background: #ff4d6d;
+        color: #fff;
+        cursor: pointer;
+      }
+
       .burst-heart {
         position: fixed;
         left: var(--x);
@@ -427,6 +504,17 @@
           bottom: 18px;
           transform: none;
         }
+
+        .danmu-bar {
+          left: 12px;
+          right: 80px;
+          bottom: 18px;
+          padding: 8px 10px;
+        }
+
+        .danmu-item {
+          font-size: 13px;
+        }
       }
     </style>
   </head>
@@ -454,6 +542,17 @@
     >
       <span id="toggle-icon">⏸</span>
     </button>
+    <div class="danmu-layer" id="danmu-layer"></div>
+    <div class="danmu-bar">
+      <input
+        id="danmu-input"
+        type="text"
+        placeholder="输入弹幕"
+        maxlength="40"
+        autocomplete="off"
+      />
+      <button type="button" id="danmu-send">发送</button>
+    </div>
     <div class="note-backdrop" id="note-backdrop"></div>
     <div class="note-card" id="note-card" role="dialog" aria-hidden="true">
       <h2>想对你说</h2>
@@ -469,15 +568,30 @@
       const lrcSrc = "audio/建坤YOUNG,刘思鉴 - 声音.lrc";
       const photoList = [];
       const photosEndpoint = "photos.json";
+      const danmuEndpoint = (() => {
+        try {
+          const params = new URLSearchParams(window.location.search);
+          const custom = params.get("danmu");
+          if (custom && custom.trim()) {
+            return custom.trim();
+          }
+        } catch (error) {}
+        return "danmu";
+      })();
       const slideshow = document.getElementById("slideshow");
       const photoFrame = document.getElementById("photo-frame");
       const toggleButton = document.getElementById("photo-toggle");
       const toggleIcon = document.getElementById("toggle-icon");
+      const danmuLayer = document.getElementById("danmu-layer");
+      const danmuInput = document.getElementById("danmu-input");
+      const danmuSend = document.getElementById("danmu-send");
       const noteBackdrop = document.getElementById("note-backdrop");
       const noteCard = document.getElementById("note-card");
       const noteClose = document.getElementById("note-close");
       const lyricsEl = document.getElementById("lyrics");
       const intervalMs = 3000;
+      const danmuStorageKey = "love_danmu_history";
+      const maxDanmu = 50;
       let queue = [];
       let timer = null;
       let playing = false;
@@ -635,6 +749,126 @@
         }
       }
 
+      function loadDanmuHistory() {
+        try {
+          const raw = window.localStorage.getItem(danmuStorageKey);
+          const list = raw ? JSON.parse(raw) : [];
+          if (Array.isArray(list)) {
+            return list.filter((item) => typeof item === "string" && item.trim());
+          }
+        } catch (error) {}
+        return [];
+      }
+
+      function saveDanmuHistory(list) {
+        try {
+          window.localStorage.setItem(danmuStorageKey, JSON.stringify(list));
+        } catch (error) {}
+      }
+
+      function pickDanmuTop() {
+        const height = danmuLayer ? danmuLayer.clientHeight : window.innerHeight;
+        const safeTop = 120;
+        const safeBottom = 160;
+        const maxTop = Math.max(safeTop, height - safeBottom);
+        return safeTop + Math.random() * Math.max(0, maxTop - safeTop);
+      }
+
+      function spawnDanmu(text, delayMs = 0) {
+        if (!danmuLayer) {
+          return;
+        }
+        const content = text.trim();
+        if (!content) {
+          return;
+        }
+        const item = document.createElement("div");
+        item.className = "danmu-item";
+        item.textContent = content;
+        item.style.top = `${pickDanmuTop()}px`;
+        const duration =
+          10 + Math.min(content.length, 20) * 0.2 + Math.random() * 2;
+        item.style.setProperty("--duration", `${duration}s`);
+        item.style.setProperty("--delay", `${delayMs / 1000}s`);
+        danmuLayer.appendChild(item);
+        item.addEventListener("animationend", () => {
+          item.remove();
+        });
+      }
+
+      function fetchDanmuFromServer() {
+        if (!danmuEndpoint) {
+          return Promise.resolve(null);
+        }
+        return fetch(encodeURI(danmuEndpoint), { cache: "no-store" })
+          .then((response) => (response.ok ? response.json() : null))
+          .then((list) => {
+            if (!Array.isArray(list)) {
+              return null;
+            }
+            return list
+              .filter((item) => typeof item === "string" && item.trim())
+              .slice(-maxDanmu);
+          })
+          .catch(() => null);
+      }
+
+      function postDanmuToServer(text) {
+        if (!danmuEndpoint) {
+          return Promise.resolve(false);
+        }
+        return fetch(encodeURI(danmuEndpoint), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        })
+          .then((response) => response.ok)
+          .catch(() => false);
+      }
+
+      function initDanmu() {
+        if (!danmuLayer || !danmuInput || !danmuSend) {
+          return;
+        }
+        const renderHistory = (list) => {
+          list.forEach((text, index) => {
+            spawnDanmu(text, index * 900);
+          });
+        };
+        const localHistory = loadDanmuHistory();
+        fetchDanmuFromServer().then((serverHistory) => {
+          const history =
+            serverHistory && serverHistory.length ? serverHistory : localHistory;
+          if (serverHistory && serverHistory.length) {
+            saveDanmuHistory(history);
+          }
+          renderHistory(history);
+        });
+
+        const send = () => {
+          const raw = danmuInput.value.trim();
+          if (!raw) {
+            return;
+          }
+          const text = raw.slice(0, 40);
+          danmuInput.value = "";
+          const updated = loadDanmuHistory();
+          updated.push(text);
+          const trimmed = updated.slice(-maxDanmu);
+          saveDanmuHistory(trimmed);
+          spawnDanmu(text);
+          postDanmuToServer(text);
+        };
+
+        danmuSend.addEventListener("click", send);
+        danmuInput.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            send();
+          }
+        });
+      }
+
       function applyPhotoList(list) {
         photoList.splice(0, photoList.length, ...list);
       }
@@ -708,6 +942,7 @@
       }
 
       loadPhotos();
+      initDanmu();
 
       noteBackdrop.addEventListener("click", hideNote);
       noteClose.addEventListener("click", hideNote);

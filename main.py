@@ -206,6 +206,37 @@ def insert_results(
     return rows
 
 
+def ensure_danmu_table(conn: "pymysql.connections.Connection", table: str) -> None:
+    sql = f"""
+    CREATE TABLE IF NOT EXISTS `{table}` (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        content VARCHAR(120) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    """
+    with conn.cursor() as cursor:
+        cursor.execute(sql)
+
+
+def fetch_danmu(
+    conn: "pymysql.connections.Connection", table: str, limit: int
+) -> List[str]:
+    sql = f"SELECT content FROM `{table}` ORDER BY id DESC LIMIT %s"
+    with conn.cursor() as cursor:
+        cursor.execute(sql, (limit,))
+        rows = cursor.fetchall()
+    return [row[0] for row in reversed(rows)]
+
+
+def insert_danmu(
+    conn: "pymysql.connections.Connection", table: str, content: str
+) -> None:
+    sql = f"INSERT INTO `{table}` (content) VALUES (%s)"
+    with conn.cursor() as cursor:
+        cursor.execute(sql, (content,))
+    conn.commit()
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Crawl a Baidu search page and save results into MySQL."
@@ -222,6 +253,9 @@ def build_parser() -> argparse.ArgumentParser:
         default=0,
         help="Port for love page (0 picks a free port)",
     )
+    parser.add_argument(
+        "--host", default="127.0.0.1", help="Host for love page server"
+    )
     parser.add_argument("--url", default=DEFAULT_URL, help="Baidu search URL")
     parser.add_argument("--keyword", default="", help="Override keyword")
     parser.add_argument("--table", default="baidu_search_results", help="Table name")
@@ -230,23 +264,79 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--db-user", default="root", help="MySQL user")
     parser.add_argument("--db-password", default="root", help="MySQL password")
     parser.add_argument("--db-name", default="baidu_search", help="MySQL database")
+    parser.add_argument(
+        "--danmu-db-name", default="love_page", help="MySQL database for danmu"
+    )
+    parser.add_argument(
+        "--danmu-table", default="love_danmu", help="Danmu table name"
+    )
+    parser.add_argument(
+        "--danmu-limit", type=int, default=50, help="Max danmu messages returned"
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print results only")
     return parser
 
 
-def run_love_page(port: int) -> None:
+def run_love_page(args: argparse.Namespace) -> None:
+    import pymysql
+
     base_dir = Path(__file__).resolve().parent
     web_dir = base_dir / "docs"
     if not web_dir.exists():
         raise FileNotFoundError("docs directory is missing.")
     photos_dir = web_dir / "photos"
+    danmu_limit = max(1, args.danmu_limit)
+    danmu_maxlen = 40
+    danmu_ready = False
+    danmu_error: Optional[str] = None
+
+    try:
+        danmu_db_name = validate_identifier(args.danmu_db_name, "Danmu database name")
+        danmu_table = validate_identifier(args.danmu_table, "Danmu table name")
+        ensure_database(build_server_config(args), danmu_db_name)
+        conn = pymysql.connect(**build_db_config(args, danmu_db_name))
+        try:
+            ensure_danmu_table(conn, danmu_table)
+        finally:
+            conn.close()
+        danmu_ready = True
+    except Exception as exc:
+        danmu_error = str(exc)
+        logging.warning("Danmu database unavailable: %s", exc)
 
     class QuietHandler(SimpleHTTPRequestHandler):
         def log_message(self, format: str, *args: object) -> None:
             logging.info(format, *args)
 
+        def _send_json(self, payload: object, status: int = 200) -> None:
+            data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+        def _send_no_content(self) -> None:
+            self.send_response(204)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.end_headers()
+
+        def do_OPTIONS(self) -> None:
+            if urlparse(self.path).path.rstrip("/") == "/danmu":
+                self._send_no_content()
+                return
+            super().do_OPTIONS()
+
         def do_GET(self) -> None:
-            if self.path.rstrip("/") == "/photos.json":
+            parsed = urlparse(self.path)
+            path = parsed.path.rstrip("/")
+            if path == "/photos.json":
                 images: List[str] = []
                 if photos_dir.exists():
                     for item in photos_dir.iterdir():
@@ -262,19 +352,67 @@ def run_love_page(port: int) -> None:
                         }:
                             images.append(f"photos/{item.name}")
                 images.sort()
-                payload = json.dumps(images, ensure_ascii=False).encode("utf-8")
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json; charset=utf-8")
-                self.send_header("Content-Length", str(len(payload)))
-                self.end_headers()
-                self.wfile.write(payload)
+                self._send_json(images)
+                return
+            if path == "/danmu":
+                if not danmu_ready:
+                    self._send_json({"error": danmu_error or "danmu unavailable"}, 503)
+                    return
+                limit = danmu_limit
+                query = parse_qs(parsed.query)
+                if "limit" in query and query["limit"]:
+                    try:
+                        limit = int(query["limit"][0])
+                    except ValueError:
+                        limit = danmu_limit
+                limit = max(1, min(limit, danmu_limit))
+                conn = pymysql.connect(**build_db_config(args, danmu_db_name))
+                try:
+                    items = fetch_danmu(conn, danmu_table, limit)
+                finally:
+                    conn.close()
+                self._send_json(items)
                 return
             super().do_GET()
 
+        def do_POST(self) -> None:
+            parsed = urlparse(self.path)
+            path = parsed.path.rstrip("/")
+            if path != "/danmu":
+                super().do_POST()
+                return
+            if not danmu_ready:
+                self._send_json({"error": danmu_error or "danmu unavailable"}, 503)
+                return
+            content_length = int(self.headers.get("Content-Length", "0") or "0")
+            body = self.rfile.read(content_length).decode("utf-8", errors="ignore")
+            text = ""
+            content_type = self.headers.get("Content-Type", "")
+            if "application/json" in content_type:
+                try:
+                    payload = json.loads(body or "{}")
+                    text = str(payload.get("text", "")).strip()
+                except json.JSONDecodeError:
+                    text = ""
+            else:
+                text = parse_qs(body).get("text", [""])[0].strip()
+            text = re.sub(r"\s+", " ", text).strip()
+            if not text:
+                self._send_json({"error": "empty"}, 400)
+                return
+            text = text[:danmu_maxlen]
+            conn = pymysql.connect(**build_db_config(args, danmu_db_name))
+            try:
+                insert_danmu(conn, danmu_table, text)
+            finally:
+                conn.close()
+            self._send_json({"ok": True})
+
     handler = functools.partial(QuietHandler, directory=str(web_dir))
-    with ThreadingHTTPServer(("127.0.0.1", port), handler) as server:
+    with ThreadingHTTPServer((args.host, args.port), handler) as server:
         host, real_port = server.server_address
-        url = f"http://{host}:{real_port}/index.html"
+        display_host = "127.0.0.1" if host == "0.0.0.0" else host
+        url = f"http://{display_host}:{real_port}/index.html"
         logging.info("Love page ready: %s", url)
         try:
             webbrowser.open(url, new=1)
@@ -323,7 +461,7 @@ def main() -> None:
     args = build_parser().parse_args()
 
     if args.mode == "love":
-        run_love_page(args.port)
+        run_love_page(args)
         return
 
     run_crawler(args)
