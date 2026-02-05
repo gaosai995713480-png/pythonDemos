@@ -211,7 +211,46 @@ def ensure_danmu_table(conn: "pymysql.connections.Connection", table: str) -> No
     CREATE TABLE IF NOT EXISTS `{table}` (
         id BIGINT AUTO_INCREMENT PRIMARY KEY,
         content VARCHAR(120) NOT NULL,
+        likes INT NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    """
+    with conn.cursor() as cursor:
+        cursor.execute(sql)
+    ensure_danmu_likes_column(conn, table)
+    ensure_danmu_like_log_table(conn, f"{table}_likes")
+
+
+def ensure_danmu_likes_column(
+    conn: "pymysql.connections.Connection", table: str
+) -> None:
+    db_name = conn.db
+    if isinstance(db_name, (bytes, bytearray)):
+        db_name = db_name.decode("utf-8", errors="ignore")
+    sql = """
+    SELECT COUNT(*)
+    FROM information_schema.columns
+    WHERE table_schema = %s AND table_name = %s AND column_name = 'likes'
+    """
+    with conn.cursor() as cursor:
+        cursor.execute(sql, (db_name, table))
+        count = cursor.fetchone()[0]
+        if count == 0:
+            cursor.execute(
+                f"ALTER TABLE `{table}` ADD COLUMN likes INT NOT NULL DEFAULT 0"
+            )
+
+
+def ensure_danmu_like_log_table(
+    conn: "pymysql.connections.Connection", table: str
+) -> None:
+    sql = f"""
+    CREATE TABLE IF NOT EXISTS `{table}` (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        danmu_id BIGINT NOT NULL,
+        ip VARCHAR(45) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_danmu_ip (danmu_id, ip)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """
     with conn.cursor() as cursor:
@@ -220,21 +259,54 @@ def ensure_danmu_table(conn: "pymysql.connections.Connection", table: str) -> No
 
 def fetch_danmu(
     conn: "pymysql.connections.Connection", table: str, limit: int
-) -> List[str]:
-    sql = f"SELECT content FROM `{table}` ORDER BY id DESC LIMIT %s"
+) -> List[dict]:
+    sql = f"SELECT id, content, likes FROM `{table}` ORDER BY id DESC LIMIT %s"
     with conn.cursor() as cursor:
         cursor.execute(sql, (limit,))
         rows = cursor.fetchall()
-    return [row[0] for row in reversed(rows)]
+    items = []
+    for row in reversed(rows):
+        items.append({"id": row[0], "text": row[1], "likes": row[2] or 0})
+    return items
 
 
 def insert_danmu(
     conn: "pymysql.connections.Connection", table: str, content: str
-) -> None:
+) -> int:
     sql = f"INSERT INTO `{table}` (content) VALUES (%s)"
     with conn.cursor() as cursor:
         cursor.execute(sql, (content,))
+        row_id = cursor.lastrowid
     conn.commit()
+    return row_id
+
+
+def increment_danmu_like(
+    conn: "pymysql.connections.Connection",
+    table: str,
+    like_table: str,
+    danmu_id: int,
+    ip: str,
+) -> Optional[dict]:
+    insert_like_sql = (
+        f"INSERT IGNORE INTO `{like_table}` (danmu_id, ip) VALUES (%s, %s)"
+    )
+    update_sql = f"UPDATE `{table}` SET likes = likes + 1 WHERE id = %s"
+    select_sql = f"SELECT likes FROM `{table}` WHERE id = %s"
+    with conn.cursor() as cursor:
+        cursor.execute(insert_like_sql, (danmu_id, ip))
+        if cursor.rowcount == 0:
+            cursor.execute(select_sql, (danmu_id,))
+            row = cursor.fetchone()
+            return {"liked": False, "likes": row[0] if row else None}
+        cursor.execute(update_sql, (danmu_id,))
+        if cursor.rowcount == 0:
+            conn.rollback()
+            return None
+        conn.commit()
+        cursor.execute(select_sql, (danmu_id,))
+        row = cursor.fetchone()
+    return {"liked": True, "likes": row[0] if row else None}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -328,7 +400,7 @@ def run_love_page(args: argparse.Namespace) -> None:
             self.end_headers()
 
         def do_OPTIONS(self) -> None:
-            if urlparse(self.path).path.rstrip("/") == "/danmu":
+            if urlparse(self.path).path.rstrip("/") in {"/danmu", "/danmu/like"}:
                 self._send_no_content()
                 return
             super().do_OPTIONS()
@@ -378,6 +450,61 @@ def run_love_page(args: argparse.Namespace) -> None:
         def do_POST(self) -> None:
             parsed = urlparse(self.path)
             path = parsed.path.rstrip("/")
+            if path == "/danmu/like":
+                if not danmu_ready:
+                    self._send_json(
+                        {"error": danmu_error or "danmu unavailable"}, 503
+                    )
+                    return
+                content_length = int(self.headers.get("Content-Length", "0") or "0")
+                body = self.rfile.read(content_length).decode(
+                    "utf-8", errors="ignore"
+                )
+                raw_id: Optional[str] = None
+                content_type = self.headers.get("Content-Type", "")
+                if "application/json" in content_type:
+                    try:
+                        payload = json.loads(body or "{}")
+                        raw_id = str(payload.get("id", "")).strip()
+                    except json.JSONDecodeError:
+                        raw_id = None
+                else:
+                    raw_id = parse_qs(body).get("id", [""])[0].strip()
+                try:
+                    danmu_id = int(raw_id or "0")
+                except ValueError:
+                    danmu_id = 0
+                if danmu_id <= 0:
+                    self._send_json({"error": "invalid id"}, 400)
+                    return
+                conn = pymysql.connect(**build_db_config(args, danmu_db_name))
+                try:
+                    like_table = f"{danmu_table}_likes"
+                    client_ip = (
+                        self.headers.get("X-Real-IP")
+                        or self.headers.get("X-Forwarded-For")
+                        or ""
+                    )
+                    if "," in client_ip:
+                        client_ip = client_ip.split(",", 1)[0].strip()
+                    client_ip = client_ip.strip() or self.client_address[0]
+                    result = increment_danmu_like(
+                        conn, danmu_table, like_table, danmu_id, client_ip
+                    )
+                finally:
+                    conn.close()
+                if result is None:
+                    self._send_json({"error": "not found"}, 404)
+                    return
+                self._send_json(
+                    {
+                        "ok": True,
+                        "id": danmu_id,
+                        "likes": result.get("likes"),
+                        "liked": result.get("liked"),
+                    }
+                )
+                return
             if path != "/danmu":
                 super().do_POST()
                 return
@@ -403,10 +530,10 @@ def run_love_page(args: argparse.Namespace) -> None:
             text = text[:danmu_maxlen]
             conn = pymysql.connect(**build_db_config(args, danmu_db_name))
             try:
-                insert_danmu(conn, danmu_table, text)
+                row_id = insert_danmu(conn, danmu_table, text)
             finally:
                 conn.close()
-            self._send_json({"ok": True})
+            self._send_json({"ok": True, "id": row_id, "likes": 0, "text": text})
 
     handler = functools.partial(QuietHandler, directory=str(web_dir))
     with ThreadingHTTPServer((args.host, args.port), handler) as server:

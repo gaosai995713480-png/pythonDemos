@@ -301,17 +301,65 @@
         position: absolute;
         right: -20%;
         top: 0;
-        padding: 6px 12px;
+        padding: 6px 34px 6px 12px;
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.75);
-        color: #5b2a3f;
+        background: rgba(
+          var(--danmu-bg-color, 255, 255, 255),
+          var(--danmu-bg-alpha, 0.75)
+        );
+        color: var(--danmu-text-color, #5b2a3f);
         font-size: 14px;
         letter-spacing: 1px;
         white-space: nowrap;
-        box-shadow: 0 10px 22px rgba(91, 42, 63, 0.2);
+        border: 1px solid rgba(var(--danmu-accent-color, 255, 120, 150), 0.22);
+        box-shadow: 0 10px 22px rgba(var(--danmu-shadow-color, 91, 42, 63), 0.24);
         animation: danmu-move linear forwards;
         animation-duration: var(--duration, 12s);
         animation-delay: var(--delay, 0s);
+        cursor: pointer;
+      }
+
+      .danmu-item::after {
+        content: "";
+        position: absolute;
+        inset: 1px;
+        border-radius: inherit;
+        background: linear-gradient(
+          120deg,
+          rgba(255, 255, 255, 0.45),
+          rgba(255, 255, 255, 0) 40%,
+          rgba(var(--danmu-accent-color, 255, 120, 150), 0.18)
+        );
+        opacity: 0.9;
+        pointer-events: none;
+      }
+
+      .danmu-item.is-emoji {
+        font-size: 15px;
+        letter-spacing: 2px;
+        box-shadow: 0 12px 26px rgba(var(--danmu-shadow-color, 91, 42, 63), 0.3);
+      }
+
+      .danmu-item.is-fresh {
+        filter: drop-shadow(
+          0 0 10px rgba(var(--danmu-accent-color, 255, 120, 150), 0.45)
+        );
+      }
+
+      .danmu-like {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 12px;
+        color: var(--danmu-text-color, #5b2a3f);
+        opacity: 0.9;
+        transition: transform 0.2s ease, opacity 0.2s ease;
+      }
+
+      .danmu-like.is-pop {
+        transform: translateY(-50%) scale(1.25);
+        opacity: 1;
       }
 
       @keyframes danmu-move {
@@ -364,6 +412,207 @@
         background: #ff4d6d;
         color: #fff;
         cursor: pointer;
+      }
+
+      .danmu-settings-toggle {
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        border-radius: 50%;
+        font-size: 16px;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .danmu-settings {
+        position: fixed;
+        left: 24px;
+        bottom: 92px;
+        width: min(280px, 84vw);
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.82);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 18px 36px rgba(91, 42, 63, 0.2);
+        z-index: 4;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(8px);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+      }
+
+      .danmu-settings.is-visible {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+
+      .danmu-settings h3 {
+        margin: 0 0 8px;
+        font-size: 14px;
+      }
+
+      .danmu-settings-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+        font-size: 12px;
+      }
+
+      .danmu-settings-row span {
+        width: 48px;
+        opacity: 0.8;
+      }
+
+      .danmu-settings-row input[type="range"] {
+        flex: 1;
+      }
+
+      .anniversary-card {
+        position: fixed;
+        left: 24px;
+        top: 24px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.7);
+        box-shadow: 0 16px 32px rgba(91, 42, 63, 0.2);
+        backdrop-filter: blur(10px);
+        z-index: 4;
+        min-width: 160px;
+        cursor: pointer;
+        text-align: left;
+      }
+
+      .anniversary-title {
+        font-size: 12px;
+        opacity: 0.7;
+      }
+
+      .anniversary-days {
+        font-size: 22px;
+        margin: 6px 0 2px;
+        font-weight: 700;
+      }
+
+      .anniversary-date {
+        font-size: 12px;
+        opacity: 0.65;
+      }
+
+      .timeline-button {
+        position: fixed;
+        left: 24px;
+        top: 110px;
+        padding: 6px 14px;
+        border-radius: 999px;
+        border: none;
+        background: rgba(255, 255, 255, 0.75);
+        color: #5b2a3f;
+        box-shadow: 0 12px 24px rgba(91, 42, 63, 0.18);
+        cursor: pointer;
+        z-index: 4;
+      }
+
+      .timeline-backdrop,
+      .anniversary-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.35);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+        z-index: 6;
+      }
+
+      .timeline-backdrop.is-visible,
+      .anniversary-backdrop.is-visible {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .timeline-card,
+      .anniversary-editor {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%) scale(0.96);
+        width: min(360px, 88vw);
+        padding: 20px 18px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 22px 40px rgba(91, 42, 63, 0.35);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        z-index: 7;
+      }
+
+      .timeline-card.is-visible,
+      .anniversary-editor.is-visible {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+        pointer-events: auto;
+      }
+
+      .timeline-card h2,
+      .anniversary-editor h2 {
+        margin: 0 0 12px;
+        font-size: 18px;
+      }
+
+      .timeline-list {
+        margin: 0 0 16px;
+        padding: 0;
+        list-style: none;
+        max-height: 240px;
+        overflow-y: auto;
+      }
+
+      .timeline-item {
+        display: flex;
+        gap: 10px;
+        padding: 8px 0;
+        border-bottom: 1px dashed rgba(91, 42, 63, 0.2);
+        font-size: 13px;
+      }
+
+      .timeline-item span {
+        flex-shrink: 0;
+        opacity: 0.65;
+      }
+
+      .timeline-card button,
+      .anniversary-editor button {
+        border: none;
+        padding: 8px 16px;
+        border-radius: 999px;
+        background: #ff4d6d;
+        color: #fff;
+        cursor: pointer;
+      }
+
+      .anniversary-editor label {
+        display: block;
+        font-size: 12px;
+        margin-bottom: 6px;
+        opacity: 0.7;
+      }
+
+      .anniversary-editor input {
+        width: 100%;
+        margin-bottom: 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(91, 42, 63, 0.2);
+        padding: 8px 10px;
+      }
+
+      .anniversary-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
       }
 
       .burst-heart {
@@ -515,6 +764,21 @@
         .danmu-item {
           font-size: 13px;
         }
+
+        .danmu-settings {
+          left: 12px;
+          bottom: 76px;
+        }
+
+        .anniversary-card {
+          left: 12px;
+          top: 18px;
+        }
+
+        .timeline-button {
+          left: 12px;
+          top: 98px;
+        }
       }
     </style>
   </head>
@@ -552,6 +816,79 @@
         autocomplete="off"
       />
       <button type="button" id="danmu-send">发送</button>
+      <button
+        type="button"
+        class="danmu-settings-toggle"
+        id="danmu-settings-toggle"
+        aria-label="Danmu settings"
+      >
+        ⚙
+      </button>
+    </div>
+    <div class="danmu-settings" id="danmu-settings" aria-hidden="true">
+      <h3 id="danmu-settings-title"></h3>
+      <div class="danmu-settings-row">
+        <span id="danmu-speed-label"></span>
+        <input
+          id="danmu-speed"
+          type="range"
+          min="0.7"
+          max="1.8"
+          step="0.1"
+          value="1"
+        />
+      </div>
+      <div class="danmu-settings-row">
+        <span id="danmu-density-label"></span>
+        <input
+          id="danmu-density"
+          type="range"
+          min="1200"
+          max="5000"
+          step="200"
+          value="2200"
+        />
+      </div>
+      <div class="danmu-settings-row">
+        <span id="danmu-opacity-label"></span>
+        <input
+          id="danmu-opacity"
+          type="range"
+          min="0.45"
+          max="0.95"
+          step="0.05"
+          value="0.75"
+        />
+      </div>
+    </div>
+    <div class="anniversary-card" id="anniversary-card" role="button" tabindex="0">
+      <div class="anniversary-title" id="anniversary-title"></div>
+      <div class="anniversary-days" id="anniversary-days"></div>
+      <div class="anniversary-date" id="anniversary-date"></div>
+    </div>
+    <button type="button" class="timeline-button" id="timeline-open"></button>
+    <div class="timeline-backdrop" id="timeline-backdrop"></div>
+    <div class="timeline-card" id="timeline-card" role="dialog" aria-hidden="true">
+      <h2 id="timeline-title"></h2>
+      <ul class="timeline-list" id="timeline-list"></ul>
+      <button type="button" id="timeline-close"></button>
+    </div>
+    <div class="anniversary-backdrop" id="anniversary-backdrop"></div>
+    <div
+      class="anniversary-editor"
+      id="anniversary-editor"
+      role="dialog"
+      aria-hidden="true"
+    >
+      <h2 id="anniversary-edit-title"></h2>
+      <label id="anniversary-label-name" for="anniversary-name"></label>
+      <input id="anniversary-name" type="text" maxlength="20" />
+      <label id="anniversary-label-date" for="anniversary-input"></label>
+      <input id="anniversary-input" type="date" />
+      <div class="anniversary-actions">
+        <button type="button" id="anniversary-save"></button>
+        <button type="button" id="anniversary-cancel"></button>
+      </div>
     </div>
     <div class="note-backdrop" id="note-backdrop"></div>
     <div class="note-card" id="note-card" role="dialog" aria-hidden="true">
@@ -578,6 +915,23 @@
         } catch (error) {}
         return "danmu";
       })();
+      const danmuLikeEndpoint = (() => {
+        if (!danmuEndpoint) {
+          return null;
+        }
+        try {
+          const url = new URL(danmuEndpoint, window.location.href);
+          url.pathname = url.pathname.replace(/\/$/, "");
+          if (url.pathname.endsWith("/danmu")) {
+            url.pathname = `${url.pathname}/like`;
+          } else {
+            url.pathname = `${url.pathname}/like`;
+          }
+          return url.toString();
+        } catch (error) {
+          return `${danmuEndpoint.replace(/\/$/, "")}/like`;
+        }
+      })();
       const slideshow = document.getElementById("slideshow");
       const photoFrame = document.getElementById("photo-frame");
       const toggleButton = document.getElementById("photo-toggle");
@@ -585,14 +939,56 @@
       const danmuLayer = document.getElementById("danmu-layer");
       const danmuInput = document.getElementById("danmu-input");
       const danmuSend = document.getElementById("danmu-send");
+      const danmuSettingsToggle = document.getElementById(
+        "danmu-settings-toggle"
+      );
+      const danmuSettings = document.getElementById("danmu-settings");
+      const danmuSettingsTitle = document.getElementById("danmu-settings-title");
+      const danmuSpeedInput = document.getElementById("danmu-speed");
+      const danmuDensityInput = document.getElementById("danmu-density");
+      const danmuOpacityInput = document.getElementById("danmu-opacity");
+      const danmuSpeedLabel = document.getElementById("danmu-speed-label");
+      const danmuDensityLabel = document.getElementById("danmu-density-label");
+      const danmuOpacityLabel = document.getElementById("danmu-opacity-label");
+      const anniversaryCard = document.getElementById("anniversary-card");
+      const anniversaryTitle = document.getElementById("anniversary-title");
+      const anniversaryDays = document.getElementById("anniversary-days");
+      const anniversaryDate = document.getElementById("anniversary-date");
+      const anniversaryBackdrop = document.getElementById(
+        "anniversary-backdrop"
+      );
+      const anniversaryEditor = document.getElementById("anniversary-editor");
+      const anniversaryEditTitle = document.getElementById(
+        "anniversary-edit-title"
+      );
+      const anniversaryLabelName = document.getElementById(
+        "anniversary-label-name"
+      );
+      const anniversaryLabelDate = document.getElementById(
+        "anniversary-label-date"
+      );
+      const anniversaryNameInput = document.getElementById("anniversary-name");
+      const anniversaryInput = document.getElementById("anniversary-input");
+      const anniversarySave = document.getElementById("anniversary-save");
+      const anniversaryCancel = document.getElementById("anniversary-cancel");
+      const timelineOpen = document.getElementById("timeline-open");
+      const timelineBackdrop = document.getElementById("timeline-backdrop");
+      const timelineCard = document.getElementById("timeline-card");
+      const timelineTitle = document.getElementById("timeline-title");
+      const timelineList = document.getElementById("timeline-list");
+      const timelineClose = document.getElementById("timeline-close");
       const noteBackdrop = document.getElementById("note-backdrop");
       const noteCard = document.getElementById("note-card");
       const noteClose = document.getElementById("note-close");
       const lyricsEl = document.getElementById("lyrics");
       const intervalMs = 3000;
       const danmuStorageKey = "love_danmu_history";
+      const danmuSettingsKey = "love_danmu_settings";
+      const anniversaryStorageKey = "love_anniversary";
       const maxDanmu = 50;
-      const danmuLoopIntervalMs = 2200;
+      let danmuLoopIntervalMs = 2200;
+      let danmuSpeedFactor = 1;
+      let danmuBgAlpha = 0.75;
       let queue = [];
       let timer = null;
       let playing = false;
@@ -609,6 +1005,65 @@
 
       bgm.src = encodeURI(audioSrc);
       bgm.volume = 0.6;
+
+      const uiText = {
+        danmuSettings: "\u5f39\u5e55\u8bbe\u7f6e",
+        danmuSpeed: "\u901f\u5ea6",
+        danmuDensity: "\u5bc6\u5ea6",
+        danmuOpacity: "\u900f\u660e",
+        timelineTitle: "\u65f6\u95f4\u8f74",
+        timelineButton: "\u65f6\u95f4\u8f74",
+        close: "\u5173\u95ed",
+        anniversaryEmpty: "\u70b9\u51fb\u8bbe\u7f6e\u7eaa\u5ff5\u65e5",
+        anniversaryTitle: "\u7eaa\u5ff5\u65e5",
+        anniversaryDays: "\u5929",
+        anniversaryBefore: "\u8fd8\u6709",
+        anniversaryAfter: "\u5df2\u7ecf",
+        anniversaryEditTitle: "\u7f16\u8f91\u7eaa\u5ff5\u65e5",
+        anniversaryName: "\u540d\u79f0",
+        anniversaryDate: "\u65e5\u671f",
+        save: "\u4fdd\u5b58",
+        cancel: "\u53d6\u6d88",
+      };
+
+      const timelineItems = [
+        { date: "2023-05-20", text: "\u521d\u6b21\u76f8\u9047" },
+        { date: "2023-06-01", text: "\u6b63\u5f0f\u5f00\u59cb" },
+        { date: "2024-02-14", text: "\u9996\u4e2a\u7eaa\u5ff5\u65e5" },
+      ];
+      const danmuThemes = [
+        {
+          bg: "255, 255, 255",
+          text: "#5b2a3f",
+          shadow: "91, 42, 63",
+          accent: "255, 120, 150",
+        },
+        {
+          bg: "255, 236, 239",
+          text: "#7a304c",
+          shadow: "122, 48, 76",
+          accent: "255, 149, 177",
+        },
+        {
+          bg: "240, 249, 255",
+          text: "#2b5671",
+          shadow: "43, 86, 113",
+          accent: "126, 198, 255",
+        },
+        {
+          bg: "251, 243, 255",
+          text: "#5a3a7b",
+          shadow: "90, 58, 123",
+          accent: "186, 131, 255",
+        },
+        {
+          bg: "255, 250, 230",
+          text: "#6d4f2a",
+          shadow: "109, 79, 42",
+          accent: "255, 196, 92",
+        },
+      ];
+      const danmuEmojiPattern = /[❤💗💖💘💝💕✨🎉]|love|miss|xoxo/i;
 
       function parseLrc(text) {
         const lines = text.split(/\r?\n/);
@@ -628,6 +1083,240 @@
           }
         }
         return result.sort((a, b) => a.time - b.time);
+      }
+
+      function applyTextLabels() {
+        if (danmuSettingsTitle) {
+          danmuSettingsTitle.textContent = uiText.danmuSettings;
+        }
+        if (danmuSpeedLabel) {
+          danmuSpeedLabel.textContent = uiText.danmuSpeed;
+        }
+        if (danmuDensityLabel) {
+          danmuDensityLabel.textContent = uiText.danmuDensity;
+        }
+        if (danmuOpacityLabel) {
+          danmuOpacityLabel.textContent = uiText.danmuOpacity;
+        }
+        if (timelineTitle) {
+          timelineTitle.textContent = uiText.timelineTitle;
+        }
+        if (timelineOpen) {
+          timelineOpen.textContent = uiText.timelineButton;
+        }
+        if (timelineClose) {
+          timelineClose.textContent = uiText.close;
+        }
+        if (anniversaryEditTitle) {
+          anniversaryEditTitle.textContent = uiText.anniversaryEditTitle;
+        }
+        if (anniversaryLabelName) {
+          anniversaryLabelName.textContent = uiText.anniversaryName;
+        }
+        if (anniversaryLabelDate) {
+          anniversaryLabelDate.textContent = uiText.anniversaryDate;
+        }
+        if (anniversarySave) {
+          anniversarySave.textContent = uiText.save;
+        }
+        if (anniversaryCancel) {
+          anniversaryCancel.textContent = uiText.cancel;
+        }
+      }
+
+      function loadDanmuSettings() {
+        try {
+          const raw = window.localStorage.getItem(danmuSettingsKey);
+          const parsed = raw ? JSON.parse(raw) : null;
+          if (parsed && typeof parsed === "object") {
+            return parsed;
+          }
+        } catch (error) {}
+        return null;
+      }
+
+      function saveDanmuSettings() {
+        try {
+          window.localStorage.setItem(
+            danmuSettingsKey,
+            JSON.stringify({
+              speed: danmuSpeedFactor,
+              density: danmuLoopIntervalMs,
+              opacity: danmuBgAlpha,
+            })
+          );
+        } catch (error) {}
+      }
+
+      function applyDanmuSettings(settings) {
+        if (settings) {
+          const speed = Number(settings.speed);
+          const density = Number(settings.density);
+          const opacity = Number(settings.opacity);
+          if (Number.isFinite(speed)) {
+            danmuSpeedFactor = Math.min(2, Math.max(0.6, speed));
+          }
+          if (Number.isFinite(density)) {
+            danmuLoopIntervalMs = Math.min(6000, Math.max(800, density));
+          }
+          if (Number.isFinite(opacity)) {
+            danmuBgAlpha = Math.min(0.98, Math.max(0.3, opacity));
+          }
+        }
+        document.documentElement.style.setProperty(
+          "--danmu-bg-alpha",
+          danmuBgAlpha.toFixed(2)
+        );
+        if (danmuLayer) {
+          danmuLayer.style.setProperty(
+            "--danmu-bg-alpha",
+            danmuBgAlpha.toFixed(2)
+          );
+        }
+        if (danmuSpeedInput) {
+          danmuSpeedInput.value = String(danmuSpeedFactor);
+        }
+        if (danmuDensityInput) {
+          danmuDensityInput.value = String(danmuLoopIntervalMs);
+        }
+        if (danmuOpacityInput) {
+          danmuOpacityInput.value = String(danmuBgAlpha);
+        }
+      }
+
+      function setDanmuSettingsVisible(visible) {
+        if (!danmuSettings) {
+          return;
+        }
+        danmuSettings.classList.toggle("is-visible", visible);
+        danmuSettings.setAttribute("aria-hidden", String(!visible));
+      }
+
+      function restartDanmuLoop() {
+        if (danmuLoopList.length) {
+          startDanmuLoop(danmuLoopList, 0);
+        }
+      }
+
+      function loadAnniversary() {
+        try {
+          const raw = window.localStorage.getItem(anniversaryStorageKey);
+          const parsed = raw ? JSON.parse(raw) : null;
+          if (parsed && typeof parsed === "object") {
+            return parsed;
+          }
+        } catch (error) {}
+        return { label: "", date: "" };
+      }
+
+      function saveAnniversary(data) {
+        try {
+          window.localStorage.setItem(
+            anniversaryStorageKey,
+            JSON.stringify(data)
+          );
+        } catch (error) {}
+      }
+
+      function parseLocalDate(dateStr) {
+        if (!dateStr) {
+          return null;
+        }
+        const date = new Date(`${dateStr}T00:00:00`);
+        if (Number.isNaN(date.getTime())) {
+          return null;
+        }
+        return date;
+      }
+
+      function updateAnniversaryView() {
+        if (!anniversaryTitle || !anniversaryDays || !anniversaryDate) {
+          return;
+        }
+        const data = loadAnniversary();
+        const label = (data.label || "").trim() || uiText.anniversaryTitle;
+        const target = parseLocalDate(data.date);
+        if (!target) {
+          anniversaryTitle.textContent = uiText.anniversaryEmpty;
+          anniversaryDays.textContent = "--";
+          anniversaryDate.textContent = "";
+          return;
+        }
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const diffDays = Math.floor((today - target) / 86400000);
+        if (diffDays >= 0) {
+          anniversaryTitle.textContent = label;
+          anniversaryDays.textContent = `${diffDays} ${uiText.anniversaryDays}`;
+        } else {
+          anniversaryTitle.textContent = label;
+          anniversaryDays.textContent = `${uiText.anniversaryBefore} ${Math.abs(
+            diffDays
+          )} ${uiText.anniversaryDays}`;
+        }
+        anniversaryDate.textContent = data.date || "";
+      }
+
+      function showAnniversaryEditor() {
+        if (!anniversaryEditor || !anniversaryBackdrop) {
+          return;
+        }
+        const data = loadAnniversary();
+        if (anniversaryNameInput) {
+          anniversaryNameInput.value = data.label || "";
+        }
+        if (anniversaryInput) {
+          anniversaryInput.value = data.date || "";
+        }
+        anniversaryBackdrop.classList.add("is-visible");
+        anniversaryEditor.classList.add("is-visible");
+        anniversaryEditor.setAttribute("aria-hidden", "false");
+      }
+
+      function hideAnniversaryEditor() {
+        if (!anniversaryEditor || !anniversaryBackdrop) {
+          return;
+        }
+        anniversaryBackdrop.classList.remove("is-visible");
+        anniversaryEditor.classList.remove("is-visible");
+        anniversaryEditor.setAttribute("aria-hidden", "true");
+      }
+
+      function renderTimeline(list) {
+        if (!timelineList) {
+          return;
+        }
+        timelineList.innerHTML = "";
+        list.forEach((item) => {
+          const li = document.createElement("li");
+          li.className = "timeline-item";
+          const date = document.createElement("span");
+          date.textContent = item.date;
+          const text = document.createElement("div");
+          text.textContent = item.text;
+          li.appendChild(date);
+          li.appendChild(text);
+          timelineList.appendChild(li);
+        });
+      }
+
+      function showTimeline() {
+        if (!timelineBackdrop || !timelineCard) {
+          return;
+        }
+        renderTimeline(timelineItems);
+        timelineBackdrop.classList.add("is-visible");
+        timelineCard.classList.add("is-visible");
+        timelineCard.setAttribute("aria-hidden", "false");
+      }
+
+      function hideTimeline() {
+        if (!timelineBackdrop || !timelineCard) {
+          return;
+        }
+        timelineBackdrop.classList.remove("is-visible");
+        timelineCard.classList.remove("is-visible");
+        timelineCard.setAttribute("aria-hidden", "true");
       }
 
       function syncLyrics(currentTime) {
@@ -771,6 +1460,47 @@
         } catch (error) {}
       }
 
+      function normalizeDanmuItem(raw) {
+        if (!raw) {
+          return null;
+        }
+        if (typeof raw === "string") {
+          const text = raw.trim();
+          if (!text) {
+            return null;
+          }
+          return { id: null, text, likes: 0 };
+        }
+        if (typeof raw === "object") {
+          const text = String(raw.text || raw.content || "").trim();
+          if (!text) {
+            return null;
+          }
+          const id = Number(raw.id);
+          const likes = Number(raw.likes);
+          return {
+            id: Number.isFinite(id) ? id : null,
+            text,
+            likes: Number.isFinite(likes) ? Math.max(0, likes) : 0,
+          };
+        }
+        return null;
+      }
+
+      function normalizeDanmuList(list) {
+        if (!Array.isArray(list)) {
+          return [];
+        }
+        const result = [];
+        list.forEach((item) => {
+          const normalized = normalizeDanmuItem(item);
+          if (normalized) {
+            result.push(normalized);
+          }
+        });
+        return result;
+      }
+
       function pickDanmuTop() {
         const height = danmuLayer ? danmuLayer.clientHeight : window.innerHeight;
         const safeTop = 120;
@@ -779,26 +1509,85 @@
         return safeTop + Math.random() * Math.max(0, maxTop - safeTop);
       }
 
-      function spawnDanmu(text, delayMs = 0) {
+      function spawnDanmu(raw, delayMs = 0, options = {}) {
         if (!danmuLayer) {
           return;
         }
-        const content = text.trim();
-        if (!content) {
+        const payload = normalizeDanmuItem(raw);
+        if (!payload || !payload.text) {
           return;
         }
+        const content = payload.text;
+        const theme =
+          danmuThemes[Math.floor(Math.random() * danmuThemes.length)];
         const item = document.createElement("div");
         item.className = "danmu-item";
         item.textContent = content;
+        if (theme) {
+          item.style.setProperty("--danmu-bg-color", theme.bg);
+          item.style.setProperty("--danmu-text-color", theme.text);
+          item.style.setProperty("--danmu-shadow-color", theme.shadow);
+          item.style.setProperty("--danmu-accent-color", theme.accent);
+        }
+        if (danmuEmojiPattern.test(content)) {
+          item.classList.add("is-emoji");
+        }
+        if (options && options.highlight) {
+          item.classList.add("is-fresh");
+        }
+        item.style.pointerEvents = "auto";
+        item.style.zIndex = "3";
+        if (payload.id) {
+          item.dataset.danmuId = String(payload.id);
+        }
+        const like = document.createElement("span");
+        like.className = "danmu-like";
+        let likeCount = payload.likes || 0;
+        const updateLikeText = () => {
+          like.textContent = likeCount > 0 ? `❤ ${likeCount}` : "❤";
+        };
+        const popLike = () => {
+          like.classList.remove("is-pop");
+          void like.offsetWidth;
+          like.classList.add("is-pop");
+        };
+        updateLikeText();
+        item.appendChild(like);
+        item.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const rawId = item.dataset.danmuId;
+          const danmuId = rawId ? Number(rawId) : NaN;
+          if (Number.isFinite(danmuId)) {
+            postDanmuLike(danmuId).then((payload) => {
+              if (payload && Number.isFinite(payload.likes)) {
+                likeCount = payload.likes;
+                updateLikeText();
+                if (payload.liked) {
+                  popLike();
+                }
+                return;
+              }
+              likeCount += 1;
+              updateLikeText();
+              popLike();
+            });
+            return;
+          }
+          likeCount += 1;
+          updateLikeText();
+          popLike();
+        });
         item.style.top = `${pickDanmuTop()}px`;
         const duration =
-          10 + Math.min(content.length, 20) * 0.2 + Math.random() * 2;
+          (10 + Math.min(content.length, 20) * 0.2 + Math.random() * 2) *
+          danmuSpeedFactor;
         item.style.setProperty("--duration", `${duration}s`);
         item.style.setProperty("--delay", `${delayMs / 1000}s`);
-        danmuLayer.appendChild(item);
+        document.body.appendChild(item);
         item.addEventListener("animationend", () => {
           item.remove();
         });
+        return item;
       }
 
       function startDanmuLoop(list, delayMs = 0) {
@@ -810,9 +1599,7 @@
           window.clearTimeout(danmuLoopStartTimer);
           danmuLoopStartTimer = null;
         }
-        danmuLoopList = Array.isArray(list)
-          ? list.filter((item) => typeof item === "string" && item.trim())
-          : [];
+        danmuLoopList = normalizeDanmuList(list);
         danmuLoopIndex = 0;
         if (!danmuLoopList.length) {
           return;
@@ -837,9 +1624,7 @@
       }
 
       function updateDanmuLoop(list) {
-        danmuLoopList = Array.isArray(list)
-          ? list.filter((item) => typeof item === "string" && item.trim())
-          : [];
+        danmuLoopList = normalizeDanmuList(list);
         if (!danmuLoopList.length) {
           danmuLoopIndex = 0;
           return;
@@ -862,24 +1647,45 @@
             if (!Array.isArray(list)) {
               return null;
             }
-            return list
-              .filter((item) => typeof item === "string" && item.trim())
-              .slice(-maxDanmu);
+            return normalizeDanmuList(list).slice(-maxDanmu);
           })
           .catch(() => null);
       }
 
       function postDanmuToServer(text) {
         if (!danmuEndpoint) {
-          return Promise.resolve(false);
+          return Promise.resolve(null);
         }
         return fetch(encodeURI(danmuEndpoint), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text }),
         })
-          .then((response) => response.ok)
-          .catch(() => false);
+          .then((response) => (response.ok ? response.json() : null))
+          .catch(() => null);
+      }
+
+      function postDanmuLike(id) {
+        if (!danmuLikeEndpoint) {
+          return Promise.resolve(null);
+        }
+        return fetch(encodeURI(danmuLikeEndpoint), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id }),
+        })
+          .then((response) => (response.ok ? response.json() : null))
+          .then((payload) => {
+            if (!payload) {
+              return null;
+            }
+            const likes = Number(payload.likes);
+            return {
+              likes: Number.isFinite(likes) ? likes : null,
+              liked: Boolean(payload.liked),
+            };
+          })
+          .catch(() => null);
       }
 
       function initDanmu() {
@@ -891,12 +1697,12 @@
             spawnDanmu(text, index * 900);
           });
         };
-        const localHistory = loadDanmuHistory();
+        const localHistory = normalizeDanmuList(loadDanmuHistory());
         fetchDanmuFromServer().then((serverHistory) => {
           const history =
             serverHistory && serverHistory.length ? serverHistory : localHistory;
           if (serverHistory && serverHistory.length) {
-            saveDanmuHistory(history);
+            saveDanmuHistory(history.map((item) => item.text));
           }
           renderHistory(history);
           const loopDelay = Math.min(history.length * 900, 12000);
@@ -914,9 +1720,24 @@
           updated.push(text);
           const trimmed = updated.slice(-maxDanmu);
           saveDanmuHistory(trimmed);
-          spawnDanmu(text);
+          const itemEl = spawnDanmu(text, 0, { highlight: true });
           updateDanmuLoop(trimmed);
-          postDanmuToServer(text);
+          postDanmuToServer(text).then((payload) => {
+            if (!payload || !itemEl) {
+              return;
+            }
+            const id = Number(payload.id);
+            const likes = Number(payload.likes);
+            if (Number.isFinite(id)) {
+              itemEl.dataset.danmuId = String(id);
+            }
+            if (Number.isFinite(likes)) {
+              const likeEl = itemEl.querySelector(".danmu-like");
+              if (likeEl) {
+                likeEl.textContent = likes > 0 ? `❤ ${likes}` : "❤";
+              }
+            }
+          });
         };
 
         danmuSend.addEventListener("click", send);
@@ -1000,8 +1821,92 @@
       }
       }
 
+      applyTextLabels();
+      applyDanmuSettings(loadDanmuSettings());
+      updateAnniversaryView();
+      setDanmuSettingsVisible(false);
+
       loadPhotos();
       initDanmu();
+
+      if (danmuSettingsToggle && danmuSettings) {
+        danmuSettingsToggle.addEventListener("click", () => {
+          const visible = !danmuSettings.classList.contains("is-visible");
+          setDanmuSettingsVisible(visible);
+        });
+      }
+      if (danmuSpeedInput) {
+        danmuSpeedInput.addEventListener("input", () => {
+          applyDanmuSettings({ speed: Number(danmuSpeedInput.value) });
+          saveDanmuSettings();
+        });
+      }
+      if (danmuDensityInput) {
+        danmuDensityInput.addEventListener("input", () => {
+          applyDanmuSettings({ density: Number(danmuDensityInput.value) });
+          saveDanmuSettings();
+          restartDanmuLoop();
+        });
+      }
+      if (danmuOpacityInput) {
+        danmuOpacityInput.addEventListener("input", () => {
+          applyDanmuSettings({ opacity: Number(danmuOpacityInput.value) });
+          saveDanmuSettings();
+        });
+      }
+      if (danmuSettings && danmuSettingsToggle) {
+        document.addEventListener("click", (event) => {
+          const target = event.target;
+          if (
+            target &&
+            target.closest &&
+            (target.closest("#danmu-settings") ||
+              target.closest("#danmu-settings-toggle"))
+          ) {
+            return;
+          }
+          if (danmuSettings.classList.contains("is-visible")) {
+            setDanmuSettingsVisible(false);
+          }
+        });
+      }
+
+      if (anniversaryCard) {
+        anniversaryCard.addEventListener("click", showAnniversaryEditor);
+        anniversaryCard.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            showAnniversaryEditor();
+          }
+        });
+      }
+      if (anniversaryBackdrop) {
+        anniversaryBackdrop.addEventListener("click", hideAnniversaryEditor);
+      }
+      if (anniversaryCancel) {
+        anniversaryCancel.addEventListener("click", hideAnniversaryEditor);
+      }
+      if (anniversarySave) {
+        anniversarySave.addEventListener("click", () => {
+          const label = anniversaryNameInput
+            ? anniversaryNameInput.value.trim()
+            : "";
+          const date = anniversaryInput ? anniversaryInput.value : "";
+          saveAnniversary({ label, date });
+          updateAnniversaryView();
+          hideAnniversaryEditor();
+        });
+      }
+
+      if (timelineOpen) {
+        timelineOpen.addEventListener("click", showTimeline);
+      }
+      if (timelineClose) {
+        timelineClose.addEventListener("click", hideTimeline);
+      }
+      if (timelineBackdrop) {
+        timelineBackdrop.addEventListener("click", hideTimeline);
+      }
 
       noteBackdrop.addEventListener("click", hideNote);
       noteClose.addEventListener("click", hideNote);
@@ -1010,7 +1915,11 @@
         if (event.button !== 0) {
           return;
         }
-        if (event.target.closest("button, .note-card, .note-backdrop")) {
+        if (
+          event.target.closest(
+            "button, input, textarea, select, .note-card, .note-backdrop, .danmu-bar, .danmu-settings, .danmu-item, .danmu-like, .anniversary-card, .anniversary-editor, .anniversary-backdrop, .timeline-card, .timeline-button, .timeline-backdrop"
+          )
+        ) {
           return;
         }
         pressOrigin = { x: event.clientX, y: event.clientY };
@@ -1054,7 +1963,11 @@
           ignoreNextClick = false;
           return;
         }
-        if (event.target.closest("button, .note-card, .note-backdrop")) {
+        if (
+          event.target.closest(
+            "button, input, textarea, select, .note-card, .note-backdrop, .danmu-bar, .danmu-settings, .danmu-item, .danmu-like, .anniversary-card, .anniversary-editor, .anniversary-backdrop, .timeline-card, .timeline-button, .timeline-backdrop"
+          )
+        ) {
           return;
         }
         createBurst(event.clientX, event.clientY);
