@@ -424,9 +424,12 @@
       <p>遇见你，是我这一生最温柔的幸运。</p>
       <button type="button" id="note-close">知道啦</button>
     </div>
+    <audio id="bgm" preload="auto" loop></audio>
     <script>
       const layer = document.getElementById("floating-layer");
       const baseCount = 3;
+      const bgm = document.getElementById("bgm");
+      const audioSrc = "audio/Zkaaai,哈利白特 - 病态的爱.mp3";
       const photoList = [
         "photos/8502666de9ffcde6886fd18ff9be590.png",
         "photos/img.png",
@@ -441,11 +444,14 @@
       const intervalMs = 3000;
       let queue = [];
       let timer = null;
-      let playing = true;
+      let playing = false;
       let currentPhoto = "";
       let pressTimer = null;
       let pressOrigin = null;
       let ignoreNextClick = false;
+
+      bgm.src = encodeURI(audioSrc);
+      bgm.volume = 0.6;
 
       function spawnHeart() {
         const heart = document.createElement("div");
@@ -561,7 +567,6 @@
           photoFrame.classList.remove("is-fading");
         });
         showPhoto(nextPhoto());
-        startLoop();
         updateButton();
         toggleButton.addEventListener("click", () => {
           playing = !playing;
@@ -569,8 +574,10 @@
           if (playing) {
             showPhoto(nextPhoto());
             startLoop();
+            bgm.play().catch(() => {});
           } else {
             stopLoop();
+            bgm.pause();
           }
         });
       }
