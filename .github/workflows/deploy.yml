@@ -32,6 +32,7 @@ jobs:
           ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" << 'EOF'
           set -e
           cd /srv/love
+          git config --global --add safe.directory /srv/love
           git pull origin master
           /srv/love/.venv/bin/pip install -r requirements.txt
           sudo systemctl restart love
