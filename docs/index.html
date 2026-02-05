@@ -1803,6 +1803,7 @@
         photoFrame.addEventListener("load", () => {
           photoFrame.classList.remove("is-fading");
         });
+        slideshow.style.display = "none";
         showPhoto(nextPhoto());
         updateButton();
         fetch(encodeURI(lrcSrc))
@@ -1829,6 +1830,7 @@
           playing = !playing;
           updateButton();
           if (playing) {
+            slideshow.style.display = "";
             showPhoto(nextPhoto());
             startLoop();
             bgm
@@ -1840,6 +1842,7 @@
           } else {
             stopLoop();
             bgm.pause();
+            slideshow.style.display = "none";
           }
         });
       }
