@@ -301,7 +301,7 @@
         position: absolute;
         right: -20%;
         top: 0;
-        padding: 6px 34px 6px 12px;
+        padding: 6px 12px;
         border-radius: 999px;
         background: rgba(
           var(--danmu-bg-color, 255, 255, 255),
@@ -317,6 +317,9 @@
         animation-duration: var(--duration, 12s);
         animation-delay: var(--delay, 0s);
         cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
       }
 
       .danmu-item::after {
@@ -347,10 +350,7 @@
       }
 
       .danmu-like {
-        position: absolute;
-        right: 10px;
-        top: 50%;
-        transform: translateY(-50%);
+        position: relative;
         font-size: 12px;
         color: var(--danmu-text-color, #5b2a3f);
         opacity: 0.9;
@@ -358,7 +358,7 @@
       }
 
       .danmu-like.is-pop {
-        transform: translateY(-50%) scale(1.25);
+        transform: scale(1.25);
         opacity: 1;
       }
 
