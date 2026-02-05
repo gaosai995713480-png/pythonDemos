@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import functools
+import json
 import logging
 import re
 import webbrowser
@@ -238,10 +239,37 @@ def run_love_page(port: int) -> None:
     static_dir = base_dir / "static"
     if not static_dir.exists():
         raise FileNotFoundError("static directory is missing.")
+    photos_dir = static_dir / "photos"
 
     class QuietHandler(SimpleHTTPRequestHandler):
         def log_message(self, format: str, *args: object) -> None:
             logging.info(format, *args)
+
+        def do_GET(self) -> None:
+            if self.path.rstrip("/") == "/photos.json":
+                images: List[str] = []
+                if photos_dir.exists():
+                    for item in photos_dir.iterdir():
+                        if not item.is_file():
+                            continue
+                        if item.suffix.lower() in {
+                            ".jpg",
+                            ".jpeg",
+                            ".png",
+                            ".webp",
+                            ".gif",
+                            ".bmp",
+                        }:
+                            images.append(f"photos/{item.name}")
+                images.sort()
+                payload = json.dumps(images, ensure_ascii=False).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+                return
+            super().do_GET()
 
     handler = functools.partial(QuietHandler, directory=str(static_dir))
     with ThreadingHTTPServer(("127.0.0.1", port), handler) as server:

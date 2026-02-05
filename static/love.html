@@ -456,10 +456,8 @@
       const bgm = document.getElementById("bgm");
       const audioSrc = "audio/建坤YOUNG,刘思鉴 - 声音.mp3";
       const lrcSrc = "audio/建坤YOUNG,刘思鉴 - 声音.lrc";
-      const photoList = [
-        "photos/8502666de9ffcde6886fd18ff9be590.png",
-        "photos/img.png",
-      ];
+      const photoList = [];
+      const photosEndpoint = "photos.json";
       const slideshow = document.getElementById("slideshow");
       const photoFrame = document.getElementById("photo-frame");
       const toggleButton = document.getElementById("photo-toggle");
@@ -626,6 +624,29 @@
         }
       }
 
+      function applyPhotoList(list) {
+        photoList.splice(0, photoList.length, ...list);
+      }
+
+      function loadPhotos() {
+        return fetch(encodeURI(photosEndpoint))
+          .then((response) => (response.ok ? response.json() : []))
+          .then((list) => {
+            if (!Array.isArray(list)) {
+              return;
+            }
+            const filtered = list.filter(
+              (item) => typeof item === "string" && item.trim()
+            );
+            applyPhotoList(filtered);
+          })
+          .catch(() => {})
+          .finally(() => {
+            initSlideshow();
+          });
+      }
+
+      function initSlideshow() {
       if (!photoList.length) {
         slideshow.style.display = "none";
         toggleButton.style.display = "none";
@@ -673,6 +694,9 @@
           }
         });
       }
+      }
+
+      loadPhotos();
 
       noteBackdrop.addEventListener("click", hideNote);
       noteClose.addEventListener("click", hideNote);
