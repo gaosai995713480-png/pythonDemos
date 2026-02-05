@@ -467,6 +467,13 @@
         opacity: 0.8;
       }
 
+      .danmu-settings-row output {
+        min-width: 46px;
+        text-align: right;
+        font-size: 12px;
+        color: rgba(113, 66, 88, 0.7);
+      }
+
       .danmu-settings-row input[type="range"] {
         flex: 1;
       }
@@ -837,28 +844,31 @@
           step="0.1"
           value="1"
         />
+        <output id="danmu-speed-value"></output>
       </div>
       <div class="danmu-settings-row">
         <span id="danmu-density-label"></span>
         <input
           id="danmu-density"
           type="range"
-          min="1200"
-          max="5000"
-          step="200"
-          value="2200"
+          min="1"
+          max="6"
+          step="1"
+          value="3"
         />
+        <output id="danmu-density-value"></output>
       </div>
       <div class="danmu-settings-row">
         <span id="danmu-opacity-label"></span>
         <input
           id="danmu-opacity"
           type="range"
-          min="0.45"
+          min="0.3"
           max="0.95"
           step="0.05"
           value="0.75"
         />
+        <output id="danmu-opacity-value"></output>
       </div>
     </div>
     <div class="anniversary-card" id="anniversary-card" role="button" tabindex="0">
@@ -950,6 +960,9 @@
       const danmuSpeedLabel = document.getElementById("danmu-speed-label");
       const danmuDensityLabel = document.getElementById("danmu-density-label");
       const danmuOpacityLabel = document.getElementById("danmu-opacity-label");
+      const danmuSpeedValue = document.getElementById("danmu-speed-value");
+      const danmuDensityValue = document.getElementById("danmu-density-value");
+      const danmuOpacityValue = document.getElementById("danmu-opacity-value");
       const anniversaryCard = document.getElementById("anniversary-card");
       const anniversaryTitle = document.getElementById("anniversary-title");
       const anniversaryDays = document.getElementById("anniversary-days");
@@ -989,6 +1002,7 @@
       let danmuLoopIntervalMs = 2200;
       let danmuSpeedFactor = 1;
       let danmuBgAlpha = 0.75;
+      let danmuDensityLevel = 3;
       let queue = [];
       let timer = null;
       let playing = false;
@@ -1141,7 +1155,7 @@
             danmuSettingsKey,
             JSON.stringify({
               speed: danmuSpeedFactor,
-              density: danmuLoopIntervalMs,
+              density: danmuDensityLevel,
               opacity: danmuBgAlpha,
             })
           );
@@ -1157,12 +1171,13 @@
             danmuSpeedFactor = Math.min(2, Math.max(0.6, speed));
           }
           if (Number.isFinite(density)) {
-            danmuLoopIntervalMs = Math.min(6000, Math.max(800, density));
+            danmuDensityLevel = Math.min(6, Math.max(1, density));
           }
           if (Number.isFinite(opacity)) {
             danmuBgAlpha = Math.min(0.98, Math.max(0.3, opacity));
           }
         }
+        danmuLoopIntervalMs = 4200 - danmuDensityLevel * 500;
         document.documentElement.style.setProperty(
           "--danmu-bg-alpha",
           danmuBgAlpha.toFixed(2)
@@ -1177,10 +1192,19 @@
           danmuSpeedInput.value = String(danmuSpeedFactor);
         }
         if (danmuDensityInput) {
-          danmuDensityInput.value = String(danmuLoopIntervalMs);
+          danmuDensityInput.value = String(danmuDensityLevel);
         }
         if (danmuOpacityInput) {
           danmuOpacityInput.value = String(danmuBgAlpha);
+        }
+        if (danmuSpeedValue) {
+          danmuSpeedValue.textContent = `${danmuSpeedFactor.toFixed(1)}x`;
+        }
+        if (danmuDensityValue) {
+          danmuDensityValue.textContent = `${danmuDensityLevel}档`;
+        }
+        if (danmuOpacityValue) {
+          danmuOpacityValue.textContent = `${Math.round(danmuBgAlpha * 100)}%`;
         }
       }
 
@@ -1579,7 +1603,7 @@
         });
         item.style.top = `${pickDanmuTop()}px`;
         const duration =
-          (10 + Math.min(content.length, 20) * 0.2 + Math.random() * 2) *
+          (10 + Math.min(content.length, 20) * 0.2 + Math.random() * 2) /
           danmuSpeedFactor;
         item.style.setProperty("--duration", `${duration}s`);
         item.style.setProperty("--delay", `${delayMs / 1000}s`);
