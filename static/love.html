@@ -56,12 +56,13 @@
       .heart {
         width: clamp(140px, 26vw, 200px);
         height: clamp(140px, 26vw, 200px);
-        margin: 80px auto 46px;
+        margin: 40px auto 46px;
         position: relative;
         transform: rotate(-45deg);
         background: var(--heart);
         animation: beat 1.2s ease-in-out infinite;
         box-shadow: 0 0 40px var(--heart-glow);
+        z-index: 1;
       }
 
       .heart::before,
@@ -178,7 +179,7 @@
       }
 
       .lyrics {
-        margin: 8px 0 36px;
+        margin: 8px 0 120px;
         min-height: 24px;
         font-size: clamp(15px, 3vw, 20px);
         letter-spacing: 2px;
