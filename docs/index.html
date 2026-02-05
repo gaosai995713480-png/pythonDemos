@@ -178,12 +178,16 @@
       }
 
       .lyrics {
-        margin: 8px 0 18px;
+        margin: 8px 0 24px;
         min-height: 24px;
         font-size: clamp(15px, 3vw, 20px);
         letter-spacing: 2px;
         color: #7a2f47;
         text-shadow: 0 4px 10px rgba(255, 255, 255, 0.6);
+      }
+
+      .heart {
+        margin-top: 34px;
       }
 
       .slideshow {
@@ -391,6 +395,17 @@
       }
 
       @media (max-width: 720px) {
+        .lyrics {
+          margin-bottom: 26px;
+          line-height: 1.7;
+        }
+
+        .heart {
+          width: clamp(120px, 40vw, 170px);
+          height: clamp(120px, 40vw, 170px);
+          margin-top: 12px;
+        }
+
         .slideshow {
           right: 16px;
           bottom: 100px;
