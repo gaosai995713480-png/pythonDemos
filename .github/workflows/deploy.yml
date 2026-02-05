@@ -16,7 +16,7 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          printf '%s' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           if ! [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]; then
             echo "DEPLOY_PORT secret invalid. Set it to a number like 22."
@@ -26,7 +26,7 @@ jobs:
 
       - name: Deploy
         run: |
-          ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" << 'EOF'
+          ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" << 'EOF'
           set -e
           cd /srv/love
           git pull origin master
