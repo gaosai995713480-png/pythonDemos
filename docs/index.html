@@ -592,6 +592,7 @@
       const intervalMs = 3000;
       const danmuStorageKey = "love_danmu_history";
       const maxDanmu = 50;
+      const danmuLoopIntervalMs = 2200;
       let queue = [];
       let timer = null;
       let playing = false;
@@ -601,6 +602,10 @@
       let ignoreNextClick = false;
       let lyricLines = [];
       let lyricIndex = -1;
+      let danmuLoopTimer = null;
+      let danmuLoopStartTimer = null;
+      let danmuLoopList = [];
+      let danmuLoopIndex = 0;
 
       bgm.src = encodeURI(audioSrc);
       bgm.volume = 0.6;
@@ -796,6 +801,57 @@
         });
       }
 
+      function startDanmuLoop(list, delayMs = 0) {
+        if (danmuLoopTimer) {
+          window.clearInterval(danmuLoopTimer);
+          danmuLoopTimer = null;
+        }
+        if (danmuLoopStartTimer) {
+          window.clearTimeout(danmuLoopStartTimer);
+          danmuLoopStartTimer = null;
+        }
+        danmuLoopList = Array.isArray(list)
+          ? list.filter((item) => typeof item === "string" && item.trim())
+          : [];
+        danmuLoopIndex = 0;
+        if (!danmuLoopList.length) {
+          return;
+        }
+        const run = () => {
+          danmuLoopTimer = window.setInterval(() => {
+            if (!danmuLoopList.length) {
+              return;
+            }
+            const next = danmuLoopList[danmuLoopIndex % danmuLoopList.length];
+            danmuLoopIndex = (danmuLoopIndex + 1) % danmuLoopList.length;
+            if (next) {
+              spawnDanmu(next);
+            }
+          }, danmuLoopIntervalMs);
+        };
+        if (delayMs > 0) {
+          danmuLoopStartTimer = window.setTimeout(run, delayMs);
+        } else {
+          run();
+        }
+      }
+
+      function updateDanmuLoop(list) {
+        danmuLoopList = Array.isArray(list)
+          ? list.filter((item) => typeof item === "string" && item.trim())
+          : [];
+        if (!danmuLoopList.length) {
+          danmuLoopIndex = 0;
+          return;
+        }
+        if (danmuLoopIndex >= danmuLoopList.length) {
+          danmuLoopIndex = 0;
+        }
+        if (!danmuLoopTimer && !danmuLoopStartTimer) {
+          startDanmuLoop(danmuLoopList, 800);
+        }
+      }
+
       function fetchDanmuFromServer() {
         if (!danmuEndpoint) {
           return Promise.resolve(null);
@@ -843,6 +899,8 @@
             saveDanmuHistory(history);
           }
           renderHistory(history);
+          const loopDelay = Math.min(history.length * 900, 12000);
+          startDanmuLoop(history, loopDelay);
         });
 
         const send = () => {
@@ -857,6 +915,7 @@
           const trimmed = updated.slice(-maxDanmu);
           saveDanmuHistory(trimmed);
           spawnDanmu(text);
+          updateDanmuLoop(trimmed);
           postDanmuToServer(text);
         };
 
