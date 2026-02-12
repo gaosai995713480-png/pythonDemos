@@ -592,7 +592,7 @@
         box-shadow: 0 4px 12px rgba(255, 107, 157, 0.6);
       }
 
-      .anniversary-card {
+      .weather-card {
         position: fixed;
         left: 32px;
         top: 32px;
@@ -605,91 +605,100 @@
           0 8px 32px rgba(0, 0, 0, 0.4),
           inset 0 1px 0 rgba(255, 255, 255, 0.1);
         z-index: 4;
-        min-width: 200px;
+        min-width: 240px;
         cursor: pointer;
-        text-align: left;
         transition: all 0.3s ease;
       }
 
-      .anniversary-card:hover {
+      .weather-card:hover {
         transform: translateY(-4px);
         box-shadow:
           0 12px 40px rgba(0, 0, 0, 0.5),
           inset 0 1px 0 rgba(255, 255, 255, 0.15);
       }
 
-      .anniversary-title {
+      .weather-location {
         font-size: 14px;
-        opacity: 0.75;
+        opacity: 0.85;
         font-weight: 400;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 12px;
       }
 
-      .anniversary-days {
-        font-size: 32px;
-        margin: 10px 0 4px;
+      .weather-main {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 12px;
+      }
+
+      .weather-icon {
+        font-size: 48px;
+        line-height: 1;
+      }
+
+      .weather-temp {
+        font-size: 42px;
         font-weight: 700;
         background: linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.8) 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
+        line-height: 1;
       }
 
-      .anniversary-date {
+      .weather-desc {
+        font-size: 15px;
+        opacity: 0.85;
+        margin-bottom: 12px;
+        text-transform: capitalize;
+      }
+
+      .weather-details {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
         font-size: 13px;
+        opacity: 0.75;
+      }
+
+      .weather-detail {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .weather-loading {
+        text-align: center;
         opacity: 0.7;
-        font-weight: 300;
+        font-size: 14px;
       }
 
-      .timeline-button {
-        position: fixed;
-        left: 32px;
-        top: 140px;
-        padding: 10px 20px;
-        border-radius: 16px;
-        border: none;
-        background: var(--glass-bg);
-        backdrop-filter: blur(30px);
-        border: 1px solid var(--glass-border);
-        color: var(--text-primary);
-        font-weight: 500;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-        cursor: pointer;
-        z-index: 4;
-        transition: all 0.3s ease;
-      }
-
-      .timeline-button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
-      }
-
-      .timeline-backdrop,
-      .anniversary-backdrop {
+      .city-selector-backdrop {
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.35);
+        background: rgba(0, 0, 0, 0.5);
         opacity: 0;
         pointer-events: none;
-        transition: opacity 0.2s ease;
-        z-index: 6;
+        transition: opacity 0.3s ease;
+        z-index: 8;
       }
 
-      .timeline-backdrop.is-visible,
-      .anniversary-backdrop.is-visible {
+      .city-selector-backdrop.is-visible {
         opacity: 1;
         pointer-events: auto;
       }
 
-      .timeline-card,
-      .anniversary-editor {
+      .city-selector {
         position: fixed;
         left: 50%;
         top: 50%;
-        transform: translate(-50%, -50%) scale(0.96);
-        width: min(420px, 90vw);
-        max-height: 80vh;
-        overflow-y: auto;
-        padding: 32px 28px;
+        transform: translate(-50%, -50%) scale(0.95);
+        width: min(460px, 92vw);
+        max-height: 75vh;
+        padding: 24px;
         border-radius: 24px;
         background: var(--glass-bg);
         backdrop-filter: blur(40px);
@@ -700,94 +709,150 @@
         opacity: 0;
         pointer-events: none;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        z-index: 7;
+        z-index: 9;
+        display: flex;
+        flex-direction: column;
       }
 
-      .timeline-card.is-visible,
-      .anniversary-editor.is-visible {
+      .city-selector.is-visible {
         opacity: 1;
         transform: translate(-50%, -50%) scale(1);
         pointer-events: auto;
       }
 
-      .timeline-card h2,
-      .anniversary-editor h2 {
-        margin: 0 0 20px;
-        font-size: 24px;
+      .city-selector h3 {
+        margin: 0 0 16px;
+        font-size: 20px;
         font-weight: 600;
       }
 
-      .timeline-list {
-        margin: 0 0 16px;
-        padding: 0;
-        list-style: none;
-        max-height: 240px;
-        overflow-y: auto;
-      }
-
-      .timeline-item {
-        display: flex;
-        gap: 10px;
-        padding: 8px 0;
-        border-bottom: 1px dashed rgba(91, 42, 63, 0.2);
-        font-size: 13px;
-      }
-
-      .timeline-item span {
-        flex-shrink: 0;
-        opacity: 0.65;
-      }
-
-      .timeline-card button,
-      .anniversary-editor button {
-        border: none;
-        padding: 12px 24px;
+      .current-location {
+        padding: 10px 14px;
+        margin-bottom: 12px;
         border-radius: 12px;
-        background: linear-gradient(135deg, var(--primary), var(--secondary));
-        color: #fff;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        box-shadow: 0 4px 12px rgba(255, 107, 157, 0.3);
+        background: rgba(255, 107, 157, 0.1);
+        border: 1px solid rgba(255, 107, 157, 0.2);
+        font-size: 13px;
+        opacity: 0.9;
       }
 
-      .timeline-card button:hover,
-      .anniversary-editor button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(255, 107, 157, 0.4);
-      }
-
-      .anniversary-editor label {
-        display: block;
-        font-size: 14px;
-        margin-bottom: 8px;
-        opacity: 0.85;
-        font-weight: 500;
-      }
-
-      .anniversary-editor input {
+      .city-search {
         width: 100%;
-        margin-bottom: 16px;
+        padding: 12px 16px;
         border-radius: 12px;
         border: 1px solid rgba(255, 255, 255, 0.2);
         background: rgba(255, 255, 255, 0.05);
-        padding: 12px 16px;
         color: var(--text-primary);
         font-size: 15px;
+        margin-bottom: 16px;
+        outline: none;
         transition: all 0.2s ease;
       }
 
-      .anniversary-editor input:focus {
-        outline: none;
+      .city-search:focus {
         border-color: var(--primary);
         background: rgba(255, 255, 255, 0.08);
         box-shadow: 0 0 0 3px rgba(255, 107, 157, 0.2);
       }
 
-      .anniversary-actions {
+      .city-search::placeholder {
+        color: var(--text-secondary);
+      }
+
+      .city-list {
+        flex: 1;
+        overflow-y: auto;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .city-list::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .city-list::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 3px;
+      }
+
+      .city-list::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 3px;
+      }
+
+      .city-list::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+
+      .city-item {
+        padding: 10px 14px;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin-bottom: 6px;
         display: flex;
-        justify-content: flex-end;
+        align-items: center;
         gap: 8px;
+        background: rgba(255, 255, 255, 0.03);
+        font-size: 14px;
+      }
+
+      .city-item:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: translateX(4px);
+      }
+
+      .city-item.is-active {
+        background: linear-gradient(135deg, rgba(255, 107, 157, 0.2), rgba(196, 69, 105, 0.2));
+        border: 1px solid rgba(255, 107, 157, 0.3);
+      }
+
+      .city-item.level-province {
+        font-weight: 500;
+        padding-left: 8px;
+      }
+
+      .city-item.level-city {
+        padding-left: 28px;
+        font-size: 13px;
+      }
+
+      .city-item.level-district {
+        padding-left: 48px;
+        font-size: 13px;
+        opacity: 0.9;
+      }
+
+      .city-item-icon {
+        font-size: 12px;
+        opacity: 0.6;
+        width: 16px;
+        text-align: center;
+        transition: transform 0.2s ease;
+      }
+
+      .city-item.is-expanded .city-item-icon {
+        transform: rotate(90deg);
+      }
+
+      .city-item-name {
+        flex: 1;
+      }
+
+      .city-item-tag {
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.1);
+        opacity: 0.7;
+      }
+
+      .loading-indicator {
+        text-align: center;
+        padding: 20px;
+        font-size: 13px;
+        opacity: 0.6;
       }
 
       .burst-heart {
@@ -967,16 +1032,19 @@
           width: min(300px, 88vw);
         }
 
-        .anniversary-card {
+        .weather-card {
           left: 16px;
           top: 20px;
           padding: 16px 20px;
+          min-width: auto;
         }
 
-        .timeline-button {
-          left: 16px;
-          top: 120px;
-          padding: 8px 16px;
+        .weather-icon {
+          font-size: 36px;
+        }
+
+        .weather-temp {
+          font-size: 32px;
         }
       }
     </style>
@@ -1063,34 +1131,23 @@
         <output id="danmu-opacity-value"></output>
       </div>
     </div>
-    <div class="anniversary-card" id="anniversary-card" role="button" tabindex="0">
-      <div class="anniversary-title" id="anniversary-title"></div>
-      <div class="anniversary-days" id="anniversary-days"></div>
-      <div class="anniversary-date" id="anniversary-date"></div>
+    <div class="weather-card" id="weather-card">
+      <div class="weather-loading">加载天气中...</div>
     </div>
-    <button type="button" class="timeline-button" id="timeline-open"></button>
-    <div class="timeline-backdrop" id="timeline-backdrop"></div>
-    <div class="timeline-card" id="timeline-card" role="dialog" aria-hidden="true">
-      <h2 id="timeline-title"></h2>
-      <ul class="timeline-list" id="timeline-list"></ul>
-      <button type="button" id="timeline-close"></button>
-    </div>
-    <div class="anniversary-backdrop" id="anniversary-backdrop"></div>
-    <div
-      class="anniversary-editor"
-      id="anniversary-editor"
-      role="dialog"
-      aria-hidden="true"
-    >
-      <h2 id="anniversary-edit-title"></h2>
-      <label id="anniversary-label-name" for="anniversary-name"></label>
-      <input id="anniversary-name" type="text" maxlength="20" />
-      <label id="anniversary-label-date" for="anniversary-input"></label>
-      <input id="anniversary-input" type="date" />
-      <div class="anniversary-actions">
-        <button type="button" id="anniversary-save"></button>
-        <button type="button" id="anniversary-cancel"></button>
-      </div>
+    <div class="city-selector-backdrop" id="city-selector-backdrop"></div>
+    <div class="city-selector" id="city-selector">
+      <h3>选择地区</h3>
+      <div class="current-location" id="current-location"></div>
+      <input
+        type="text"
+        class="city-search"
+        id="city-search"
+        placeholder="搜索省/市/区..."
+        autocomplete="off"
+      />
+      <ul class="city-list" id="city-list">
+        <li class="loading-indicator">加载中...</li>
+      </ul>
     </div>
     <div class="note-backdrop" id="note-backdrop"></div>
     <div class="note-card" id="note-card" role="dialog" aria-hidden="true">
@@ -1155,33 +1212,12 @@
       const danmuSpeedValue = document.getElementById("danmu-speed-value");
       const danmuDensityValue = document.getElementById("danmu-density-value");
       const danmuOpacityValue = document.getElementById("danmu-opacity-value");
-      const anniversaryCard = document.getElementById("anniversary-card");
-      const anniversaryTitle = document.getElementById("anniversary-title");
-      const anniversaryDays = document.getElementById("anniversary-days");
-      const anniversaryDate = document.getElementById("anniversary-date");
-      const anniversaryBackdrop = document.getElementById(
-        "anniversary-backdrop"
-      );
-      const anniversaryEditor = document.getElementById("anniversary-editor");
-      const anniversaryEditTitle = document.getElementById(
-        "anniversary-edit-title"
-      );
-      const anniversaryLabelName = document.getElementById(
-        "anniversary-label-name"
-      );
-      const anniversaryLabelDate = document.getElementById(
-        "anniversary-label-date"
-      );
-      const anniversaryNameInput = document.getElementById("anniversary-name");
-      const anniversaryInput = document.getElementById("anniversary-input");
-      const anniversarySave = document.getElementById("anniversary-save");
-      const anniversaryCancel = document.getElementById("anniversary-cancel");
-      const timelineOpen = document.getElementById("timeline-open");
-      const timelineBackdrop = document.getElementById("timeline-backdrop");
-      const timelineCard = document.getElementById("timeline-card");
-      const timelineTitle = document.getElementById("timeline-title");
-      const timelineList = document.getElementById("timeline-list");
-      const timelineClose = document.getElementById("timeline-close");
+      const weatherCard = document.getElementById("weather-card");
+      const citySelectorBackdrop = document.getElementById("city-selector-backdrop");
+      const citySelector = document.getElementById("city-selector");
+      const citySearch = document.getElementById("city-search");
+      const cityList = document.getElementById("city-list");
+      const currentLocation = document.getElementById("current-location");
       const noteBackdrop = document.getElementById("note-backdrop");
       const noteCard = document.getElementById("note-card");
       const noteClose = document.getElementById("note-close");
@@ -1189,7 +1225,6 @@
       const intervalMs = 3000;
       const danmuStorageKey = "love_danmu_history";
       const danmuSettingsKey = "love_danmu_settings";
-      const anniversaryStorageKey = "love_anniversary";
       const maxDanmu = 50;
       let danmuLoopIntervalMs = 2200;
       let danmuSpeedFactor = 1;
@@ -1217,26 +1252,8 @@
         danmuSpeed: "\u901f\u5ea6",
         danmuDensity: "\u5bc6\u5ea6",
         danmuOpacity: "\u900f\u660e",
-        timelineTitle: "\u65f6\u95f4\u8f74",
-        timelineButton: "\u65f6\u95f4\u8f74",
-        close: "\u5173\u95ed",
-        anniversaryEmpty: "\u70b9\u51fb\u8bbe\u7f6e\u7eaa\u5ff5\u65e5",
-        anniversaryTitle: "\u7eaa\u5ff5\u65e5",
-        anniversaryDays: "\u5929",
-        anniversaryBefore: "\u8fd8\u6709",
-        anniversaryAfter: "\u5df2\u7ecf",
-        anniversaryEditTitle: "\u7f16\u8f91\u7eaa\u5ff5\u65e5",
-        anniversaryName: "\u540d\u79f0",
-        anniversaryDate: "\u65e5\u671f",
-        save: "\u4fdd\u5b58",
-        cancel: "\u53d6\u6d88",
       };
 
-      const timelineItems = [
-        { date: "2023-05-20", text: "\u521d\u6b21\u76f8\u9047" },
-        { date: "2023-06-01", text: "\u6b63\u5f0f\u5f00\u59cb" },
-        { date: "2024-02-14", text: "\u9996\u4e2a\u7eaa\u5ff5\u65e5" },
-      ];
       const danmuThemes = [
         {
           bg: "255, 255, 255",
@@ -1303,30 +1320,6 @@
         }
         if (danmuOpacityLabel) {
           danmuOpacityLabel.textContent = uiText.danmuOpacity;
-        }
-        if (timelineTitle) {
-          timelineTitle.textContent = uiText.timelineTitle;
-        }
-        if (timelineOpen) {
-          timelineOpen.textContent = uiText.timelineButton;
-        }
-        if (timelineClose) {
-          timelineClose.textContent = uiText.close;
-        }
-        if (anniversaryEditTitle) {
-          anniversaryEditTitle.textContent = uiText.anniversaryEditTitle;
-        }
-        if (anniversaryLabelName) {
-          anniversaryLabelName.textContent = uiText.anniversaryName;
-        }
-        if (anniversaryLabelDate) {
-          anniversaryLabelDate.textContent = uiText.anniversaryDate;
-        }
-        if (anniversarySave) {
-          anniversarySave.textContent = uiText.save;
-        }
-        if (anniversaryCancel) {
-          anniversaryCancel.textContent = uiText.cancel;
         }
       }
 
@@ -1414,125 +1407,513 @@
         }
       }
 
-      function loadAnniversary() {
+      // 天气功能
+      // ==================== 配置说明 ====================
+      // 1. 访问高德开放平台: https://console.amap.com/dev/key/app
+      // 2. 注册/登录后，创建应用，选择"Web服务"类型
+      // 3. 复制生成的Key，替换下面的 YOUR_AMAP_API_KEY
+      // ==================================================
+
+      const AMAP_API_KEY = "c34bbce1d41994a5c7819ea44a0a004f";
+
+      // 当前选择的地区信息
+      let selectedDistrict = {
+        province: { name: "湖北省", adcode: "420000" },
+        city: { name: "武汉市", adcode: "420100" },
+        district: { name: "武昌区", adcode: "420106" }
+      };
+
+      // 数据缓存
+      const districtCache = new Map();
+
+      // 展开状态
+      const expandedItems = new Set();
+
+      // 从localStorage加载保存的地区
+      function loadSelectedDistrict() {
         try {
-          const raw = window.localStorage.getItem(anniversaryStorageKey);
-          const parsed = raw ? JSON.parse(raw) : null;
-          if (parsed && typeof parsed === "object") {
-            return parsed;
+          const saved = localStorage.getItem("selected_district");
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed && parsed.district && parsed.district.adcode) {
+              selectedDistrict = parsed;
+            }
           }
-        } catch (error) {}
-        return { label: "", date: "" };
+        } catch (e) {
+          console.error("加载地区失败:", e);
+        }
       }
 
-      function saveAnniversary(data) {
+      // 保存选择的地区
+      function saveSelectedDistrict() {
         try {
-          window.localStorage.setItem(
-            anniversaryStorageKey,
-            JSON.stringify(data)
-          );
-        } catch (error) {}
+          localStorage.setItem("selected_district", JSON.stringify(selectedDistrict));
+        } catch (e) {
+          console.error("保存地区失败:", e);
+        }
       }
 
-      function parseLocalDate(dateStr) {
-        if (!dateStr) {
-          return null;
-        }
-        const date = new Date(`${dateStr}T00:00:00`);
-        if (Number.isNaN(date.getTime())) {
-          return null;
-        }
-        return date;
+      // 获取当前使用的adcode（优先使用区县，其次城市，最后省份）
+      function getCurrentAdcode() {
+        if (selectedDistrict.district) return selectedDistrict.district.adcode;
+        if (selectedDistrict.city) return selectedDistrict.city.adcode;
+        return selectedDistrict.province.adcode;
       }
 
-      function updateAnniversaryView() {
-        if (!anniversaryTitle || !anniversaryDays || !anniversaryDate) {
-          return;
+      // 获取当前显示名称
+      function getCurrentLocationName() {
+        const parts = [];
+        if (selectedDistrict.province) parts.push(selectedDistrict.province.name.replace(/省|市|自治区|特别行政区/g, ''));
+        if (selectedDistrict.city && selectedDistrict.city.name !== selectedDistrict.province.name) {
+          parts.push(selectedDistrict.city.name.replace(/市|地区|州|盟/g, ''));
         }
-        const data = loadAnniversary();
-        const label = (data.label || "").trim() || uiText.anniversaryTitle;
-        const target = parseLocalDate(data.date);
-        if (!target) {
-          anniversaryTitle.textContent = uiText.anniversaryEmpty;
-          anniversaryDays.textContent = "--";
-          anniversaryDate.textContent = "";
-          return;
+        if (selectedDistrict.district) {
+          parts.push(selectedDistrict.district.name.replace(/区|县|市/g, ''));
         }
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const diffDays = Math.floor((today - target) / 86400000);
-        if (diffDays >= 0) {
-          anniversaryTitle.textContent = label;
-          anniversaryDays.textContent = `${diffDays} ${uiText.anniversaryDays}`;
-        } else {
-          anniversaryTitle.textContent = label;
-          anniversaryDays.textContent = `${uiText.anniversaryBefore} ${Math.abs(
-            diffDays
-          )} ${uiText.anniversaryDays}`;
-        }
-        anniversaryDate.textContent = data.date || "";
+        return parts.join(' ');
       }
 
-      function showAnniversaryEditor() {
-        if (!anniversaryEditor || !anniversaryBackdrop) {
-          return;
-        }
-        const data = loadAnniversary();
-        if (anniversaryNameInput) {
-          anniversaryNameInput.value = data.label || "";
-        }
-        if (anniversaryInput) {
-          anniversaryInput.value = data.date || "";
-        }
-        anniversaryBackdrop.classList.add("is-visible");
-        anniversaryEditor.classList.add("is-visible");
-        anniversaryEditor.setAttribute("aria-hidden", "false");
+      const weatherIcons = {
+        "晴": "☀️",
+        "少云": "🌤️",
+        "晴间多云": "⛅",
+        "多云": "☁️",
+        "阴": "☁️",
+        "有风": "💨",
+        "平静": "🌫️",
+        "微风": "🍃",
+        "和风": "🍃",
+        "清风": "💨",
+        "强风/劲风": "💨",
+        "疾风": "💨",
+        "大风": "🌬️",
+        "烈风": "🌬️",
+        "风暴": "🌪️",
+        "狂爆风": "🌪️",
+        "飓风": "🌀",
+        "热带风暴": "🌀",
+        "阵雨": "🌦️",
+        "雷阵雨": "⛈️",
+        "雷阵雨并伴有冰雹": "⛈️",
+        "小雨": "🌧️",
+        "中雨": "🌧️",
+        "大雨": "🌧️",
+        "暴雨": "⛈️",
+        "大暴雨": "⛈️",
+        "特大暴雨": "⛈️",
+        "强阵雨": "🌧️",
+        "强雷阵雨": "⛈️",
+        "极端降雨": "⛈️",
+        "毛毛雨/细雨": "🌦️",
+        "雨": "🌧️",
+        "小雨-中雨": "🌧️",
+        "中雨-大雨": "🌧️",
+        "大雨-暴雨": "⛈️",
+        "暴雨-大暴雨": "⛈️",
+        "大暴雨-特大暴雨": "⛈️",
+        "雨雪天气": "🌨️",
+        "雨夹雪": "🌨️",
+        "阵雨夹雪": "🌨️",
+        "冻雨": "🌨️",
+        "雪": "❄️",
+        "阵雪": "🌨️",
+        "小雪": "❄️",
+        "中雪": "❄️",
+        "大雪": "❄️",
+        "暴雪": "❄️",
+        "小雪-中雪": "❄️",
+        "中雪-大雪": "❄️",
+        "大雪-暴雪": "❄️",
+        "浮尘": "🌫️",
+        "扬沙": "🌫️",
+        "沙尘暴": "🌫️",
+        "强沙尘暴": "🌫️",
+        "龙卷风": "🌪️",
+        "雾": "🌫️",
+        "浓雾": "🌫️",
+        "强浓雾": "🌫️",
+        "轻雾": "🌫️",
+        "大雾": "🌫️",
+        "特强浓雾": "🌫️",
+        "霾": "🌫️",
+        "中度霾": "🌫️",
+        "重度霾": "🌫️",
+        "严重霾": "🌫️",
+        "热": "🔥",
+        "冷": "🥶",
+        "未知": "🌡️",
+      };
+
+      function getWeatherIcon(weather) {
+        return weatherIcons[weather] || "🌤️";
       }
 
-      function hideAnniversaryEditor() {
-        if (!anniversaryEditor || !anniversaryBackdrop) {
+      function fetchWeather() {
+        if (!weatherCard) return;
+
+        const adcode = getCurrentAdcode();
+
+        // 如果没有配置API Key，显示提示
+        if (AMAP_API_KEY === "YOUR_AMAP_API_KEY") {
+          weatherCard.innerHTML = `
+            <div class="weather-loading" style="line-height: 1.6; padding: 8px 0;">
+              请先配置高德地图API Key<br>
+              <a href="https://console.amap.com/dev/key/app"
+                 target="_blank"
+                 style="color: var(--accent); text-decoration: underline; font-size: 12px;">
+                点击获取免费Key →
+              </a>
+            </div>
+          `;
           return;
         }
-        anniversaryBackdrop.classList.remove("is-visible");
-        anniversaryEditor.classList.remove("is-visible");
-        anniversaryEditor.setAttribute("aria-hidden", "true");
+
+        // 调用高德地图天气API
+        const apiUrl = `https://restapi.amap.com/v3/weather/weatherInfo?key=${AMAP_API_KEY}&city=${adcode}&extensions=base`;
+
+        fetch(apiUrl)
+          .then(res => res.json())
+          .then(data => {
+            if (data.status === "1" && data.lives && data.lives.length > 0) {
+              const live = data.lives[0];
+              const weatherData = {
+                location: getCurrentLocationName(),
+                temp: parseInt(live.temperature),
+                condition: live.weather,
+                description: live.weather,
+                humidity: parseInt(live.humidity),
+                windDirection: live.winddirection,
+                windPower: live.windpower,
+                reportTime: live.reporttime,
+              };
+              renderWeather(weatherData);
+            } else {
+              throw new Error(data.info || "获取天气失败");
+            }
+          })
+          .catch(err => {
+            console.error("天气API错误:", err);
+            weatherCard.innerHTML = `
+              <div class="weather-loading" style="opacity: 0.8;">
+                天气加载失败<br>
+                <span style="font-size: 12px; opacity: 0.7;">${err.message || "请检查API Key"}</span>
+              </div>
+            `;
+          });
       }
 
-      function renderTimeline(list) {
-        if (!timelineList) {
+      // 获取行政区域数据
+      async function fetchDistrict(adcode, level) {
+        const cacheKey = `${adcode}_${level}`;
+        if (districtCache.has(cacheKey)) {
+          return districtCache.get(cacheKey);
+        }
+
+        try {
+          const url = `https://restapi.amap.com/v3/config/district?key=${AMAP_API_KEY}&keywords=${adcode}&subdistrict=1&extensions=base`;
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (data.status === "1" && data.districts && data.districts.length > 0) {
+            const district = data.districts[0];
+            const result = {
+              name: district.name,
+              adcode: district.adcode,
+              level: district.level,
+              children: district.districts || []
+            };
+            districtCache.set(cacheKey, result);
+            return result;
+          }
+        } catch (err) {
+          console.error("获取行政区域失败:", err);
+        }
+        return null;
+      }
+
+      // 加载省份列表
+      async function loadProvinces() {
+        const result = await fetchDistrict("100000", "country");
+        return result ? result.children : [];
+      }
+
+      // 加载城市列表
+      async function loadCities(provinceCode) {
+        const result = await fetchDistrict(provinceCode, "province");
+        return result ? result.children : [];
+      }
+
+      // 加载区县列表
+      async function loadDistricts(cityCode) {
+        const result = await fetchDistrict(cityCode, "city");
+        return result ? result.children : [];
+      }
+
+      function renderWeather(data) {
+        if (!weatherCard) return;
+
+        weatherCard.innerHTML = `
+          <div class="weather-location">
+            📍 ${data.location}
+          </div>
+          <div class="weather-main">
+            <div class="weather-icon">${getWeatherIcon(data.condition)}</div>
+            <div class="weather-temp">${data.temp}°</div>
+          </div>
+          <div class="weather-desc">${data.description}</div>
+          <div class="weather-details">
+            <div class="weather-detail">💧 湿度 ${data.humidity}%</div>
+            <div class="weather-detail">🧭 ${data.windDirection}风</div>
+            <div class="weather-detail">💨 ${data.windPower}级</div>
+          </div>
+        `;
+      }
+
+      function showCitySelector() {
+        if (!citySelector || !citySelectorBackdrop) return;
+        citySelectorBackdrop.classList.add("is-visible");
+        citySelector.classList.add("is-visible");
+
+        // 更新当前位置显示
+        if (currentLocation) {
+          currentLocation.textContent = `📍 当前: ${getCurrentLocationName()}`;
+        }
+
+        // 加载省份列表
+        renderDistrictList();
+
+        if (citySearch) {
+          citySearch.value = "";
+          setTimeout(() => citySearch.focus(), 100);
+        }
+      }
+
+      function hideCitySelector() {
+        if (!citySelector || !citySelectorBackdrop) return;
+        citySelectorBackdrop.classList.remove("is-visible");
+        citySelector.classList.remove("is-visible");
+      }
+
+      // 渲染行政区域列表
+      async function renderDistrictList() {
+        if (!cityList) return;
+
+        cityList.innerHTML = '<li class="loading-indicator">加载中...</li>';
+
+        // 加载省份
+        const provinces = await loadProvinces();
+
+        if (!provinces || provinces.length === 0) {
+          cityList.innerHTML = '<li class="loading-indicator">加载失败，请稍后重试</li>';
           return;
         }
-        timelineList.innerHTML = "";
-        list.forEach((item) => {
-          const li = document.createElement("li");
-          li.className = "timeline-item";
-          const date = document.createElement("span");
-          date.textContent = item.date;
-          const text = document.createElement("div");
-          text.textContent = item.text;
-          li.appendChild(date);
-          li.appendChild(text);
-          timelineList.appendChild(li);
+
+        let html = '';
+
+        for (const province of provinces) {
+          const isExpanded = expandedItems.has(province.adcode);
+          const isSelected = selectedDistrict.province && selectedDistrict.province.adcode === province.adcode;
+
+          html += `
+            <li class="city-item level-province ${isExpanded ? 'is-expanded' : ''} ${isSelected ? 'is-active' : ''}"
+                data-adcode="${province.adcode}"
+                data-name="${province.name}"
+                data-level="province">
+              <span class="city-item-icon">▶</span>
+              <span class="city-item-name">${province.name}</span>
+            </li>
+          `;
+
+          // 如果展开，加载城市
+          if (isExpanded) {
+            const cities = await loadCities(province.adcode);
+            for (const city of cities || []) {
+              const isCityExpanded = expandedItems.has(city.adcode);
+              const isCitySelected = selectedDistrict.city && selectedDistrict.city.adcode === city.adcode;
+
+              html += `
+                <li class="city-item level-city ${isCityExpanded ? 'is-expanded' : ''} ${isCitySelected ? 'is-active' : ''}"
+                    data-adcode="${city.adcode}"
+                    data-name="${city.name}"
+                    data-level="city"
+                    data-parent="${province.adcode}">
+                  <span class="city-item-icon">▶</span>
+                  <span class="city-item-name">${city.name}</span>
+                </li>
+              `;
+
+              // 如果展开，加载区县
+              if (isCityExpanded) {
+                const districts = await loadDistricts(city.adcode);
+                for (const district of districts || []) {
+                  const isDistrictSelected = selectedDistrict.district && selectedDistrict.district.adcode === district.adcode;
+
+                  html += `
+                    <li class="city-item level-district ${isDistrictSelected ? 'is-active' : ''}"
+                        data-adcode="${district.adcode}"
+                        data-name="${district.name}"
+                        data-level="district"
+                        data-parent="${city.adcode}">
+                      <span class="city-item-name">${district.name}</span>
+                    </li>
+                  `;
+                }
+              }
+            }
+          }
+        }
+
+        cityList.innerHTML = html;
+
+        // 绑定点击事件
+        cityList.querySelectorAll('.city-item').forEach(item => {
+          item.addEventListener('click', handleDistrictClick);
         });
       }
 
-      function showTimeline() {
-        if (!timelineBackdrop || !timelineCard) {
-          return;
+      // 处理点击行政区域
+      async function handleDistrictClick(e) {
+        const item = e.currentTarget;
+        const adcode = item.dataset.adcode;
+        const name = item.dataset.name;
+        const level = item.dataset.level;
+        const parent = item.dataset.parent;
+
+        if (level === 'province') {
+          // 点击省份，展开/收起
+          if (expandedItems.has(adcode)) {
+            expandedItems.delete(adcode);
+          } else {
+            expandedItems.clear(); // 只允许展开一个省份
+            expandedItems.add(adcode);
+          }
+          await renderDistrictList();
+        } else if (level === 'city') {
+          // 点击城市，展开/收起
+          if (expandedItems.has(adcode)) {
+            expandedItems.delete(adcode);
+          } else {
+            // 保持省份展开，只展开当前城市
+            const parentAdcodes = Array.from(expandedItems).filter(code => code.length === 6);
+            expandedItems.clear();
+            parentAdcodes.forEach(code => expandedItems.add(code));
+            expandedItems.add(adcode);
+          }
+          await renderDistrictList();
+        } else if (level === 'district') {
+          // 选择区县
+          // 找到对应的省市信息
+          const provinceAdcode = parent.substring(0, 6) + '00';
+          const cityAdcode = parent;
+
+          // 获取省市名称
+          const provinces = await loadProvinces();
+          const province = provinces.find(p => p.adcode === provinceAdcode);
+          const cities = await loadCities(provinceAdcode);
+          const city = cities.find(c => c.adcode === cityAdcode);
+
+          selectedDistrict = {
+            province: { name: province?.name || '', adcode: provinceAdcode },
+            city: { name: city?.name || '', adcode: cityAdcode },
+            district: { name: name, adcode: adcode }
+          };
+
+          saveSelectedDistrict();
+          hideCitySelector();
+          fetchWeather();
         }
-        renderTimeline(timelineItems);
-        timelineBackdrop.classList.add("is-visible");
-        timelineCard.classList.add("is-visible");
-        timelineCard.setAttribute("aria-hidden", "false");
       }
 
-      function hideTimeline() {
-        if (!timelineBackdrop || !timelineCard) {
+      // 搜索地区
+      async function searchDistrict(keyword) {
+        if (!keyword.trim()) {
+          await renderDistrictList();
           return;
         }
-        timelineBackdrop.classList.remove("is-visible");
-        timelineCard.classList.remove("is-visible");
-        timelineCard.setAttribute("aria-hidden", "true");
+
+        if (!cityList) return;
+        cityList.innerHTML = '<li class="loading-indicator">搜索中...</li>';
+
+        try {
+          const url = `https://restapi.amap.com/v3/config/district?key=${AMAP_API_KEY}&keywords=${encodeURIComponent(keyword)}&subdistrict=0&extensions=base`;
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (data.status === "1" && data.districts && data.districts.length > 0) {
+            let html = '';
+            for (const district of data.districts) {
+              const levelTag = district.level === 'province' ? '省' :
+                               district.level === 'city' ? '市' :
+                               district.level === 'district' ? '区/县' : '';
+
+              html += `
+                <li class="city-item"
+                    data-adcode="${district.adcode}"
+                    data-name="${district.name}"
+                    data-level="${district.level}">
+                  <span class="city-item-name">${district.name}</span>
+                  ${levelTag ? `<span class="city-item-tag">${levelTag}</span>` : ''}
+                </li>
+              `;
+            }
+
+            cityList.innerHTML = html;
+
+            // 绑定点击事件
+            cityList.querySelectorAll('.city-item').forEach(item => {
+              item.addEventListener('click', async () => {
+                const adcode = item.dataset.adcode;
+                const name = item.dataset.name;
+                const level = item.dataset.level;
+
+                // 根据级别选择
+                if (level === 'district') {
+                  // 直接选择区县
+                  const provinceAdcode = adcode.substring(0, 2) + '0000';
+                  const cityAdcode = adcode.substring(0, 4) + '00';
+
+                  const provinces = await loadProvinces();
+                  const province = provinces.find(p => p.adcode === provinceAdcode);
+                  const cities = await loadCities(provinceAdcode);
+                  const city = cities.find(c => c.adcode === cityAdcode);
+
+                  selectedDistrict = {
+                    province: { name: province?.name || '', adcode: provinceAdcode },
+                    city: { name: city?.name || '', adcode: cityAdcode },
+                    district: { name: name, adcode: adcode }
+                  };
+                } else if (level === 'city') {
+                  // 选择城市级别
+                  const provinceAdcode = adcode.substring(0, 2) + '0000';
+                  const provinces = await loadProvinces();
+                  const province = provinces.find(p => p.adcode === provinceAdcode);
+
+                  selectedDistrict = {
+                    province: { name: province?.name || '', adcode: provinceAdcode },
+                    city: { name: name, adcode: adcode },
+                    district: null
+                  };
+                } else if (level === 'province') {
+                  // 选择省份级别
+                  selectedDistrict = {
+                    province: { name: name, adcode: adcode },
+                    city: null,
+                    district: null
+                  };
+                }
+
+                saveSelectedDistrict();
+                hideCitySelector();
+                fetchWeather();
+              });
+            });
+          } else {
+            cityList.innerHTML = '<li class="loading-indicator">未找到相关地区</li>';
+          }
+        } catch (err) {
+          console.error("搜索失败:", err);
+          cityList.innerHTML = '<li class="loading-indicator">搜索失败，请重试</li>';
+        }
       }
 
       function syncLyrics(currentTime) {
@@ -2042,11 +2423,37 @@
 
       applyTextLabels();
       applyDanmuSettings(loadDanmuSettings());
-      updateAnniversaryView();
       setDanmuSettingsVisible(false);
 
       loadPhotos();
       initDanmu();
+
+      // 初始化天气
+      loadSelectedDistrict();
+      fetchWeather();
+      // 每30分钟更新一次天气
+      setInterval(fetchWeather, 30 * 60 * 1000);
+
+      // 点击天气卡片打开城市选择器
+      if (weatherCard) {
+        weatherCard.addEventListener("click", showCitySelector);
+      }
+
+      // 点击背景关闭城市选择器
+      if (citySelectorBackdrop) {
+        citySelectorBackdrop.addEventListener("click", hideCitySelector);
+      }
+
+      // 搜索地区
+      if (citySearch) {
+        let searchTimeout;
+        citySearch.addEventListener("input", (e) => {
+          clearTimeout(searchTimeout);
+          searchTimeout = setTimeout(() => {
+            searchDistrict(e.target.value);
+          }, 300); // 防抖300ms
+        });
+      }
 
       if (danmuSettingsToggle && danmuSettings) {
         danmuSettingsToggle.addEventListener("click", () => {
@@ -2090,43 +2497,6 @@
         });
       }
 
-      if (anniversaryCard) {
-        anniversaryCard.addEventListener("click", showAnniversaryEditor);
-        anniversaryCard.addEventListener("keydown", (event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            showAnniversaryEditor();
-          }
-        });
-      }
-      if (anniversaryBackdrop) {
-        anniversaryBackdrop.addEventListener("click", hideAnniversaryEditor);
-      }
-      if (anniversaryCancel) {
-        anniversaryCancel.addEventListener("click", hideAnniversaryEditor);
-      }
-      if (anniversarySave) {
-        anniversarySave.addEventListener("click", () => {
-          const label = anniversaryNameInput
-            ? anniversaryNameInput.value.trim()
-            : "";
-          const date = anniversaryInput ? anniversaryInput.value : "";
-          saveAnniversary({ label, date });
-          updateAnniversaryView();
-          hideAnniversaryEditor();
-        });
-      }
-
-      if (timelineOpen) {
-        timelineOpen.addEventListener("click", showTimeline);
-      }
-      if (timelineClose) {
-        timelineClose.addEventListener("click", hideTimeline);
-      }
-      if (timelineBackdrop) {
-        timelineBackdrop.addEventListener("click", hideTimeline);
-      }
-
       noteBackdrop.addEventListener("click", hideNote);
       noteClose.addEventListener("click", hideNote);
 
@@ -2136,7 +2506,7 @@
         }
         if (
           event.target.closest(
-            "button, input, textarea, select, .note-card, .note-backdrop, .danmu-bar, .danmu-settings, .danmu-item, .danmu-like, .anniversary-card, .anniversary-editor, .anniversary-backdrop, .timeline-card, .timeline-button, .timeline-backdrop"
+            "button, input, textarea, select, .note-card, .note-backdrop, .danmu-bar, .danmu-settings, .danmu-item, .danmu-like, .weather-card"
           )
         ) {
           return;
@@ -2184,7 +2554,7 @@
         }
         if (
           event.target.closest(
-            "button, input, textarea, select, .note-card, .note-backdrop, .danmu-bar, .danmu-settings, .danmu-item, .danmu-like, .anniversary-card, .anniversary-editor, .anniversary-backdrop, .timeline-card, .timeline-button, .timeline-backdrop"
+            "button, input, textarea, select, .note-card, .note-backdrop, .danmu-bar, .danmu-settings, .danmu-item, .danmu-like, .weather-card"
           )
         ) {
           return;
