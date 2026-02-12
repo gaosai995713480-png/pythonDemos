@@ -1160,8 +1160,23 @@
       const layer = document.getElementById("floating-layer");
       const baseCount = 3;
       const bgm = document.getElementById("bgm");
-      const audioSrc = "audio/建坤YOUNG,刘思鉴 - 声音.mp3";
-      const lrcSrc = "audio/建坤YOUNG,刘思鉴 - 声音.lrc";
+
+      // 播放列表
+      const playlist = [
+        {
+          audio: "audio/至上励合 - 棉花糖.mp3",
+          lrc: "audio/至上励合 - 棉花糖.lrc",
+          name: "棉花糖"
+        },
+        {
+          audio: "audio/建坤YOUNG,刘思鉴 - 声音.mp3",
+          lrc: "audio/建坤YOUNG,刘思鉴 - 声音.lrc",
+          name: "声音"
+        }
+      ];
+
+      let currentSongIndex = 0;
+
       const photoList = [];
       const photosEndpoint = "photos.json";
       const danmuEndpoint = (() => {
@@ -1244,8 +1259,51 @@
       let danmuLoopList = [];
       let danmuLoopIndex = 0;
 
-      bgm.src = encodeURI(audioSrc);
+      // 初始化第一首歌
+      bgm.src = encodeURI(playlist[0].audio);
       bgm.volume = 0.6;
+
+      // 加载歌曲和歌词
+      function loadSong(index) {
+        if (index < 0 || index >= playlist.length) return;
+
+        currentSongIndex = index;
+        const song = playlist[index];
+
+        bgm.src = encodeURI(song.audio);
+
+        // 加载歌词
+        fetch(encodeURI(song.lrc))
+          .then((response) => response.text())
+          .then((text) => {
+            lyricLines = parseLrc(text);
+            lyricIndex = -1;
+            console.log(`歌词加载成功: ${song.name}, 共${lyricLines.length}行`);
+            if (lyricLines.length > 0) {
+              console.log('前3行歌词:', lyricLines.slice(0, 3));
+              lyricsEl.textContent = `♪ ${song.name}`;
+            } else {
+              lyricsEl.textContent = `正在播放：${song.name}`;
+            }
+          })
+          .catch((err) => {
+            console.error('歌词加载失败:', err);
+            lyricLines = [];
+            lyricsEl.textContent = `正在播放：${song.name}`;
+          });
+      }
+
+      // 播放下一首
+      function playNextSong() {
+        currentSongIndex = (currentSongIndex + 1) % playlist.length;
+        loadSong(currentSongIndex);
+        if (playing) {
+          bgm.play().catch(() => {});
+        }
+      }
+
+      // 监听歌曲结束事件
+      bgm.addEventListener('ended', playNextSong);
 
       const uiText = {
         danmuSettings: "\u5f39\u5e55\u8bbe\u7f6e",
@@ -1292,16 +1350,24 @@
         const lines = text.split(/\r?\n/);
         const result = [];
         for (const line of lines) {
-          const match = line.match(/\[(\d{2}):(\d{2})(?:\.(\d{1,2}))?\](.*)/);
+          // 跳过JSON格式的行（网易云音乐格式）
+          if (line.trim().startsWith('{') || line.trim().startsWith('[{')) {
+            continue;
+          }
+
+          // 匹配标准LRC格式: [mm:ss.xx]歌词内容
+          const match = line.match(/\[(\d{2}):(\d{2})(?:\.(\d{1,3}))?\](.*)/);
           if (!match) {
             continue;
           }
           const minutes = Number(match[1]);
           const seconds = Number(match[2]);
-          const fraction = match[3] ? Number(match[3].padEnd(2, "0")) : 0;
+          const fraction = match[3] ? Number(match[3].padEnd(2, "0").substring(0, 2)) : 0;
           const time = minutes * 60 + seconds + fraction / 100;
           const content = match[4].trim();
-          if (content) {
+
+          // 过滤掉空行和只有括号的行
+          if (content && content !== '' && !content.match(/^[\(\)（）\s]*$/)) {
             result.push({ time, content });
           }
         }
@@ -1931,6 +1997,7 @@
         if (nextIndex !== lyricIndex && lyricLines[nextIndex]) {
           lyricIndex = nextIndex;
           lyricsEl.textContent = lyricLines[nextIndex].content;
+          console.log(`[${currentTime.toFixed(1)}s] ${lyricLines[nextIndex].content}`);
         }
       }
 
@@ -2379,17 +2446,10 @@
         slideshow.style.display = "none";
         showPhoto(nextPhoto());
         updateButton();
-        fetch(encodeURI(lrcSrc))
-          .then((response) => response.text())
-          .then((text) => {
-            lyricLines = parseLrc(text);
-            if (!lyricLines.length) {
-              lyricsEl.textContent = "想对你说的话，都藏在旋律里";
-            }
-          })
-          .catch(() => {
-            lyricsEl.textContent = "想对你说的话，都藏在旋律里";
-          });
+
+        // 加载第一首歌的歌词
+        loadSong(0);
+
         bgm.addEventListener("timeupdate", () => {
           syncLyrics(bgm.currentTime);
         });
