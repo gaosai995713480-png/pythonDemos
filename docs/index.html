@@ -2629,7 +2629,8 @@
             return;
           }
           const saved = Number(payload.saved || 0);
-          alert(`Imported ${saved} photos.`);
+          const skipped = Number(payload.skipped || 0);
+          alert(`成功导入 ${saved} 张照片，重复跳过 ${skipped} 张。`);
           window.location.reload();
         } catch (error) {
           alert("Import failed. Please try again.");
@@ -2669,7 +2670,8 @@
         }
         try {
           let savedCount = 0;
-          let skippedCount = 0;
+          let failedCount = 0;
+          let duplicateCount = 0;
           let lastError = "";
           let authExpired = false;
           const total = imageFiles.length;
@@ -2679,7 +2681,7 @@
             }
             const file = imageFiles[i];
             if (folderUploadButton) {
-              folderUploadButton.textContent = `Uploading ${i + 1}/${total} (${savedCount} ok, ${skippedCount} failed)`;
+              folderUploadButton.textContent = `上传中 ${i + 1}/${total} (成功 ${savedCount}, 重复 ${duplicateCount}, 失败 ${failedCount})`;
             }
             const relativeName = file.webkitRelativePath || file.name;
             const encodedName = encodeURIComponent(relativeName);
@@ -2709,6 +2711,11 @@
                   break;
                 }
                 uploaded = true;
+                if (payload.skipped) {
+                  duplicateCount += 1;
+                } else {
+                  savedCount += 1;
+                }
                 break;
               } catch (error) {
                 if (retry < maxRetry) {
@@ -2718,9 +2725,9 @@
               }
             }
             if (uploaded) {
-              savedCount += 1;
+              // already counted above
             } else {
-              skippedCount += 1;
+              failedCount += 1;
             }
           }
           if (authExpired) {
@@ -2728,16 +2735,16 @@
             window.location.replace("login.html");
             return;
           }
-          if (savedCount <= 0) {
-            alert(lastError || "Folder import failed.");
+          if (savedCount <= 0 && duplicateCount <= 0) {
+            alert(lastError || "导入失败。");
             return;
           }
           alert(
-            `Imported ${savedCount} photos, failed ${skippedCount}, ignored non-image ${ignoredCount}.`
+            `成功导入 ${savedCount} 张，失败 ${failedCount} 张，重复跳过 ${duplicateCount} 张，非图片忽略 ${ignoredCount} 个。`
           );
           window.location.reload();
         } catch (error) {
-          alert("Folder import failed. Please try again.");
+          alert("导入失败，请重试。");
         } finally {
           if (folderUploadButton) {
             folderUploadButton.disabled = false;

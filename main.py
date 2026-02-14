@@ -419,19 +419,6 @@ def sanitize_upload_filename(raw_name: str) -> str:
     return name
 
 
-def build_unique_photo_path(photos_dir: Path, filename: str) -> Path:
-    candidate = photos_dir / filename
-    if not candidate.exists():
-        return candidate
-    stem = candidate.stem
-    suffix = candidate.suffix
-    for index in range(2, 100000):
-        next_candidate = photos_dir / f"{stem}_{index}{suffix}"
-        if not next_candidate.exists():
-            return next_candidate
-    raise RuntimeError("too many files with same name")
-
-
 def photo_sort_key(path: Path) -> tuple[int, int, str]:
     stem = path.stem
     parts = stem.split("_")
@@ -440,8 +427,9 @@ def photo_sort_key(path: Path) -> tuple[int, int, str]:
     return (1, 10**9, path.name.lower())
 
 
-def import_zip_photos(archive_data: bytes, photos_dir: Path) -> int:
+def import_zip_photos(archive_data: bytes, photos_dir: Path) -> tuple[int, int]:
     saved = 0
+    skipped = 0
     with zipfile.ZipFile(io.BytesIO(archive_data)) as archive:
         for info in archive.infolist():
             if info.is_dir():
@@ -449,11 +437,14 @@ def import_zip_photos(archive_data: bytes, photos_dir: Path) -> int:
             safe_name = sanitize_upload_filename(info.filename)
             if not safe_name or not is_image_filename(safe_name):
                 continue
+            target = photos_dir / safe_name
+            if target.exists():
+                skipped += 1
+                continue
             image_data = archive.read(info)
-            target = build_unique_photo_path(photos_dir, safe_name)
             target.write_bytes(image_data)
             saved += 1
-    return saved
+    return saved, skipped
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -760,15 +751,15 @@ def run_love_page(args: argparse.Namespace) -> None:
                     self._send_json({"error": "empty file"}, 400)
                     return
                 photos_dir.mkdir(parents=True, exist_ok=True)
-                target = build_unique_photo_path(photos_dir, safe_name)
+                target = photos_dir / safe_name
+                if target.exists():
+                    self._send_json(
+                        {"ok": True, "saved": 0, "name": safe_name, "skipped": True}
+                    )
+                    return
                 target.write_bytes(file_data)
                 self._send_json(
-                    {
-                        "ok": True,
-                        "saved": 1,
-                        "name": target.name,
-                        "original_name": safe_name,
-                    }
+                    {"ok": True, "saved": 1, "name": safe_name}
                 )
                 return
 
@@ -779,14 +770,14 @@ def run_love_page(args: argparse.Namespace) -> None:
                     return
                 photos_dir.mkdir(parents=True, exist_ok=True)
                 try:
-                    saved = import_zip_photos(archive_data, photos_dir)
+                    saved, skipped = import_zip_photos(archive_data, photos_dir)
                 except zipfile.BadZipFile:
                     self._send_json({"error": "invalid zip file"}, 400)
                     return
                 except Exception as exc:
                     self._send_json({"error": str(exc)}, 500)
                     return
-                self._send_json({"ok": True, "saved": saved})
+                self._send_json({"ok": True, "saved": saved, "skipped": skipped})
                 return
 
             if path == "/danmu/like":
