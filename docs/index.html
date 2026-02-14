@@ -676,6 +676,63 @@
         font-size: 14px;
       }
 
+      .logout-button,
+      .upload-button,
+      .folder-upload-button {
+        position: fixed;
+        top: 32px;
+        height: 44px;
+        padding: 0 20px;
+        border: 1px solid var(--glass-border);
+        border-radius: 14px;
+        background: var(--glass-bg);
+        backdrop-filter: blur(20px);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.4px;
+        cursor: pointer;
+        z-index: 5;
+        box-shadow:
+          0 8px 24px rgba(0, 0, 0, 0.35),
+          inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .logout-button {
+        right: 32px;
+      }
+
+      .upload-button {
+        right: 152px;
+      }
+
+      .folder-upload-button {
+        right: 292px;
+      }
+
+      .logout-button:hover,
+      .upload-button:hover,
+      .folder-upload-button:hover {
+        transform: translateY(-2px);
+        box-shadow:
+          0 12px 30px rgba(0, 0, 0, 0.42),
+          inset 0 1px 0 rgba(255, 255, 255, 0.16);
+      }
+
+      .logout-button:active,
+      .upload-button:active,
+      .folder-upload-button:active {
+        transform: translateY(0);
+      }
+
+      .logout-button:disabled,
+      .upload-button:disabled,
+      .folder-upload-button:disabled {
+        cursor: not-allowed;
+        opacity: 0.8;
+      }
+
       .city-selector-backdrop {
         position: fixed;
         inset: 0;
@@ -1039,6 +1096,33 @@
           min-width: auto;
         }
 
+        .logout-button {
+          right: 16px;
+          top: 20px;
+          height: 40px;
+          padding: 0 16px;
+          border-radius: 12px;
+          font-size: 13px;
+        }
+
+        .upload-button {
+          right: 116px;
+          top: 20px;
+          height: 40px;
+          padding: 0 14px;
+          border-radius: 12px;
+          font-size: 13px;
+        }
+
+        .folder-upload-button {
+          right: 226px;
+          top: 20px;
+          height: 40px;
+          padding: 0 12px;
+          border-radius: 12px;
+          font-size: 12px;
+        }
+
         .weather-icon {
           font-size: 36px;
         }
@@ -1134,6 +1218,24 @@
     <div class="weather-card" id="weather-card">
       <div class="weather-loading">加载天气中...</div>
     </div>
+    <button type="button" class="upload-button" id="upload-button">
+      Batch Import
+    </button>
+    <input id="photo-zip-input" type="file" accept=".zip,application/zip" hidden />
+    <button type="button" class="folder-upload-button" id="folder-upload-button">
+      Folder Import
+    </button>
+    <input
+      id="photo-folder-input"
+      type="file"
+      accept="image/*"
+      webkitdirectory
+      multiple
+      hidden
+    />
+    <button type="button" class="logout-button" id="logout-button">
+      退出登录
+    </button>
     <div class="city-selector-backdrop" id="city-selector-backdrop"></div>
     <div class="city-selector" id="city-selector">
       <h3>选择地区</h3>
@@ -1228,6 +1330,11 @@
       const danmuDensityValue = document.getElementById("danmu-density-value");
       const danmuOpacityValue = document.getElementById("danmu-opacity-value");
       const weatherCard = document.getElementById("weather-card");
+      const uploadButton = document.getElementById("upload-button");
+      const photoZipInput = document.getElementById("photo-zip-input");
+      const folderUploadButton = document.getElementById("folder-upload-button");
+      const photoFolderInput = document.getElementById("photo-folder-input");
+      const logoutButton = document.getElementById("logout-button");
       const citySelectorBackdrop = document.getElementById("city-selector-backdrop");
       const citySelector = document.getElementById("city-selector");
       const citySearch = document.getElementById("city-search");
@@ -2481,6 +2588,167 @@
       }
       }
 
+      async function handleLogout() {
+        if (logoutButton) {
+          logoutButton.disabled = true;
+          logoutButton.textContent = "退出中...";
+        }
+        try {
+          await fetch("auth/logout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          });
+        } catch (error) {
+        } finally {
+          window.location.replace("login.html");
+        }
+      }
+
+      async function importPhotoArchive(file) {
+        if (!file) {
+          return;
+        }
+        if (uploadButton) {
+          uploadButton.disabled = true;
+          uploadButton.textContent = "Uploading...";
+        }
+        try {
+          const response = await fetch("photos/import", {
+            method: "POST",
+            headers: { "Content-Type": "application/zip" },
+            body: file,
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (response.status === 401) {
+            alert("Login expired. Please login again.");
+            window.location.replace("login.html");
+            return;
+          }
+          if (!response.ok) {
+            alert(payload.error || "Import failed. Please check the zip file.");
+            return;
+          }
+          const saved = Number(payload.saved || 0);
+          alert(`Imported ${saved} photos.`);
+          window.location.reload();
+        } catch (error) {
+          alert("Import failed. Please try again.");
+        } finally {
+          if (uploadButton) {
+            uploadButton.disabled = false;
+            uploadButton.textContent = "Batch Import";
+          }
+          if (photoZipInput) {
+            photoZipInput.value = "";
+          }
+        }
+      }
+
+      async function importPhotoFiles(files) {
+        if (!files || !files.length) {
+          return;
+        }
+        const imageFiles = files.filter((file) => {
+          const lowerName = (file.name || "").toLowerCase();
+          return (
+            lowerName.endsWith(".jpg") ||
+            lowerName.endsWith(".jpeg") ||
+            lowerName.endsWith(".png") ||
+            lowerName.endsWith(".webp") ||
+            lowerName.endsWith(".gif") ||
+            lowerName.endsWith(".bmp")
+          );
+        });
+        const ignoredCount = files.length - imageFiles.length;
+        if (!imageFiles.length) {
+          alert("No supported image files found in this folder.");
+          return;
+        }
+        if (folderUploadButton) {
+          folderUploadButton.disabled = true;
+        }
+        try {
+          let savedCount = 0;
+          let skippedCount = 0;
+          let lastError = "";
+          let authExpired = false;
+          const total = imageFiles.length;
+          for (let i = 0; i < total; i += 1) {
+            if (authExpired) {
+              break;
+            }
+            const file = imageFiles[i];
+            if (folderUploadButton) {
+              folderUploadButton.textContent = `Uploading ${i + 1}/${total} (${savedCount} ok, ${skippedCount} failed)`;
+            }
+            const relativeName = file.webkitRelativePath || file.name;
+            const encodedName = encodeURIComponent(relativeName);
+            const maxRetry = 2;
+            let uploaded = false;
+            for (let retry = 0; retry <= maxRetry; retry += 1) {
+              try {
+                const response = await fetch("photos/upload-file", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/octet-stream",
+                    "X-File-Name": encodedName,
+                  },
+                  body: file,
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (response.status === 401) {
+                  authExpired = true;
+                  lastError = "Login expired.";
+                  break;
+                }
+                if (!response.ok) {
+                  if (retry < maxRetry && response.status >= 500) {
+                    continue;
+                  }
+                  lastError = payload.error || "Folder import failed.";
+                  break;
+                }
+                uploaded = true;
+                break;
+              } catch (error) {
+                if (retry < maxRetry) {
+                  continue;
+                }
+                lastError = "Network error during upload.";
+              }
+            }
+            if (uploaded) {
+              savedCount += 1;
+            } else {
+              skippedCount += 1;
+            }
+          }
+          if (authExpired) {
+            alert("Login expired. Please login again.");
+            window.location.replace("login.html");
+            return;
+          }
+          if (savedCount <= 0) {
+            alert(lastError || "Folder import failed.");
+            return;
+          }
+          alert(
+            `Imported ${savedCount} photos, failed ${skippedCount}, ignored non-image ${ignoredCount}.`
+          );
+          window.location.reload();
+        } catch (error) {
+          alert("Folder import failed. Please try again.");
+        } finally {
+          if (folderUploadButton) {
+            folderUploadButton.disabled = false;
+            folderUploadButton.textContent = "Folder Import";
+          }
+          if (photoFolderInput) {
+            photoFolderInput.value = "";
+          }
+        }
+      }
+
       applyTextLabels();
       applyDanmuSettings(loadDanmuSettings());
       setDanmuSettingsVisible(false);
@@ -2497,6 +2765,40 @@
       // 点击天气卡片打开城市选择器
       if (weatherCard) {
         weatherCard.addEventListener("click", showCitySelector);
+      }
+      if (logoutButton) {
+        logoutButton.addEventListener("click", handleLogout);
+      }
+      if (uploadButton && photoZipInput) {
+        uploadButton.addEventListener("click", () => {
+          photoZipInput.click();
+        });
+        photoZipInput.addEventListener("change", () => {
+          const files = photoZipInput.files;
+          const file = files && files[0] ? files[0] : null;
+          if (!file) {
+            return;
+          }
+          const lowerName = file.name.toLowerCase();
+          if (!lowerName.endsWith(".zip")) {
+            alert("Please choose a .zip archive.");
+            photoZipInput.value = "";
+            return;
+          }
+          importPhotoArchive(file);
+        });
+      }
+      if (folderUploadButton && photoFolderInput) {
+        folderUploadButton.addEventListener("click", () => {
+          photoFolderInput.click();
+        });
+        photoFolderInput.addEventListener("change", () => {
+          const files = photoFolderInput.files;
+          if (!files || !files.length) {
+            return;
+          }
+          importPhotoFiles(Array.from(files));
+        });
       }
 
       // 点击背景关闭城市选择器
