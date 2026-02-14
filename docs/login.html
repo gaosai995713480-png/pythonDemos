@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>心动告白 - 登录</title>
+    <style>
+      :root {
+        --primary: #ff6b9d;
+        --secondary: #c44569;
+        --accent: #ffc048;
+        --glass-bg: rgba(255, 255, 255, 0.1);
+        --glass-border: rgba(255, 255, 255, 0.2);
+        --text-primary: #fff;
+        --text-muted: rgba(255, 255, 255, 0.72);
+        --error: #ffd2dc;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      @keyframes gradient-shift {
+        0%,
+        100% {
+          background-position: 0% 50%;
+        }
+        50% {
+          background-position: 100% 50%;
+        }
+      }
+
+      @keyframes float-up {
+        0% {
+          transform: translateY(0) rotate(-45deg) scale(0.7);
+          opacity: 0;
+        }
+        20% {
+          opacity: 0.9;
+        }
+        100% {
+          transform: translateY(-110vh) rotate(-45deg) scale(1.2);
+          opacity: 0;
+        }
+      }
+
+      @keyframes card-enter {
+        from {
+          opacity: 0;
+          transform: translateY(18px) scale(0.98);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-primary);
+        background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+        background-size: 400% 400%;
+        animation: gradient-shift 15s ease infinite;
+        font-family:
+          "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+          sans-serif;
+        overflow: hidden;
+        position: relative;
+      }
+
+      body::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(
+            circle at 20% 30%,
+            rgba(255, 107, 157, 0.22),
+            transparent 52%
+          ),
+          radial-gradient(
+            circle at 75% 75%,
+            rgba(196, 69, 105, 0.18),
+            transparent 50%
+          );
+        pointer-events: none;
+      }
+
+      .floating-layer {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+
+      .floating-heart {
+        position: absolute;
+        left: var(--x);
+        bottom: -12vh;
+        width: var(--size);
+        height: var(--size);
+        transform: rotate(-45deg);
+        background: linear-gradient(
+          135deg,
+          rgba(255, 107, 157, 0.58),
+          rgba(196, 69, 105, 0.4)
+        );
+        border-radius: 4px;
+        filter: drop-shadow(0 0 12px rgba(255, 107, 157, 0.45));
+        animation: float-up var(--duration) ease-in forwards;
+      }
+
+      .floating-heart::before,
+      .floating-heart::after {
+        content: "";
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background: inherit;
+      }
+
+      .floating-heart::before {
+        top: -50%;
+        left: 0;
+      }
+
+      .floating-heart::after {
+        top: 0;
+        left: 50%;
+      }
+
+      .login-shell {
+        position: relative;
+        width: min(940px, 92vw);
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 24px;
+        z-index: 1;
+      }
+
+      .hero,
+      .panel {
+        backdrop-filter: blur(26px);
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: 24px;
+        box-shadow: 0 18px 45px rgba(0, 0, 0, 0.26);
+        animation: card-enter 0.45s ease both;
+      }
+
+      .hero {
+        padding: clamp(28px, 3.2vw, 42px);
+      }
+
+      .hero h1 {
+        margin: 0 0 14px;
+        font-size: clamp(32px, 4.6vw, 54px);
+        letter-spacing: -0.03em;
+        text-shadow: 0 8px 28px rgba(255, 107, 157, 0.38);
+      }
+
+      .hero p {
+        margin: 0;
+        font-size: clamp(16px, 2vw, 22px);
+        line-height: 1.7;
+        color: var(--text-muted);
+      }
+
+      .hero-note {
+        margin-top: 24px;
+        padding: 14px 16px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        font-size: 14px;
+        line-height: 1.6;
+        color: rgba(255, 255, 255, 0.84);
+      }
+
+      .panel {
+        padding: clamp(22px, 2.8vw, 34px);
+      }
+
+      .panel h2 {
+        margin: 0 0 6px;
+        font-size: 28px;
+        font-weight: 700;
+      }
+
+      .panel .subtitle {
+        margin: 0 0 22px;
+        color: var(--text-muted);
+        font-size: 14px;
+      }
+
+      .form-row {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+
+      .form-row label {
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.8);
+      }
+
+      .form-row input {
+        height: 44px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        border-radius: 12px;
+        padding: 0 14px;
+        font-size: 15px;
+        color: var(--text-primary);
+        background: rgba(255, 255, 255, 0.1);
+        outline: none;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .form-row input::placeholder {
+        color: rgba(255, 255, 255, 0.5);
+      }
+
+      .form-row input:focus {
+        border-color: rgba(255, 255, 255, 0.7);
+        box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.16);
+      }
+
+      .submit-btn {
+        width: 100%;
+        height: 46px;
+        border: none;
+        border-radius: 13px;
+        color: #fff;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        background: linear-gradient(
+          135deg,
+          var(--primary) 0%,
+          var(--secondary) 100%
+        );
+        box-shadow: 0 10px 24px rgba(255, 107, 157, 0.34);
+        transition: transform 0.2s ease, filter 0.2s ease;
+      }
+
+      .submit-btn:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.03);
+      }
+
+      .submit-btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.75;
+      }
+
+      .error-text {
+        min-height: 20px;
+        margin: 10px 0 0;
+        font-size: 13px;
+        color: var(--error);
+      }
+
+      .safe-tip {
+        margin-top: 14px;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.64);
+      }
+
+      @media (max-width: 860px) {
+        .login-shell {
+          grid-template-columns: 1fr;
+          width: min(560px, 92vw);
+          gap: 16px;
+        }
+
+        .hero {
+          padding-bottom: 22px;
+        }
+
+        .hero p {
+          font-size: 15px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="floating-layer" id="floating-layer"></div>
+    <main class="login-shell">
+      <section class="hero">
+        <h1>只道当时是寻常</h1>
+        <p>先登录，再一起进入我们的回忆与心动时刻。</p>
+        <div class="hero-note">系统已开启访问控制，仅允许授权密码进入。</div>
+      </section>
+      <section class="panel">
+        <h2>欢迎回来</h2>
+        <p class="subtitle">请输入密码继续访问</p>
+        <form id="login-form" novalidate>
+          <div class="form-row">
+            <label for="password">密码</label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              placeholder="请输入密码"
+              required
+            />
+          </div>
+          <button class="submit-btn" id="submit-btn" type="submit">
+            进入页面
+          </button>
+          <p class="error-text" id="error-text" role="status" aria-live="polite"></p>
+          <p class="safe-tip">登录成功后会自动跳转到主页。</p>
+        </form>
+      </section>
+    </main>
+    <script>
+      const floatingLayer = document.getElementById("floating-layer");
+      const form = document.getElementById("login-form");
+      const passwordInput = document.getElementById("password");
+      const submitBtn = document.getElementById("submit-btn");
+      const errorText = document.getElementById("error-text");
+
+      function spawnHeart() {
+        const heart = document.createElement("span");
+        const size = Math.random() * 14 + 10;
+        heart.className = "floating-heart";
+        heart.style.setProperty("--x", `${Math.random() * 100}%`);
+        heart.style.setProperty("--size", `${size}px`);
+        heart.style.setProperty("--duration", `${Math.random() * 4 + 6}s`);
+        floatingLayer.appendChild(heart);
+        window.setTimeout(() => {
+          heart.remove();
+        }, 12000);
+      }
+
+      function setLoading(loading) {
+        submitBtn.disabled = loading;
+        submitBtn.textContent = loading ? "登录中..." : "进入页面";
+      }
+
+      function showError(message) {
+        errorText.textContent = message || "";
+      }
+
+      async function checkStatusAndRedirect() {
+        try {
+          const response = await fetch("auth/status", { cache: "no-store" });
+          if (response.ok) {
+            window.location.replace("index.html");
+          }
+        } catch (error) {}
+      }
+
+      async function handleLogin(event) {
+        event.preventDefault();
+        showError("");
+        const password = passwordInput.value;
+        if (!password) {
+          showError("请输入密码");
+          return;
+        }
+        setLoading(true);
+        try {
+          const response = await fetch("auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ password }),
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            showError(payload.error || "密码是我们命运开始的日子");
+            return;
+          }
+          window.location.replace("index.html");
+        } catch (error) {
+          showError("登录失败，请稍后重试");
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      form.addEventListener("submit", handleLogin);
+      passwordInput.addEventListener("input", () => showError(""));
+
+      checkStatusAndRedirect();
+      spawnHeart();
+      window.setInterval(spawnHeart, 1400);
+    </script>
+  </body>
+</html>
