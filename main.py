@@ -721,7 +721,7 @@ def run_love_page(args: argparse.Namespace) -> None:
                 finally:
                     conn.close()
                 if not ok:
-                    self._send_json({"error": "密码是我们命运开始的日子"}, 401)
+                    self._send_json({"error": "密码是我们故事开始的日子"}, 401)
                     return
 
                 token = secrets.token_urlsafe(32)

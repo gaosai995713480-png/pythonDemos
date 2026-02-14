@@ -378,7 +378,7 @@
           });
           const payload = await response.json().catch(() => ({}));
           if (!response.ok) {
-            showError(payload.error || "密码是我们命运开始的日子");
+            showError(payload.error || "密码是我们故事开始的日子");
             return;
           }
           window.location.replace("index.html");
