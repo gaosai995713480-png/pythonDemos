@@ -1352,7 +1352,7 @@
       let danmuSpeedFactor = 1;
       let danmuBgAlpha = 0.75;
       let danmuDensityLevel = 3;
-      let queue = [];
+      let photoIndex = -1;
       let timer = null;
       let playing = false;
       let currentPhoto = "";
@@ -2129,26 +2129,13 @@
 
       window.setInterval(spawnHeart, 260);
 
-      function shuffle(list) {
-        const copy = [...list];
-        for (let i = copy.length - 1; i > 0; i -= 1) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [copy[i], copy[j]] = [copy[j], copy[i]];
-        }
-        return copy;
-      }
-
       function nextPhoto() {
-        if (!queue.length) {
-          queue = shuffle(photoList);
+        if (!photoList.length) {
+          return "";
         }
-        let next = queue.shift();
-        if (photoList.length > 1 && next === currentPhoto) {
-          queue.push(next);
-          next = queue.shift();
-        }
-        currentPhoto = next;
-        return next;
+        photoIndex = (photoIndex + 1) % photoList.length;
+        currentPhoto = photoList[photoIndex];
+        return currentPhoto;
       }
 
       function showPhoto(src) {
