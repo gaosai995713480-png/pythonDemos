@@ -295,6 +295,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run love page server."
     )
+    # Backward compatibility for old startup commands.
+    parser.add_argument("--mode", default="love", help=argparse.SUPPRESS)
+    parser.add_argument("--url", default="", help=argparse.SUPPRESS)
+    parser.add_argument("--keyword", default="", help=argparse.SUPPRESS)
+    parser.add_argument("--table", default="", help=argparse.SUPPRESS)
+    parser.add_argument("--db-name", default="", help=argparse.SUPPRESS)
+    parser.add_argument("--dry-run", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument(
         "--port",
         type=int,
@@ -712,6 +719,8 @@ def main() -> None:
         level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
     )
     args = build_parser().parse_args()
+    if str(args.mode).strip().lower() not in {"", "love"}:
+        logging.warning("Mode '%s' is removed, fallback to love mode.", args.mode)
     run_love_page(args)
 
 
