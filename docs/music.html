@@ -469,6 +469,10 @@
           lyricContainer.classList.add('expanded');
           lyricToggle.classList.add('expanded');
         }
+        // 通知父页面歌词数据
+        if (inIframe && data.lyric) {
+          window.parent.postMessage({ type: 'music_lyric', lyric: data.lyric }, '*');
+        }
       } catch (e) {
         lyricScroll.innerHTML = '<div class="lyric-empty">🎵 歌词加载失败</div>';
       }
@@ -502,6 +506,10 @@
       pcCurrent.textContent = fmtTime(audio.currentTime);
       if (!pcSeek._dragging) pcSeek.value = (audio.currentTime / audio.duration * 100).toFixed(1);
       updateLyricHighlight(audio.currentTime);
+      // 同步播放时间到父页面
+      if (inIframe) {
+        window.parent.postMessage({ type: 'music_time', currentTime: audio.currentTime }, '*');
+      }
     });
     audio.addEventListener('loadedmetadata', () => { pcDuration.textContent = fmtTime(audio.duration); });
     audio.addEventListener('ended', () => nextSong());

@@ -1531,7 +1531,7 @@
         musicOverlay.style.display = 'block';
       });
 
-      // 监听 music.html 的 postMessage（仅用于关闭浮层 + 同步歌曲信息）
+      // 监听 music.html 的 postMessage（关闭浮层 + 同步歌曲/歌词信息）
       window.addEventListener('message', (e) => {
         if (!e.data || !e.data.type) return;
         if (e.data.type === 'music_close') {
@@ -1540,6 +1540,15 @@
         } else if (e.data.type === 'music_song_info') {
           // 在主界面显示当前播放歌曲
           lyricsEl.textContent = `♪ ${e.data.song_name} - ${e.data.artist || ''}`;
+        } else if (e.data.type === 'music_lyric') {
+          // 从 iframe 接收歌词数据
+          lyricLines = parseLrc(e.data.lyric || '');
+          lyricIndex = -1;
+        } else if (e.data.type === 'music_time') {
+          // 从 iframe 同步播放时间，更新歌词显示
+          if (lyricLines.length > 0) {
+            syncLyrics(e.data.currentTime);
+          }
         }
       });
 
@@ -1568,7 +1577,18 @@
             })
             .catch(() => {});
           lyricLines = [];
+          lyricIndex = -1;
           lyricsEl.textContent = `♪ ${song.name}`;
+          // 异步加载歌词
+          fetch(`api/music/lyric?id=${song.netease_id}&platform=${platform}`)
+            .then(r => r.json())
+            .then(data => {
+              if (data.lyric) {
+                lyricLines = parseLrc(data.lyric);
+                lyricIndex = -1;
+              }
+            })
+            .catch(() => {});
         } else if (song.audio) {
           bgm.src = encodeURI(song.audio);
           if (song.lrc) {
