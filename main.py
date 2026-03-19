@@ -12,6 +12,8 @@ import json
 import logging
 import re
 import secrets
+import subprocess
+import urllib.request
 import webbrowser
 import zipfile
 from http.cookies import SimpleCookie
@@ -482,6 +484,165 @@ def insert_wish(
     return row_id
 
 
+# ==================== 恋爱地图功能 ====================
+
+def ensure_map_table(conn: "pymysql.connections.Connection", table: str) -> None:
+    sql = f"""
+    CREATE TABLE IF NOT EXISTS `{table}` (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(100) NOT NULL,
+        note TEXT,
+        photo_url VARCHAR(500),
+        lat DOUBLE NOT NULL,
+        lng DOUBLE NOT NULL,
+        visit_date DATE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    """
+    with conn.cursor() as cursor:
+        cursor.execute(sql)
+
+
+def fetch_map_markers(
+    conn: "pymysql.connections.Connection", table: str
+) -> List[dict]:
+    sql = f"SELECT id, title, note, photo_url, lat, lng, visit_date, created_at FROM `{table}` ORDER BY visit_date DESC"
+    with conn.cursor() as cursor:
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+    return [{
+        "id": r[0], "title": r[1], "note": r[2], "photo_url": r[3],
+        "lat": r[4], "lng": r[5],
+        "visit_date": r[6].isoformat() if r[6] else None,
+        "created_at": r[7].isoformat() if r[7] else None,
+    } for r in rows]
+
+
+def insert_map_marker(
+    conn: "pymysql.connections.Connection", table: str,
+    title: str, note: str, photo_url: str, lat: float, lng: float, visit_date: str
+) -> int:
+    sql = f"INSERT INTO `{table}` (title, note, photo_url, lat, lng, visit_date) VALUES (%s, %s, %s, %s, %s, %s)"
+    with conn.cursor() as cursor:
+        cursor.execute(sql, (title, note, photo_url, lat, lng, visit_date or None))
+        row_id = cursor.lastrowid
+    conn.commit()
+    return row_id
+
+
+def update_map_marker(
+    conn: "pymysql.connections.Connection", table: str,
+    row_id: int, title: str, note: str, photo_url: str, lat: float, lng: float, visit_date: str
+) -> bool:
+    sql = f"UPDATE `{table}` SET title=%s, note=%s, photo_url=%s, lat=%s, lng=%s, visit_date=%s WHERE id=%s"
+    with conn.cursor() as cursor:
+        cursor.execute(sql, (title, note, photo_url, lat, lng, visit_date or None, row_id))
+        affected = cursor.rowcount
+    conn.commit()
+    return affected > 0
+
+
+def delete_map_marker(
+    conn: "pymysql.connections.Connection", table: str, row_id: int
+) -> bool:
+    sql = f"DELETE FROM `{table}` WHERE id = %s"
+    with conn.cursor() as cursor:
+        cursor.execute(sql, (row_id,))
+        affected = cursor.rowcount
+    conn.commit()
+    return affected > 0
+
+
+# ==================== 共享歌单功能 ====================
+
+METING_CLI_PATH = str(Path(__file__).parent / "meting" / "meting-cli.mjs")
+METING_PLATFORMS = {"netease", "tencent", "kugou", "baidu", "kuwo"}
+
+
+def call_meting(command: str, **kwargs) -> dict:
+    """调用 Meting CLI 获取音乐数据。返回解析后的 JSON dict。"""
+    cmd = ["node", METING_CLI_PATH, command]
+    for k, v in kwargs.items():
+        cmd.extend([f"--{k}", str(v)])
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=15, encoding="utf-8"
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return json.loads(result.stdout)
+    except Exception as e:
+        logging.warning("call_meting error: %s", e)
+    return {}
+
+
+def ensure_music_table(conn: "pymysql.connections.Connection", table: str) -> None:
+    sql = f"""
+    CREATE TABLE IF NOT EXISTS `{table}` (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        song_name VARCHAR(100) NOT NULL,
+        artist VARCHAR(100) NOT NULL,
+        netease_id VARCHAR(20) NOT NULL,
+        platform VARCHAR(20) NOT NULL DEFAULT 'netease',
+        sort_order INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    """
+    with conn.cursor() as cursor:
+        cursor.execute(sql)
+    # 兼容旧表：如无 platform 字段则添加
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(f"ALTER TABLE `{table}` ADD COLUMN platform VARCHAR(20) NOT NULL DEFAULT 'netease'")
+        conn.commit()
+    except Exception:
+        pass
+
+
+def fetch_music(
+    conn: "pymysql.connections.Connection", table: str
+) -> List[dict]:
+    sql = f"SELECT id, song_name, artist, netease_id, sort_order, created_at, platform FROM `{table}` ORDER BY sort_order ASC, created_at DESC"
+    with conn.cursor() as cursor:
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+    result = []
+    for r in rows:
+        item = {
+            "id": r[0], "song_name": r[1], "artist": r[2], "netease_id": r[3],
+            "sort_order": r[4],
+            "created_at": r[5].isoformat() if r[5] else None,
+        }
+        try:
+            item["platform"] = r[6]
+        except IndexError:
+            item["platform"] = "netease"
+        result.append(item)
+    return result
+
+
+def insert_music(
+    conn: "pymysql.connections.Connection", table: str,
+    song_name: str, artist: str, netease_id: str, platform: str = "netease"
+) -> int:
+    sql = f"INSERT INTO `{table}` (song_name, artist, netease_id, platform) VALUES (%s, %s, %s, %s)"
+    with conn.cursor() as cursor:
+        cursor.execute(sql, (song_name, artist, netease_id, platform))
+        row_id = cursor.lastrowid
+    conn.commit()
+    return row_id
+
+
+def delete_music(
+    conn: "pymysql.connections.Connection", table: str, row_id: int
+) -> bool:
+    sql = f"DELETE FROM `{table}` WHERE id = %s"
+    with conn.cursor() as cursor:
+        cursor.execute(sql, (row_id,))
+        affected = cursor.rowcount
+    conn.commit()
+    return affected > 0
+
+
 def is_image_filename(name: str) -> bool:
     suffix = Path(name).suffix.lower()
     return suffix in IMAGE_EXTENSIONS
@@ -597,6 +758,8 @@ def run_love_page(args: argparse.Namespace) -> None:
     capsule_table = "love_capsule"
     mood_table = "love_mood"
     wish_table = "love_wish"
+    map_table = "love_map"
+    music_table = "love_music"
 
     try:
         ensure_database(build_server_config(args), danmu_db_name)
@@ -609,6 +772,8 @@ def run_love_page(args: argparse.Namespace) -> None:
             ensure_capsule_table(conn, capsule_table)
             ensure_mood_table(conn, mood_table)
             ensure_wish_table(conn, wish_table)
+            ensure_map_table(conn, map_table)
+            ensure_music_table(conn, music_table)
         finally:
             conn.close()
         danmu_ready = True
@@ -709,6 +874,8 @@ def run_love_page(args: argparse.Namespace) -> None:
                 "/api/capsules/open",
                 "/api/mood",
                 "/api/wishes",
+                "/api/map",
+                "/api/music",
             }:
                 self._send_no_content()
                 return
@@ -818,6 +985,63 @@ def run_love_page(args: argparse.Namespace) -> None:
                 finally:
                     conn.close()
                 self._send_json(items)
+                return
+
+            # ===== 恋爱地图 API =====
+            if path == "/api/map":
+                conn = pymysql.connect(**build_db_config(args, danmu_db_name))
+                try:
+                    items = fetch_map_markers(conn, map_table)
+                finally:
+                    conn.close()
+                self._send_json(items)
+                return
+
+            # ===== 共享歌单 API =====
+            if path == "/api/music":
+                conn = pymysql.connect(**build_db_config(args, danmu_db_name))
+                try:
+                    items = fetch_music(conn, music_table)
+                finally:
+                    conn.close()
+                self._send_json(items)
+                return
+
+            # ===== Meting 搜索 =====
+            if path == "/api/music/search":
+                query = parse_qs(parsed.query)
+                keyword = query.get("keyword", [""])[0].strip()
+                platform = query.get("platform", ["netease"])[0].strip()
+                limit = query.get("limit", ["10"])[0].strip()
+                if not keyword:
+                    self._send_json({"error": "keyword is required"}, 400)
+                    return
+                if platform not in METING_PLATFORMS:
+                    platform = "netease"
+                result = call_meting("search", platform=platform, keyword=keyword, limit=limit)
+                data = result.get("data", []) if result.get("ok") else []
+                self._send_json(data)
+                return
+
+            # ===== Meting 播放链接 =====
+            if path == "/api/music/url":
+                query = parse_qs(parsed.query)
+                song_id = query.get("id", [""])[0].strip()
+                platform = query.get("platform", ["netease"])[0].strip()
+                if not song_id:
+                    self._send_json({"error": "id is required"}, 400)
+                    return
+                if platform not in METING_PLATFORMS:
+                    platform = "netease"
+                result = call_meting("url", platform=platform, id=song_id)
+                url = ""
+                if result.get("ok"):
+                    data = result.get("data", {})
+                    url = data.get("url", "") if isinstance(data, dict) else ""
+                # fallback: 网易云直链
+                if not url and platform == "netease":
+                    url = f"https://music.163.com/song/media/outer/url?id={song_id}.mp3"
+                self._send_json({"url": url})
                 return
 
             super().do_GET()
@@ -1099,6 +1323,77 @@ def run_love_page(args: argparse.Namespace) -> None:
                 self._send_json({"ok": True, "id": row_id})
                 return
 
+            # ===== 恋爱地图 POST =====
+            if path == "/api/map":
+                body = self._read_body().decode("utf-8", errors="ignore")
+                try:
+                    payload = json.loads(body or "{}")
+                except json.JSONDecodeError:
+                    self._send_json({"error": "invalid json"}, 400)
+                    return
+                title = str(payload.get("title", "")).strip()
+                note = str(payload.get("note", "")).strip()
+                photo_url = str(payload.get("photo_url", "")).strip()
+                visit_date = str(payload.get("visit_date", "")).strip()
+                try:
+                    lat = float(payload.get("lat", 0))
+                    lng = float(payload.get("lng", 0))
+                except (ValueError, TypeError):
+                    self._send_json({"error": "invalid coordinates"}, 400)
+                    return
+                if not title or lat == 0 or lng == 0:
+                    self._send_json({"error": "title, lat, lng are required"}, 400)
+                    return
+                conn = pymysql.connect(**build_db_config(args, danmu_db_name))
+                try:
+                    row_id = insert_map_marker(conn, map_table, title, note, photo_url, lat, lng, visit_date)
+                finally:
+                    conn.close()
+                self._send_json({"ok": True, "id": row_id})
+                return
+
+            # ===== 共享歌单 POST =====
+            if path == "/api/music":
+                body = self._read_body().decode("utf-8", errors="ignore")
+                try:
+                    payload = json.loads(body or "{}")
+                except json.JSONDecodeError:
+                    self._send_json({"error": "invalid json"}, 400)
+                    return
+                netease_id = str(payload.get("netease_id", payload.get("id", ""))).strip()
+                if not netease_id:
+                    self._send_json({"error": "netease_id or id is required"}, 400)
+                    return
+                platform = str(payload.get("platform", "netease")).strip()
+                if platform not in METING_PLATFORMS:
+                    platform = "netease"
+                song_name = str(payload.get("song_name", "")).strip()
+                artist = str(payload.get("artist", "")).strip()
+                # 自动从 Meting 获取歌曲信息
+                if not song_name or not artist:
+                    info = call_meting("song", platform=platform, id=netease_id)
+                    if info.get("ok"):
+                        data = info.get("data", {})
+                        if isinstance(data, list) and data:
+                            data = data[0]
+                        if isinstance(data, dict):
+                            if not song_name:
+                                song_name = data.get("name", "未知歌曲")
+                            if not artist:
+                                a = data.get("artist", [])
+                                artist = ", ".join(a) if isinstance(a, list) else str(a) if a else "未知歌手"
+                    if not song_name:
+                        song_name = "未知歌曲"
+                    if not artist:
+                        artist = "未知歌手"
+                conn = pymysql.connect(**build_db_config(args, danmu_db_name))
+                try:
+                    row_id = insert_music(conn, music_table, song_name, artist, netease_id, platform)
+                finally:
+                    conn.close()
+                self._send_json({"ok": True, "id": row_id})
+                return
+
             if path != "/danmu":
                 super().do_POST()
                 return
@@ -1128,6 +1423,50 @@ def run_love_page(args: argparse.Namespace) -> None:
                 conn.close()
             self._send_json({"ok": True, "id": row_id, "likes": 0, "text": text})
 
+        def do_PUT(self) -> None:
+            path = self._normalized_path()
+            if not self._is_authenticated():
+                self._send_json({"error": "unauthorized"}, 401)
+                return
+            if path == "/api/map":
+                body = self._read_body().decode("utf-8", errors="ignore")
+                try:
+                    payload = json.loads(body or "{}")
+                except json.JSONDecodeError:
+                    self._send_json({"error": "invalid json"}, 400)
+                    return
+                try:
+                    row_id = int(payload.get("id", 0))
+                except (ValueError, TypeError):
+                    row_id = 0
+                if row_id <= 0:
+                    self._send_json({"error": "invalid id"}, 400)
+                    return
+                title = str(payload.get("title", "")).strip()
+                note = str(payload.get("note", "")).strip()
+                photo_url = str(payload.get("photo_url", "")).strip()
+                visit_date = str(payload.get("visit_date", "")).strip()
+                try:
+                    lat = float(payload.get("lat", 0))
+                    lng = float(payload.get("lng", 0))
+                except (ValueError, TypeError):
+                    self._send_json({"error": "invalid coordinates"}, 400)
+                    return
+                if not title:
+                    self._send_json({"error": "title is required"}, 400)
+                    return
+                conn = pymysql.connect(**build_db_config(args, danmu_db_name))
+                try:
+                    ok = update_map_marker(conn, map_table, row_id, title, note, photo_url, lat, lng, visit_date)
+                finally:
+                    conn.close()
+                if not ok:
+                    self._send_json({"error": "not found"}, 404)
+                    return
+                self._send_json({"ok": True})
+                return
+            self._send_json({"error": "not found"}, 404)
+
         def do_DELETE(self) -> None:
             path = self._normalized_path()
             parsed = urlparse(self.path)
@@ -1148,6 +1487,46 @@ def run_love_page(args: argparse.Namespace) -> None:
                 conn = pymysql.connect(**build_db_config(args, danmu_db_name))
                 try:
                     ok = delete_timeline(conn, timeline_table, row_id)
+                finally:
+                    conn.close()
+                if not ok:
+                    self._send_json({"error": "not found"}, 404)
+                    return
+                self._send_json({"ok": True})
+                return
+
+            if path == "/api/map":
+                query = parse_qs(parsed.query)
+                try:
+                    row_id = int(query.get("id", ["0"])[0])
+                except ValueError:
+                    row_id = 0
+                if row_id <= 0:
+                    self._send_json({"error": "invalid id"}, 400)
+                    return
+                conn = pymysql.connect(**build_db_config(args, danmu_db_name))
+                try:
+                    ok = delete_map_marker(conn, map_table, row_id)
+                finally:
+                    conn.close()
+                if not ok:
+                    self._send_json({"error": "not found"}, 404)
+                    return
+                self._send_json({"ok": True})
+                return
+
+            if path == "/api/music":
+                query = parse_qs(parsed.query)
+                try:
+                    row_id = int(query.get("id", ["0"])[0])
+                except ValueError:
+                    row_id = 0
+                if row_id <= 0:
+                    self._send_json({"error": "invalid id"}, 400)
+                    return
+                conn = pymysql.connect(**build_db_config(args, danmu_db_name))
+                try:
+                    ok = delete_music(conn, music_table, row_id)
                 finally:
                     conn.close()
                 if not ok:

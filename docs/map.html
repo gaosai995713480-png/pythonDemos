@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>恋爱足迹地图</title>
+  <style>
+    :root {
+      --primary: #ff6b9d; --secondary: #c44569; --accent: #ffc048;
+      --glass-bg: rgba(255,255,255,0.08); --glass-border: rgba(255,255,255,0.18);
+      --text-primary: #fff; --text-secondary: rgba(255,255,255,0.75);
+      --bg-grad-1: #ee7752; --bg-grad-2: #e73c7e; --bg-grad-3: #23a6d5; --bg-grad-4: #23d5ab;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    @keyframes gradient-shift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+    body {
+      height: 100vh; overflow: hidden;
+      background: linear-gradient(-45deg, var(--bg-grad-1), var(--bg-grad-2), var(--bg-grad-3), var(--bg-grad-4));
+      background-size: 400% 400%; animation: gradient-shift 15s ease infinite;
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      display: flex; flex-direction: column;
+    }
+
+    /* === Top Bar === */
+    .top-bar {
+      position: relative; z-index: 20;
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 20px;
+      background: var(--glass-bg); backdrop-filter: blur(30px);
+      border-bottom: 1px solid var(--glass-border);
+      flex-shrink: 0;
+    }
+    .back-btn {
+      text-decoration: none; color: #fff; font-size: 14px; font-weight: 600;
+      padding: 8px 16px; border-radius: 10px;
+      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+      transition: all 0.2s ease;
+    }
+    .back-btn:hover { background: rgba(255,255,255,0.18); transform: translateY(-1px); }
+    .top-bar h1 { font-size: 18px; font-weight: 700; white-space: nowrap; }
+    .marker-count { margin-left: auto; font-size: 13px; color: var(--text-secondary); white-space: nowrap; }
+
+    /* === Search === */
+    .search-wrap {
+      position: absolute; top: 70px; left: 16px; right: 16px; z-index: 15;
+    }
+    .search-box {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--glass-bg); backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border); border-radius: 14px;
+      padding: 8px 16px;
+    }
+    .search-box input {
+      flex: 1; border: none; background: transparent; outline: none;
+      font-size: 15px; color: var(--text-primary);
+    }
+    .search-box input::placeholder { color: var(--text-secondary); }
+    .search-results {
+      margin-top: 6px; max-height: 260px; overflow-y: auto;
+      background: rgba(30,30,50,0.92); backdrop-filter: blur(20px);
+      border-radius: 12px; border: 1px solid var(--glass-border);
+      display: none;
+    }
+    .search-results.is-visible { display: block; }
+    .search-result-item {
+      padding: 12px 16px; cursor: pointer; font-size: 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      transition: background 0.15s;
+    }
+    .search-result-item:hover { background: rgba(255,255,255,0.08); }
+    .search-result-item:last-child { border-bottom: none; }
+    .search-result-name { font-weight: 600; }
+    .search-result-addr { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+    /* === Map === */
+    #map-container { flex: 1; position: relative; }
+
+    /* === Add Button (FAB) === */
+    .fab-add {
+      position: fixed; bottom: 30px; right: 20px; z-index: 15;
+      width: 56px; height: 56px; border-radius: 50%; border: none;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: #fff; font-size: 28px; cursor: pointer;
+      box-shadow: 0 6px 24px rgba(255,107,157,0.4);
+      transition: all 0.25s ease; display: flex; align-items: center; justify-content: center;
+    }
+    .fab-add:hover { transform: scale(1.1); box-shadow: 0 8px 30px rgba(255,107,157,0.5); }
+
+    /* === Detail Card === */
+    .detail-backdrop {
+      position: fixed; inset: 0; z-index: 25;
+      background: rgba(0,0,0,0.4); opacity: 0; pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    .detail-backdrop.is-visible { opacity: 1; pointer-events: auto; }
+    .detail-card {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
+      background: rgba(30,30,50,0.95); backdrop-filter: blur(30px);
+      border-top: 1px solid var(--glass-border);
+      border-radius: 24px 24px 0 0;
+      padding: 20px 24px 36px;
+      transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      max-height: 70vh; overflow-y: auto;
+    }
+    .detail-card.is-visible { transform: translateY(0); }
+    .detail-handle {
+      width: 40px; height: 4px; border-radius: 2px;
+      background: rgba(255,255,255,0.2); margin: 0 auto 16px;
+    }
+    .detail-photo {
+      width: 100%; max-height: 240px; object-fit: cover;
+      border-radius: 16px; margin-bottom: 16px;
+    }
+    .detail-title { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    .detail-date { font-size: 13px; color: var(--accent); margin-bottom: 10px; }
+    .detail-note { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 20px; }
+    .detail-actions { display: flex; gap: 12px; }
+    .detail-actions button {
+      flex: 1; padding: 12px; border-radius: 12px; border: none;
+      font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-edit {
+      background: rgba(255,255,255,0.1); color: #fff;
+      border: 1px solid rgba(255,255,255,0.2) !important;
+    }
+    .btn-edit:hover { background: rgba(255,255,255,0.18); }
+    .btn-delete { background: rgba(220,38,38,0.2); color: #f87171; }
+    .btn-delete:hover { background: rgba(220,38,38,0.35); }
+
+    /* === Form Modal === */
+    .form-backdrop {
+      position: fixed; inset: 0; z-index: 35;
+      background: rgba(0,0,0,0.5); opacity: 0; pointer-events: none;
+      transition: opacity 0.3s; display: flex; align-items: center; justify-content: center;
+    }
+    .form-backdrop.is-visible { opacity: 1; pointer-events: auto; }
+    .form-card {
+      width: 92%; max-width: 420px;
+      background: rgba(30,30,50,0.96); backdrop-filter: blur(30px);
+      border: 1px solid var(--glass-border); border-radius: 20px;
+      padding: 28px 24px; transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .form-backdrop.is-visible .form-card { transform: scale(1); }
+    .form-card h2 { font-size: 18px; font-weight: 700; margin-bottom: 20px; text-align: center; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
+    .form-group input, .form-group textarea {
+      width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--glass-border);
+      background: rgba(255,255,255,0.06); color: #fff; font-size: 14px; outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus, .form-group textarea:focus { border-color: var(--primary); }
+    .form-group textarea { resize: vertical; min-height: 60px; }
+    .form-btns { display: flex; gap: 12px; margin-top: 20px; }
+    .form-btns button {
+      flex: 1; padding: 12px; border-radius: 12px; border: none;
+      font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-cancel { background: rgba(255,255,255,0.1); color: #fff; }
+    .btn-save {
+      background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #fff;
+      box-shadow: 0 4px 16px rgba(255,107,157,0.3);
+    }
+    .btn-save:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255,107,157,0.4); }
+
+    /* === Custom Marker === */
+    .love-marker {
+      width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+      font-size: 24px; filter: drop-shadow(0 2px 6px rgba(255,107,157,0.5));
+      cursor: pointer; transition: transform 0.2s;
+    }
+    .love-marker:hover { transform: scale(1.3); }
+  </style>
+</head>
+<body>
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <a class="back-btn" href="index.html">← 返回</a>
+    <h1>🗺️ 恋爱足迹地图</h1>
+    <span class="marker-count" id="marker-count">加载中...</span>
+  </div>
+
+  <!-- Search -->
+  <div class="search-wrap">
+    <div class="search-box">
+      <span>🔍</span>
+      <input type="text" id="search-input" placeholder="搜索地点名称..." autocomplete="off" />
+    </div>
+    <div class="search-results" id="search-results"></div>
+  </div>
+
+  <!-- Map -->
+  <div id="map-container"></div>
+
+  <!-- FAB Add -->
+  <button class="fab-add" id="fab-add" title="添加足迹">+</button>
+
+  <!-- Detail Card -->
+  <div class="detail-backdrop" id="detail-backdrop"></div>
+  <div class="detail-card" id="detail-card">
+    <div class="detail-handle"></div>
+    <img class="detail-photo" id="detail-photo" src="" alt="" style="display:none" />
+    <div class="detail-title" id="detail-title"></div>
+    <div class="detail-date" id="detail-date"></div>
+    <div class="detail-note" id="detail-note"></div>
+    <div class="detail-actions">
+      <button class="btn-edit" id="btn-edit">✏️ 编辑</button>
+      <button class="btn-delete" id="btn-delete">🗑️ 删除</button>
+    </div>
+  </div>
+
+  <!-- Form Modal -->
+  <div class="form-backdrop" id="form-backdrop">
+    <div class="form-card">
+      <h2 id="form-title">📍 添加足迹</h2>
+      <div class="form-group">
+        <label>地点名称 *</label>
+        <input type="text" id="form-name" placeholder="如：黄鹤楼" maxlength="100" />
+      </div>
+      <div class="form-group">
+        <label>一句话备注</label>
+        <textarea id="form-note" placeholder="如：第一次约会的地方"></textarea>
+      </div>
+      <div class="form-group">
+        <label>日期</label>
+        <input type="date" id="form-date" />
+      </div>
+      <div class="form-group">
+        <label>照片URL（可选）</label>
+        <input type="text" id="form-photo" placeholder="https://..." />
+      </div>
+      <input type="hidden" id="form-lat" />
+      <input type="hidden" id="form-lng" />
+      <input type="hidden" id="form-id" />
+      <div class="form-btns">
+        <button class="btn-cancel" id="btn-form-cancel">取消</button>
+        <button class="btn-save" id="btn-form-save">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 高德地图 JS API 2.0 -->
+  <script>
+    window._AMapSecurityConfig = {
+      securityJsCode: 'ca6c1f4b7f9f6da24ab08e9f5497621a'
+    };
+  </script>
+  <script src="https://webapi.amap.com/maps?v=2.0&key=5bf41e2540a12180a9208bbcaea7c696&plugin=AMap.PlaceSearch,AMap.AutoComplete,AMap.Geocoder"></script>
+  <script>
+    // ===== Auth Check =====
+    fetch('auth/status').then(r => r.json()).then(d => {
+      if (!d.authenticated) window.location.replace('login.html');
+    }).catch(() => window.location.replace('login.html'));
+
+    // ===== State =====
+    let map, markers = [], polyline = null, allData = [];
+    let selectedMarkerData = null;
+    let editingId = null;
+
+    // ===== DOM =====
+    const markerCountEl = document.getElementById('marker-count');
+    const searchInput = document.getElementById('search-input');
+    const searchResults = document.getElementById('search-results');
+    const fabAdd = document.getElementById('fab-add');
+    const detailBackdrop = document.getElementById('detail-backdrop');
+    const detailCard = document.getElementById('detail-card');
+    const detailPhoto = document.getElementById('detail-photo');
+    const detailTitle = document.getElementById('detail-title');
+    const detailDate = document.getElementById('detail-date');
+    const detailNote = document.getElementById('detail-note');
+    const btnEdit = document.getElementById('btn-edit');
+    const btnDelete = document.getElementById('btn-delete');
+    const formBackdrop = document.getElementById('form-backdrop');
+    const formTitle = document.getElementById('form-title');
+    const formName = document.getElementById('form-name');
+    const formNote = document.getElementById('form-note');
+    const formDate = document.getElementById('form-date');
+    const formPhoto = document.getElementById('form-photo');
+    const formLat = document.getElementById('form-lat');
+    const formLng = document.getElementById('form-lng');
+    const formId = document.getElementById('form-id');
+
+    // ===== Init Map =====
+    map = new AMap.Map('map-container', {
+      zoom: 5,
+      center: [114.3, 30.6], // 武汉
+      mapStyle: 'amap://styles/dark',
+      viewMode: '2D'
+    });
+
+    // ===== Search =====
+    let placeSearch;
+    AMap.plugin('AMap.PlaceSearch', function() {
+      placeSearch = new AMap.PlaceSearch({ pageSize: 8 });
+    });
+
+    let searchTimer = null;
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      const kw = searchInput.value.trim();
+      if (!kw) { searchResults.classList.remove('is-visible'); return; }
+      searchTimer = setTimeout(() => {
+        if (!placeSearch) return;
+        placeSearch.search(kw, (status, result) => {
+          if (status !== 'complete' || !result.poiList) {
+            searchResults.innerHTML = '<div class="search-result-item">未找到结果</div>';
+            searchResults.classList.add('is-visible');
+            return;
+          }
+          const pois = result.poiList.pois;
+          searchResults.innerHTML = pois.map((p, i) => `
+            <div class="search-result-item" data-index="${i}">
+              <div class="search-result-name">${p.name}</div>
+              <div class="search-result-addr">${p.address || p.cityname || ''}</div>
+            </div>
+          `).join('');
+          searchResults.classList.add('is-visible');
+
+          searchResults.querySelectorAll('.search-result-item').forEach((el, i) => {
+            el.addEventListener('click', () => {
+              const poi = pois[i];
+              const lng = poi.location.lng;
+              const lat = poi.location.lat;
+              map.setZoomAndCenter(15, [lng, lat]);
+              searchInput.value = poi.name;
+              searchResults.classList.remove('is-visible');
+              openForm(poi.name, lat, lng);
+            });
+          });
+        });
+      }, 400);
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.search-wrap')) searchResults.classList.remove('is-visible');
+    });
+
+    // ===== Map Click to Add =====
+    map.on('click', (e) => {
+      if (formBackdrop.classList.contains('is-visible') || detailCard.classList.contains('is-visible')) return;
+      const lnglat = e.lnglat;
+      const geocoder = new AMap.Geocoder();
+      geocoder.getAddress([lnglat.lng, lnglat.lat], (status, result) => {
+        let name = '';
+        if (status === 'complete' && result.regeocode) {
+          const addr = result.regeocode.formattedAddress || '';
+          name = addr.replace(/^中国/, '').replace(/^\w+省/, '').replace(/^\w+市/, '');
+        }
+        openForm(name, lnglat.lat, lnglat.lng);
+      });
+    });
+
+    // ===== Form =====
+    function openForm(name, lat, lng, data) {
+      editingId = data ? data.id : null;
+      formTitle.textContent = data ? '✏️ 编辑足迹' : '📍 添加足迹';
+      formName.value = data ? data.title : (name || '');
+      formNote.value = data ? (data.note || '') : '';
+      formDate.value = data ? (data.visit_date || '') : new Date().toISOString().split('T')[0];
+      formPhoto.value = data ? (data.photo_url || '') : '';
+      formLat.value = lat;
+      formLng.value = lng;
+      formBackdrop.classList.add('is-visible');
+      formName.focus();
+    }
+
+    function closeForm() { formBackdrop.classList.remove('is-visible'); editingId = null; }
+
+    document.getElementById('btn-form-cancel').addEventListener('click', closeForm);
+    formBackdrop.addEventListener('click', (e) => { if (e.target === formBackdrop) closeForm(); });
+
+    document.getElementById('btn-form-save').addEventListener('click', async () => {
+      const title = formName.value.trim();
+      const note = formNote.value.trim();
+      const visit_date = formDate.value;
+      const photo_url = formPhoto.value.trim();
+      const lat = parseFloat(formLat.value);
+      const lng = parseFloat(formLng.value);
+      if (!title) { alert('请输入地点名称'); return; }
+
+      const body = { title, note, visit_date, photo_url, lat, lng };
+      let url = 'api/map';
+      let method = 'POST';
+
+      if (editingId) {
+        body.id = editingId;
+        method = 'PUT';
+      }
+
+      try {
+        const res = await fetch(url, {
+          method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+        });
+        if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || '保存失败'); return; }
+        closeForm();
+        closeDetail();
+        await loadMarkers();
+      } catch (e) { alert('网络错误'); }
+    });
+
+    // ===== FAB =====
+    fabAdd.addEventListener('click', () => {
+      const center = map.getCenter();
+      openForm('', center.lat, center.lng);
+    });
+
+    // ===== Detail Card =====
+    function openDetail(data) {
+      selectedMarkerData = data;
+      detailTitle.textContent = data.title;
+      detailDate.textContent = data.visit_date ? `📅 ${data.visit_date}` : '';
+      detailNote.textContent = data.note || '暂无备注';
+      if (data.photo_url) {
+        detailPhoto.src = data.photo_url;
+        detailPhoto.style.display = '';
+      } else {
+        detailPhoto.style.display = 'none';
+      }
+      detailBackdrop.classList.add('is-visible');
+      detailCard.classList.add('is-visible');
+    }
+
+    function closeDetail() {
+      detailBackdrop.classList.remove('is-visible');
+      detailCard.classList.remove('is-visible');
+      selectedMarkerData = null;
+    }
+
+    detailBackdrop.addEventListener('click', closeDetail);
+
+    btnEdit.addEventListener('click', () => {
+      if (!selectedMarkerData) return;
+      const d = selectedMarkerData;
+      closeDetail();
+      openForm(d.title, d.lat, d.lng, d);
+    });
+
+    btnDelete.addEventListener('click', async () => {
+      if (!selectedMarkerData) return;
+      if (!confirm(`确定要删除「${selectedMarkerData.title}」吗？`)) return;
+      try {
+        const res = await fetch(`api/map?id=${selectedMarkerData.id}`, { method: 'DELETE' });
+        if (!res.ok) { alert('删除失败'); return; }
+        closeDetail();
+        await loadMarkers();
+      } catch (e) { alert('网络错误'); }
+    });
+
+    // ===== Render Markers =====
+    function clearMarkers() {
+      markers.forEach(m => map.remove(m));
+      markers = [];
+      if (polyline) { map.remove(polyline); polyline = null; }
+    }
+
+    function renderMarkers(data) {
+      clearMarkers();
+      allData = data;
+      markerCountEl.textContent = `已标记 ${data.length} 个地点`;
+
+      data.forEach(item => {
+        const content = document.createElement('div');
+        content.className = 'love-marker';
+        content.textContent = '💕';
+
+        const marker = new AMap.Marker({
+          position: [item.lng, item.lat],
+          content: content,
+          offset: new AMap.Pixel(-16, -16),
+          extData: item
+        });
+
+        marker.on('click', () => openDetail(item));
+        map.add(marker);
+        markers.push(marker);
+      });
+
+      // Draw route line sorted by date
+      const sorted = [...data].filter(d => d.visit_date).sort((a, b) => a.visit_date.localeCompare(b.visit_date));
+      if (sorted.length >= 2) {
+        const path = sorted.map(d => [d.lng, d.lat]);
+        polyline = new AMap.Polyline({
+          path,
+          strokeColor: 'rgba(255,107,157,0.6)',
+          strokeWeight: 2,
+          strokeStyle: 'dashed',
+          lineJoin: 'round'
+        });
+        map.add(polyline);
+      }
+
+      // Auto fit view
+      if (data.length > 0) {
+        map.setFitView(markers, false, [80, 80, 80, 80]);
+      }
+    }
+
+    // ===== Load Data =====
+    async function loadMarkers() {
+      try {
+        const res = await fetch('api/map');
+        const data = await res.json();
+        renderMarkers(Array.isArray(data) ? data : []);
+      } catch (e) {
+        markerCountEl.textContent = '加载失败';
+      }
+    }
+
+    // ===== Theme Support =====
+    (function loadTheme() {
+      try {
+        const saved = localStorage.getItem('love_theme');
+        if (saved) {
+          const t = JSON.parse(saved);
+          if (t && t.vars) {
+            Object.entries(t.vars).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
+          }
+        }
+      } catch(e) {}
+    })();
+
+    // ===== Init =====
+    loadMarkers();
+  </script>
+</body>
+</html>

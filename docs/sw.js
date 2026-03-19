@@ -1,4 +1,4 @@
-const CACHE_NAME = 'love-page-v2';
+const CACHE_NAME = 'love-page-v4';
 const STATIC_ASSETS = [
   '/index.html',
   '/login.html',
@@ -7,6 +7,8 @@ const STATIC_ASSETS = [
   '/mood.html',
   '/letter.html',
   '/wishes.html',
+  '/map.html',
+  '/music.html',
   '/manifest.json'
 ];
 

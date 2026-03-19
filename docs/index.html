@@ -376,8 +376,8 @@
       }
 
       .danmu-item {
-        position: absolute;
-        right: -20%;
+        position: fixed;
+        left: calc(100vw + 20px);
         top: 0;
         padding: 10px 18px;
         border-radius: 16px;
@@ -398,6 +398,7 @@
         align-items: center;
         gap: 10px;
         will-change: transform;
+        pointer-events: auto;
       }
 
       .danmu-item:hover {
@@ -433,15 +434,18 @@
       }
 
       @keyframes danmu-move {
-        from {
+        0% {
           transform: translateX(0);
           opacity: 0;
         }
-        6% {
+        3% {
           opacity: 1;
         }
-        to {
-          transform: translateX(-140vw);
+        95% {
+          opacity: 1;
+        }
+        100% {
+          transform: translateX(calc(-100vw - 100% - 40px));
           opacity: 0;
         }
       }
@@ -476,6 +480,15 @@
 
       .danmu-bar input::placeholder {
         color: var(--text-secondary);
+      }
+
+      .danmu-counter {
+        font-size: 12px;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        min-width: 36px;
+        text-align: center;
+        transition: color 0.2s ease;
       }
 
       .danmu-bar button {
@@ -1248,6 +1261,7 @@
         maxlength="40"
         autocomplete="off"
       />
+      <span class="danmu-counter" id="danmu-counter">0/40</span>
       <button type="button" id="danmu-send">发送</button>
       <button
         type="button"
@@ -1346,6 +1360,8 @@
       <a class="nav-btn" href="mood.html" title="心情">😊<span class="tooltip">心情日历</span></a>
       <a class="nav-btn" href="letter.html" title="情信">✉️<span class="tooltip">表白信</span></a>
       <a class="nav-btn" href="wishes.html" title="许愿">⭐<span class="tooltip">星空许愿</span></a>
+      <a class="nav-btn" href="map.html" title="地图">🗺️<span class="tooltip">恋爱足迹</span></a>
+      <a class="nav-btn" href="music.html" title="歌单">🎵<span class="tooltip">我们的歌</span></a>
       <button class="nav-btn" id="capsule-btn" type="button" title="时间胶囊">💌<span class="tooltip">时间胶囊</span></button>
       <button class="nav-btn" id="firework-btn" type="button" title="烟花">🎆<span class="tooltip">放烟花</span></button>
       <button class="nav-btn" id="theme-btn" type="button" title="主题">🎨<span class="tooltip">主题切换</span></button>
@@ -1385,21 +1401,27 @@
       const baseCount = 3;
       const bgm = document.getElementById("bgm");
 
-      // 播放列表
-      const playlist = [
-        {
-          audio: "audio/至上励合 - 棉花糖.mp3",
-          lrc: "audio/至上励合 - 棉花糖.lrc",
-          name: "棉花糖"
-        },
-        {
-          audio: "audio/建坤YOUNG,刘思鉴 - 声音.mp3",
-          lrc: "audio/建坤YOUNG,刘思鉴 - 声音.lrc",
-          name: "声音"
-        }
-      ];
+      // 播放列表（从API动态加载）
+      let playlist = [];
 
-      let currentSongIndex = 0;
+      // 从API加载歌单
+      async function loadPlaylistFromAPI() {
+        try {
+          const res = await fetch('api/music');
+          const songs = await res.json();
+          if (Array.isArray(songs) && songs.length > 0) {
+            playlist = songs.map(s => ({
+              name: s.song_name + ' - ' + s.artist,
+              netease_id: s.netease_id
+            }));
+            if (currentSongIndex < 0) currentSongIndex = 0;
+            loadSong(currentSongIndex);
+            renderPlaylist();
+          }
+        } catch (e) { /* 歌单加载失败，静默处理 */ }
+      }
+
+      let currentSongIndex = -1;
 
       const photoList = [];
       const photosEndpoint = "photos.json";
@@ -1466,6 +1488,7 @@
       const noteCard = document.getElementById("note-card");
       const noteClose = document.getElementById("note-close");
       const lyricsEl = document.getElementById("lyrics");
+      const DANMU_MAX_LEN = 40;
       const intervalMs = 3000;
       const danmuStorageKey = "love_danmu_history";
       const danmuSettingsKey = "love_danmu_settings";
@@ -1488,9 +1511,26 @@
       let danmuLoopList = [];
       let danmuLoopIndex = 0;
 
-      // 初始化第一首歌
-      bgm.src = encodeURI(playlist[0].audio);
+      // 初始化：从API加载歌单
       bgm.volume = 0.6;
+      loadPlaylistFromAPI();
+
+      // 页面加载时恢复 music.html 的播放状态
+      (function resumeFromMusicPage() {
+        try {
+          const state = JSON.parse(localStorage.getItem('music_playing') || '{}');
+          if (state.url && state.isPlaying) {
+            bgm.src = state.url;
+            if (state.currentTime) bgm.currentTime = state.currentTime;
+            bgm.play().then(() => {
+              playing = true;
+              if (typeof lyricsEl !== 'undefined' && state.song_name) {
+                lyricsEl.textContent = `♪ ${state.song_name} - ${state.artist || ''}`;
+              }
+            }).catch(() => {});
+          }
+        } catch(e) {}
+      })();
 
       // 加载歌曲和歌词
       function loadSong(index) {
@@ -1499,27 +1539,48 @@
         currentSongIndex = index;
         const song = playlist[index];
 
-        bgm.src = encodeURI(song.audio);
-
-        // 加载歌词
-        fetch(encodeURI(song.lrc))
-          .then((response) => response.text())
-          .then((text) => {
-            lyricLines = parseLrc(text);
-            lyricIndex = -1;
-            console.log(`歌词加载成功: ${song.name}, 共${lyricLines.length}行`);
-            if (lyricLines.length > 0) {
-              console.log('前3行歌词:', lyricLines.slice(0, 3));
-              lyricsEl.textContent = `♪ ${song.name}`;
-            } else {
-              lyricsEl.textContent = `正在播放：${song.name}`;
-            }
-          })
-          .catch((err) => {
-            console.error('歌词加载失败:', err);
+        // 通过 Meting API 获取播放链接
+        if (song.netease_id) {
+          const platform = song.platform || 'netease';
+          fetch(`api/music/url?id=${song.netease_id}&platform=${platform}`)
+            .then(r => r.json())
+            .then(data => {
+              if (data.url) {
+                bgm.src = data.url;
+                if (playing) bgm.play().catch(() => {});
+                // 同步播放状态到 localStorage
+                localStorage.setItem('music_playing', JSON.stringify({
+                  url: data.url, song_name: song.name, artist: song.artist || '',
+                  platform: platform, netease_id: song.netease_id, isPlaying: playing
+                }));
+              }
+            })
+            .catch(() => {});
+          lyricLines = [];
+          lyricsEl.textContent = `♪ ${song.name}`;
+        } else if (song.audio) {
+          bgm.src = encodeURI(song.audio);
+          if (song.lrc) {
+            fetch(encodeURI(song.lrc))
+              .then(r => r.text())
+              .then(text => {
+                lyricLines = parseLrc(text);
+                lyricIndex = -1;
+                if (lyricLines.length > 0) {
+                  lyricsEl.textContent = `♪ ${song.name}`;
+                } else {
+                  lyricsEl.textContent = `正在播放：${song.name}`;
+                }
+              })
+              .catch(() => {
+                lyricLines = [];
+                lyricsEl.textContent = `正在播放：${song.name}`;
+              });
+          } else {
             lyricLines = [];
-            lyricsEl.textContent = `正在播放：${song.name}`;
-          });
+            lyricsEl.textContent = `♪ ${song.name}`;
+          }
+        }
       }
 
       // 播放模式: 'sequential', 'random', 'single'
@@ -2485,6 +2546,8 @@
         item.addEventListener("animationend", () => {
           item.remove();
         });
+        // 安全清除：防止 animationend 未触发导致弹幕卡屏
+        setTimeout(() => { if (item.parentNode) item.remove(); }, (duration + delayMs / 1000 + 2) * 1000);
         return item;
       }
 
@@ -2612,8 +2675,9 @@
           if (!raw) {
             return;
           }
-          const text = raw.slice(0, 40);
+          const text = raw.slice(0, DANMU_MAX_LEN);
           danmuInput.value = "";
+          updateDanmuCounter();
           const updated = loadDanmuHistory();
           updated.push(text);
           const trimmed = updated.slice(-maxDanmu);
@@ -2645,6 +2709,15 @@
             send();
           }
         });
+        danmuInput.addEventListener("input", updateDanmuCounter);
+      }
+
+      function updateDanmuCounter() {
+        const counter = document.getElementById("danmu-counter");
+        if (!counter || !danmuInput) return;
+        const len = danmuInput.value.length;
+        counter.textContent = `${len}/${DANMU_MAX_LEN}`;
+        counter.style.color = len >= DANMU_MAX_LEN ? "var(--primary)" : "";
       }
 
       function applyPhotoList(list) {
@@ -2711,12 +2784,11 @@
             slideshow.style.display = "";
             showPhoto(nextPhoto());
             startLoop();
-            bgm
-              .play()
-              .then(() => {
-                syncLyrics(bgm.currentTime);
-              })
-              .catch(() => {});
+            if (bgm.src) {
+              bgm.play().then(() => { syncLyrics(bgm.currentTime); }).catch(() => {});
+            } else {
+              loadSong(currentSongIndex);
+            }
           } else {
             stopLoop();
             bgm.pause();

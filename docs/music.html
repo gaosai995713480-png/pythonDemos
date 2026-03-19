@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>我们的歌单</title>
+  <style>
+    :root {
+      --primary: #ff6b9d; --secondary: #c44569; --accent: #ffc048;
+      --glass-bg: rgba(255,255,255,0.08); --glass-border: rgba(255,255,255,0.18);
+      --text-primary: #fff; --text-secondary: rgba(255,255,255,0.75);
+      --bg-grad-1: #ee7752; --bg-grad-2: #e73c7e; --bg-grad-3: #23a6d5; --bg-grad-4: #23d5ab;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    @keyframes gradient-shift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+    body {
+      min-height: 100vh;
+      background: linear-gradient(-45deg, var(--bg-grad-1), var(--bg-grad-2), var(--bg-grad-3), var(--bg-grad-4));
+      background-size: 400% 400%; animation: gradient-shift 15s ease infinite;
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .top-bar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 20px;
+      background: var(--glass-bg); backdrop-filter: blur(30px);
+      border-bottom: 1px solid var(--glass-border);
+    }
+    .back-btn {
+      text-decoration: none; color: #fff; font-size: 14px; font-weight: 600;
+      padding: 8px 16px; border-radius: 10px;
+      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+      transition: all 0.2s ease;
+    }
+    .back-btn:hover { background: rgba(255,255,255,0.18); transform: translateY(-1px); }
+    .top-bar h1 { font-size: 18px; font-weight: 700; }
+    .add-btn {
+      margin-left: auto; padding: 8px 18px; border-radius: 10px; border: none;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: #fff; font-weight: 600; cursor: pointer; font-size: 14px;
+      transition: all 0.2s;
+    }
+    .add-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(255,107,157,0.4); }
+
+    /* Player */
+    .player-section { margin-top: 70px; padding: 20px; }
+    .now-playing {
+      background: var(--glass-bg); backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border); border-radius: 16px;
+      padding: 16px 20px; text-align: center;
+    }
+    .now-playing-label { font-size: 12px; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .now-playing-song { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+    .now-playing-artist { font-size: 14px; color: var(--text-secondary); margin-bottom: 4px; }
+    .now-playing-platform { font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 12px; }
+    .player-controls {
+      display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 12px;
+    }
+    .player-controls button {
+      width: 40px; height: 40px; border-radius: 50%; border: none;
+      background: rgba(255,255,255,0.12); color: #fff; font-size: 18px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+    }
+    .player-controls button:hover { background: rgba(255,255,255,0.22); transform: scale(1.05); }
+    .player-controls .btn-main {
+      width: 52px; height: 52px; font-size: 22px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      box-shadow: 0 4px 16px rgba(255,107,157,0.4);
+    }
+    .player-controls .btn-main:hover { box-shadow: 0 6px 24px rgba(255,107,157,0.5); }
+    .player-progress { margin-top: 12px; display: flex; align-items: center; gap: 8px; }
+    .player-progress input[type=range] {
+      flex: 1; height: 4px; -webkit-appearance: none; appearance: none;
+      background: rgba(255,255,255,0.2); border-radius: 2px; outline: none;
+    }
+    .player-progress input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%;
+      background: var(--primary); cursor: pointer;
+    }
+    .player-progress span { font-size: 11px; color: var(--text-secondary); min-width: 36px; }
+    .no-song { color: var(--text-secondary); font-size: 14px; padding: 20px 0; }
+
+    /* Song List */
+    .song-list { padding: 0 20px 100px; }
+    .song-list h2 { font-size: 16px; font-weight: 600; margin: 20px 0 12px; color: var(--text-secondary); }
+    .song-item {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 16px; margin-bottom: 8px;
+      background: var(--glass-bg); backdrop-filter: blur(10px);
+      border: 1px solid var(--glass-border); border-radius: 14px;
+      transition: all 0.2s; cursor: pointer;
+    }
+    .song-item:hover { background: rgba(255,255,255,0.12); }
+    .song-item.is-playing { border-color: var(--primary); background: rgba(255,107,157,0.1); }
+    .song-icon { font-size: 22px; flex-shrink: 0; }
+    .song-info { flex: 1; min-width: 0; }
+    .song-name { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .song-artist { font-size: 13px; color: var(--text-secondary); }
+    .song-platform-tag { font-size: 10px; color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
+    .song-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .song-actions button {
+      width: 34px; height: 34px; border-radius: 50%; border: none;
+      background: rgba(255,255,255,0.1); color: #fff; font-size: 16px;
+      cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center;
+    }
+    .song-actions button:hover { background: rgba(255,255,255,0.2); }
+    .song-actions .btn-del:hover { background: rgba(220,38,38,0.3); color: #f87171; }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
+    .empty-state .emoji { font-size: 48px; margin-bottom: 16px; }
+
+    /* Form Modal */
+    .form-backdrop {
+      position: fixed; inset: 0; z-index: 30;
+      background: rgba(0,0,0,0.5); opacity: 0; pointer-events: none;
+      transition: opacity 0.3s; display: flex; align-items: center; justify-content: center;
+    }
+    .form-backdrop.is-visible { opacity: 1; pointer-events: auto; }
+    .form-card {
+      width: 92%; max-width: 460px; max-height: 85vh; overflow-y: auto;
+      background: rgba(30,30,50,0.96); backdrop-filter: blur(30px);
+      border: 1px solid var(--glass-border); border-radius: 20px;
+      padding: 28px 24px; transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .form-backdrop.is-visible .form-card { transform: scale(1); }
+    .form-card h2 { font-size: 18px; font-weight: 700; margin-bottom: 20px; text-align: center; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
+    .form-group input, .form-group select {
+      width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--glass-border);
+      background: rgba(255,255,255,0.06); color: #fff; font-size: 14px; outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: var(--primary); }
+    .form-group select option { background: #1e1e32; color: #fff; }
+    .form-hint { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+    .form-btns { display: flex; gap: 12px; margin-top: 20px; }
+    .form-btns button {
+      flex: 1; padding: 12px; border-radius: 12px; border: none;
+      font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-cancel { background: rgba(255,255,255,0.1); color: #fff; }
+    .btn-save {
+      background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #fff;
+      box-shadow: 0 4px 16px rgba(255,107,157,0.3);
+    }
+    .btn-save:hover { transform: translateY(-1px); }
+    .btn-search {
+      background: linear-gradient(135deg, #23a6d5, #23d5ab); color: #fff;
+      box-shadow: 0 4px 16px rgba(35,166,213,0.3);
+    }
+
+    /* Search results */
+    .search-results { margin-top: 12px; max-height: 280px; overflow-y: auto; }
+    .search-item {
+      display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+      background: rgba(255,255,255,0.04); border: 1px solid transparent;
+      border-radius: 10px; margin-bottom: 6px; cursor: pointer; transition: all 0.2s;
+    }
+    .search-item:hover { background: rgba(255,255,255,0.1); border-color: var(--glass-border); }
+    .search-item.selected { border-color: var(--primary); background: rgba(255,107,157,0.1); }
+    .search-item-info { flex: 1; min-width: 0; }
+    .search-item-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .search-item-artist { font-size: 12px; color: var(--text-secondary); }
+    .search-item-album { font-size: 11px; color: rgba(255,255,255,0.4); }
+    .search-loading { text-align: center; padding: 20px; color: var(--text-secondary); font-size: 13px; }
+    .search-empty { text-align: center; padding: 20px; color: var(--text-secondary); font-size: 13px; }
+
+    /* Mode tabs */
+    .mode-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .mode-tab {
+      flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--glass-border);
+      background: transparent; color: var(--text-secondary); font-size: 13px; font-weight: 600;
+      cursor: pointer; text-align: center; transition: all 0.2s;
+    }
+    .mode-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    /* Loading spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <a class="back-btn" href="index.html">← 返回</a>
+    <h1>🎵 我们的歌单</h1>
+    <button class="add-btn" id="add-btn">+ 添加</button>
+  </div>
+
+  <div class="player-section">
+    <div class="now-playing" id="now-playing">
+      <div class="now-playing-label">♪ 正在播放</div>
+      <div class="now-playing-song" id="np-song">暂无歌曲</div>
+      <div class="now-playing-artist" id="np-artist"></div>
+      <div class="now-playing-platform" id="np-platform"></div>
+      <div class="player-controls">
+        <button id="pc-prev" title="上一首">⏮</button>
+        <button class="btn-main" id="pc-toggle" title="播放/暂停">▶</button>
+        <button id="pc-next" title="下一首">⏭</button>
+      </div>
+      <div class="player-progress">
+        <span id="pc-current">0:00</span>
+        <input type="range" id="pc-seek" min="0" max="100" value="0" step="0.1" />
+        <span id="pc-duration">0:00</span>
+      </div>
+    </div>
+    <audio id="music-audio" preload="auto"></audio>
+  </div>
+
+  <div class="song-list" id="song-list">
+    <h2>歌曲列表</h2>
+    <div id="list-container"></div>
+  </div>
+
+  <!-- Form Modal -->
+  <div class="form-backdrop" id="form-backdrop">
+    <div class="form-card">
+      <h2>🎵 添加歌曲</h2>
+      <!-- Mode tabs -->
+      <div class="mode-tabs">
+        <button class="mode-tab active" data-mode="search">🔍 搜索添加</button>
+        <button class="mode-tab" data-mode="id">🔢 ID 添加</button>
+      </div>
+
+      <!-- Search mode -->
+      <div id="mode-search">
+        <div class="form-group">
+          <label>音乐平台</label>
+          <select id="search-platform">
+            <option value="netease">🎵 网易云音乐</option>
+            <option value="tencent">🎶 QQ 音乐</option>
+            <option value="kugou">🎧 酷狗音乐</option>
+            <option value="kuwo">🎤 酷我音乐</option>
+            <option value="baidu">🎼 千千音乐</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>搜索歌名或歌手 *</label>
+          <input type="text" id="search-keyword" placeholder="如：周杰伦 晴天" maxlength="100" />
+        </div>
+        <div class="form-btns" style="margin-bottom: 12px;">
+          <button class="btn-search" id="btn-do-search">🔍 搜索</button>
+        </div>
+        <div id="search-results-wrap"></div>
+        <div class="form-btns">
+          <button class="btn-cancel" id="btn-cancel-search">取消</button>
+          <button class="btn-save" id="btn-add-selected" style="display:none;">添加选中</button>
+        </div>
+      </div>
+
+      <!-- ID mode (hidden by default) -->
+      <div id="mode-id" style="display:none;">
+        <div class="form-group">
+          <label>音乐平台</label>
+          <select id="id-platform">
+            <option value="netease">🎵 网易云音乐</option>
+            <option value="tencent">🎶 QQ 音乐</option>
+            <option value="kugou">🎧 酷狗音乐</option>
+            <option value="kuwo">🎤 酷我音乐</option>
+            <option value="baidu">🎼 千千音乐</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>歌曲 ID *</label>
+          <input type="text" id="form-nid" placeholder="平台歌曲ID" maxlength="30" />
+        </div>
+        <div class="form-group">
+          <label>歌曲名（可选，留空自动获取）</label>
+          <input type="text" id="form-song" placeholder="自动获取" maxlength="100" />
+        </div>
+        <div class="form-group">
+          <label>歌手（可选，留空自动获取）</label>
+          <input type="text" id="form-artist" placeholder="自动获取" maxlength="100" />
+        </div>
+        <div class="form-btns">
+          <button class="btn-cancel" id="btn-cancel-id">取消</button>
+          <button class="btn-save" id="btn-save-id">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Auth
+    fetch('auth/status').then(r => r.json()).then(d => {
+      if (!d.authenticated) window.location.replace('login.html');
+    }).catch(() => window.location.replace('login.html'));
+
+    const PLATFORM_NAMES = { netease: '网易云', tencent: 'QQ音乐', kugou: '酷狗', kuwo: '酷我', baidu: '千千' };
+
+    // State
+    let songs = [];
+    let currentIndex = -1;
+    let selectedSearchItem = null;
+
+    // DOM
+    const listContainer = document.getElementById('list-container');
+    const npSong = document.getElementById('np-song');
+    const npArtist = document.getElementById('np-artist');
+    const npPlatform = document.getElementById('np-platform');
+    const formBackdrop = document.getElementById('form-backdrop');
+    const audio = document.getElementById('music-audio');
+    const pcToggle = document.getElementById('pc-toggle');
+    const pcSeek = document.getElementById('pc-seek');
+    const pcCurrent = document.getElementById('pc-current');
+    const pcDuration = document.getElementById('pc-duration');
+    let isPlaying = false;
+
+    function fmtTime(s) {
+      if (!s || !isFinite(s)) return '0:00';
+      const m = Math.floor(s / 60);
+      const sec = Math.floor(s % 60);
+      return m + ':' + (sec < 10 ? '0' : '') + sec;
+    }
+
+    // Audio events
+    audio.addEventListener('timeupdate', () => {
+      if (!audio.duration) return;
+      pcCurrent.textContent = fmtTime(audio.currentTime);
+      if (!pcSeek._dragging) pcSeek.value = (audio.currentTime / audio.duration * 100).toFixed(1);
+    });
+    audio.addEventListener('loadedmetadata', () => { pcDuration.textContent = fmtTime(audio.duration); });
+    audio.addEventListener('ended', () => nextSong());
+    pcSeek.addEventListener('mousedown', () => pcSeek._dragging = true);
+    pcSeek.addEventListener('mouseup', () => { pcSeek._dragging = false; audio.currentTime = pcSeek.value / 100 * audio.duration; });
+    pcSeek.addEventListener('input', () => { if (pcSeek._dragging) pcCurrent.textContent = fmtTime(pcSeek.value / 100 * audio.duration); });
+
+    pcToggle.addEventListener('click', () => {
+      if (!songs.length) return;
+      if (isPlaying) { audio.pause(); isPlaying = false; pcToggle.textContent = '▶'; }
+      else { if (currentIndex < 0) playSong(0); else audio.play().catch(()=>{}); isPlaying = true; pcToggle.textContent = '⏸'; }
+    });
+    document.getElementById('pc-prev').addEventListener('click', () => {
+      if (!songs.length) return;
+      playSong((currentIndex - 1 + songs.length) % songs.length);
+    });
+    document.getElementById('pc-next').addEventListener('click', () => nextSong());
+
+    // Load songs
+    async function loadSongs() {
+      try {
+        const res = await fetch('api/music');
+        songs = await res.json();
+        renderList();
+        if (songs.length > 0 && currentIndex < 0) {
+          playSong(0);
+        } else if (songs.length === 0) {
+          npSong.textContent = '暂无歌曲';
+          npArtist.textContent = '点击右上角添加';
+          npPlatform.textContent = '';
+          pcToggle.textContent = '▶';
+        }
+      } catch (e) {
+        listContainer.innerHTML = '<div class="empty-state">加载失败</div>';
+      }
+    }
+
+    function renderList() {
+      if (songs.length === 0) {
+        listContainer.innerHTML = `
+          <div class="empty-state">
+            <div class="emoji">🎵</div>
+            <div>还没有歌曲，点击右上角添加吧</div>
+          </div>`;
+        return;
+      }
+      listContainer.innerHTML = songs.map((s, i) => `
+        <div class="song-item ${i === currentIndex ? 'is-playing' : ''}" data-index="${i}">
+          <span class="song-icon">${i === currentIndex ? '🎵' : '♪'}</span>
+          <div class="song-info">
+            <div class="song-name">${esc(s.song_name)}<span class="song-platform-tag">${PLATFORM_NAMES[s.platform] || s.platform}</span></div>
+            <div class="song-artist">${esc(s.artist)}</div>
+          </div>
+          <div class="song-actions">
+            <button class="btn-play" title="播放" data-index="${i}">▶</button>
+            <button class="btn-del" title="删除" data-id="${s.id}">✕</button>
+          </div>
+        </div>
+      `).join('');
+
+      listContainer.querySelectorAll('.btn-play').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.stopPropagation(); playSong(parseInt(btn.dataset.index)); });
+      });
+      listContainer.querySelectorAll('.btn-del').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          if (!confirm('确定要删除这首歌吗？')) return;
+          try {
+            await fetch(`api/music?id=${btn.dataset.id}`, { method: 'DELETE' });
+            currentIndex = -1;
+            await loadSongs();
+          } catch (e) { alert('删除失败'); }
+        });
+      });
+      listContainer.querySelectorAll('.song-item').forEach(el => {
+        el.addEventListener('click', () => playSong(parseInt(el.dataset.index)));
+      });
+    }
+
+    async function playSong(index) {
+      if (index < 0 || index >= songs.length) return;
+      currentIndex = index;
+      const s = songs[index];
+      npSong.textContent = s.song_name;
+      npArtist.textContent = s.artist;
+      npPlatform.textContent = PLATFORM_NAMES[s.platform] || s.platform;
+
+      // 通过后端 API 获取播放链接
+      try {
+        const res = await fetch(`api/music/url?id=${s.netease_id}&platform=${s.platform || 'netease'}`);
+        const data = await res.json();
+        if (data.url) {
+          audio.src = data.url;
+          audio.play().then(() => { isPlaying = true; pcToggle.textContent = '⏸'; })
+            .catch(() => { isPlaying = false; pcToggle.textContent = '▶'; });
+          // 保存播放状态到 localStorage，供 index.html 恢复
+          localStorage.setItem('music_playing', JSON.stringify({
+            url: data.url, song_name: s.song_name, artist: s.artist,
+            platform: s.platform, netease_id: s.netease_id, isPlaying: true
+          }));
+        } else {
+          pcToggle.textContent = '▶';
+          isPlaying = false;
+        }
+      } catch (e) {
+        pcToggle.textContent = '▶';
+        isPlaying = false;
+      }
+      renderList();
+    }
+
+    function nextSong() {
+      if (songs.length === 0) return;
+      playSong((currentIndex + 1) % songs.length);
+    }
+
+    // ===== Form: Mode tabs =====
+    document.querySelectorAll('.mode-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const mode = tab.dataset.mode;
+        document.getElementById('mode-search').style.display = mode === 'search' ? '' : 'none';
+        document.getElementById('mode-id').style.display = mode === 'id' ? '' : 'none';
+      });
+    });
+
+    // Open/close form
+    document.getElementById('add-btn').addEventListener('click', () => {
+      formBackdrop.classList.add('is-visible');
+      selectedSearchItem = null;
+      document.getElementById('search-results-wrap').innerHTML = '';
+      document.getElementById('btn-add-selected').style.display = 'none';
+    });
+    function closeForm() {
+      formBackdrop.classList.remove('is-visible');
+    }
+    document.getElementById('btn-cancel-search').addEventListener('click', closeForm);
+    document.getElementById('btn-cancel-id').addEventListener('click', closeForm);
+    formBackdrop.addEventListener('click', (e) => { if (e.target === formBackdrop) closeForm(); });
+
+    // ===== Search mode =====
+    document.getElementById('btn-do-search').addEventListener('click', doSearch);
+    document.getElementById('search-keyword').addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
+
+    async function doSearch() {
+      const keyword = document.getElementById('search-keyword').value.trim();
+      const platform = document.getElementById('search-platform').value;
+      if (!keyword) { alert('请输入搜索关键词'); return; }
+      const wrap = document.getElementById('search-results-wrap');
+      wrap.innerHTML = '<div class="search-loading"><span class="spinner"></span>搜索中...</div>';
+      document.getElementById('btn-add-selected').style.display = 'none';
+      selectedSearchItem = null;
+
+      try {
+        const res = await fetch(`api/music/search?keyword=${encodeURIComponent(keyword)}&platform=${platform}&limit=8`);
+        const data = await res.json();
+        if (!Array.isArray(data) || data.length === 0) {
+          wrap.innerHTML = '<div class="search-empty">未找到结果，试试其他关键词或平台</div>';
+          return;
+        }
+        wrap.innerHTML = '<div class="search-results">' + data.map((item, i) => `
+          <div class="search-item" data-idx="${i}">
+            <div class="search-item-info">
+              <div class="search-item-name">${esc(item.name || '未知')}</div>
+              <div class="search-item-artist">${esc(Array.isArray(item.artist) ? item.artist.join(', ') : (item.artist || ''))}</div>
+              <div class="search-item-album">${esc(item.album || '')}</div>
+            </div>
+          </div>
+        `).join('') + '</div>';
+        wrap._data = data;
+
+        wrap.querySelectorAll('.search-item').forEach(el => {
+          el.addEventListener('click', () => {
+            wrap.querySelectorAll('.search-item').forEach(x => x.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedSearchItem = data[parseInt(el.dataset.idx)];
+            document.getElementById('btn-add-selected').style.display = '';
+          });
+        });
+      } catch (e) {
+        wrap.innerHTML = '<div class="search-empty">搜索出错，请稍后重试</div>';
+      }
+    }
+
+    // Add selected search result
+    document.getElementById('btn-add-selected').addEventListener('click', async () => {
+      if (!selectedSearchItem) return;
+      const item = selectedSearchItem;
+      const platform = document.getElementById('search-platform').value;
+      try {
+        const body = {
+          netease_id: String(item.id || item.url_id || ''),
+          platform: platform,
+          song_name: item.name || '',
+          artist: Array.isArray(item.artist) ? item.artist.join(', ') : (item.artist || ''),
+        };
+        const res = await fetch('api/music', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) { alert('添加失败'); return; }
+        closeForm();
+        await loadSongs();
+      } catch (e) { alert('网络错误'); }
+    });
+
+    // ===== ID mode =====
+    document.getElementById('btn-save-id').addEventListener('click', async () => {
+      const netease_id = document.getElementById('form-nid').value.trim();
+      const platform = document.getElementById('id-platform').value;
+      if (!netease_id) { alert('请填写歌曲ID'); return; }
+      try {
+        const body = { netease_id, platform };
+        const song_name = document.getElementById('form-song').value.trim();
+        const artist = document.getElementById('form-artist').value.trim();
+        if (song_name) body.song_name = song_name;
+        if (artist) body.artist = artist;
+        const res = await fetch('api/music', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) { alert('添加失败'); return; }
+        closeForm();
+        document.getElementById('form-nid').value = '';
+        document.getElementById('form-song').value = '';
+        document.getElementById('form-artist').value = '';
+        await loadSongs();
+      } catch (e) { alert('网络错误'); }
+    });
+
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    // 离开页面前保存播放进度
+    window.addEventListener('beforeunload', () => {
+      if (audio.src && currentIndex >= 0 && currentIndex < songs.length) {
+        const s = songs[currentIndex];
+        const state = JSON.parse(localStorage.getItem('music_playing') || '{}');
+        state.currentTime = audio.currentTime;
+        state.isPlaying = isPlaying;
+        localStorage.setItem('music_playing', JSON.stringify(state));
+      }
+    });
+
+    // Theme
+    (function() {
+      try {
+        const saved = localStorage.getItem('love_theme');
+        if (saved) {
+          const t = JSON.parse(saved);
+          if (t && t.vars) Object.entries(t.vars).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
+        }
+      } catch(e) {}
+    })();
+
+    loadSongs();
+  </script>
+</body>
+</html>
