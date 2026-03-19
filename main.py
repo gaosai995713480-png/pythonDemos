@@ -1044,6 +1044,26 @@ def run_love_page(args: argparse.Namespace) -> None:
                 self._send_json({"url": url})
                 return
 
+            # ===== Meting 歌词 =====
+            if path == "/api/music/lyric":
+                query = parse_qs(parsed.query)
+                song_id = query.get("id", [""])[0].strip()
+                platform = query.get("platform", ["netease"])[0].strip()
+                if not song_id:
+                    self._send_json({"error": "id is required"}, 400)
+                    return
+                if platform not in METING_PLATFORMS:
+                    platform = "netease"
+                result = call_meting("lyric", platform=platform, id=song_id)
+                lyric_data = {"lyric": "", "tlyric": ""}
+                if result.get("ok"):
+                    data = result.get("data", {})
+                    if isinstance(data, dict):
+                        lyric_data["lyric"] = data.get("lyric", "")
+                        lyric_data["tlyric"] = data.get("tlyric", "")
+                self._send_json(lyric_data)
+                return
+
             super().do_GET()
 
         def do_POST(self) -> None:

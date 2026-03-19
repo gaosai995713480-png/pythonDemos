@@ -82,6 +82,65 @@
     .player-progress span { font-size: 11px; color: var(--text-secondary); min-width: 36px; }
     .no-song { color: var(--text-secondary); font-size: 14px; padding: 20px 0; }
 
+    /* Lyrics */
+    .lyric-section {
+      margin-top: 12px;
+      background: var(--glass-bg); backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border); border-radius: 16px;
+      overflow: hidden; transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .lyric-toggle {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      width: 100%; padding: 10px 16px; border: none; background: transparent;
+      color: var(--text-secondary); font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: color 0.2s;
+    }
+    .lyric-toggle:hover { color: var(--text-primary); }
+    .lyric-toggle .arrow { transition: transform 0.3s; display: inline-block; }
+    .lyric-toggle.expanded .arrow { transform: rotate(180deg); }
+    .lyric-container {
+      max-height: 0; overflow: hidden;
+      transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .lyric-container.expanded { max-height: 320px; }
+    .lyric-scroll {
+      height: 300px; overflow-y: auto; padding: 0 20px 16px;
+      scroll-behavior: smooth;
+      -ms-overflow-style: none; scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.15) transparent;
+    }
+    .lyric-scroll::-webkit-scrollbar { width: 4px; }
+    .lyric-scroll::-webkit-scrollbar-track { background: transparent; }
+    .lyric-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+    .lyric-line {
+      padding: 6px 8px; font-size: 14px; color: rgba(255,255,255,0.4);
+      text-align: center; border-radius: 8px; cursor: pointer;
+      transition: all 0.3s ease; line-height: 1.6;
+    }
+    .lyric-line:hover { color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.04); }
+    .lyric-line.active {
+      color: #fff; font-size: 15px; font-weight: 600;
+      text-shadow: 0 0 12px rgba(255,107,157,0.6);
+      background: rgba(255,107,157,0.08);
+    }
+    .lyric-line.active::before {
+      content: ''; display: inline-block; width: 4px; height: 4px;
+      background: var(--primary); border-radius: 50%; margin-right: 6px;
+      vertical-align: middle; animation: lyric-dot-pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes lyric-dot-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.6); }
+    }
+    .lyric-empty {
+      text-align: center; padding: 40px 20px; color: rgba(255,255,255,0.35);
+      font-size: 14px;
+    }
+    .lyric-loading {
+      text-align: center; padding: 30px 20px; color: var(--text-secondary);
+      font-size: 13px;
+    }
+
     /* Song List */
     .song-list { padding: 0 20px 100px; }
     .song-list h2 { font-size: 16px; font-weight: 600; margin: 20px 0 12px; color: var(--text-secondary); }
@@ -206,6 +265,14 @@
       </div>
     </div>
     <audio id="music-audio" preload="auto"></audio>
+    <div class="lyric-section" id="lyric-section">
+      <button class="lyric-toggle" id="lyric-toggle">🎤 歌词 <span class="arrow">▼</span></button>
+      <div class="lyric-container" id="lyric-container">
+        <div class="lyric-scroll" id="lyric-scroll">
+          <div class="lyric-empty">播放歌曲后显示歌词</div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="song-list" id="song-list">
@@ -327,11 +394,114 @@
       return m + ':' + (sec < 10 ? '0' : '') + sec;
     }
 
+    // ===== 歌词相关状态 =====
+    let lyricLines = []; // [{time: 秒, text: '歌词'}]
+    let currentLyricIndex = -1;
+    let lyricExpanded = false;
+    const lyricToggle = document.getElementById('lyric-toggle');
+    const lyricContainer = document.getElementById('lyric-container');
+    const lyricScroll = document.getElementById('lyric-scroll');
+
+    lyricToggle.addEventListener('click', () => {
+      lyricExpanded = !lyricExpanded;
+      lyricContainer.classList.toggle('expanded', lyricExpanded);
+      lyricToggle.classList.toggle('expanded', lyricExpanded);
+    });
+
+    // 解析 LRC 歌词
+    function parseLRC(lrcText) {
+      if (!lrcText) return [];
+      const lines = [];
+      const regex = /\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\](.*)$/;
+      lrcText.split('\n').forEach(line => {
+        const match = line.match(regex);
+        if (match) {
+          const min = parseInt(match[1]);
+          const sec = parseInt(match[2]);
+          const ms = match[3] ? parseInt(match[3].padEnd(3, '0')) : 0;
+          const time = min * 60 + sec + ms / 1000;
+          const text = match[4].trim();
+          if (text) lines.push({ time, text });
+        }
+      });
+      lines.sort((a, b) => a.time - b.time);
+      return lines;
+    }
+
+    // 渲染歌词
+    function renderLyrics() {
+      if (lyricLines.length === 0) {
+        lyricScroll.innerHTML = '<div class="lyric-empty">🎵 暂无歌词</div>';
+        return;
+      }
+      lyricScroll.innerHTML = lyricLines.map((l, i) =>
+        `<div class="lyric-line" data-index="${i}">${esc(l.text)}</div>`
+      ).join('');
+      lyricScroll.querySelectorAll('.lyric-line').forEach(el => {
+        el.addEventListener('click', () => {
+          const idx = parseInt(el.dataset.index);
+          if (lyricLines[idx]) {
+            audio.currentTime = lyricLines[idx].time;
+            if (!isPlaying) {
+              audio.play().catch(() => {});
+              isPlaying = true;
+              pcToggle.textContent = '⏸';
+            }
+          }
+        });
+      });
+      currentLyricIndex = -1;
+    }
+
+    // 加载歌词
+    async function loadLyrics(songId, platform) {
+      lyricLines = [];
+      currentLyricIndex = -1;
+      lyricScroll.innerHTML = '<div class="lyric-loading"><span class="spinner"></span>加载歌词中...</div>';
+      try {
+        const res = await fetch(`api/music/lyric?id=${songId}&platform=${platform || 'netease'}`);
+        const data = await res.json();
+        lyricLines = parseLRC(data.lyric || '');
+        renderLyrics();
+        // 自动展开歌词
+        if (lyricLines.length > 0 && !lyricExpanded) {
+          lyricExpanded = true;
+          lyricContainer.classList.add('expanded');
+          lyricToggle.classList.add('expanded');
+        }
+      } catch (e) {
+        lyricScroll.innerHTML = '<div class="lyric-empty">🎵 歌词加载失败</div>';
+      }
+    }
+
+    // 更新歌词高亮
+    function updateLyricHighlight(currentTime) {
+      if (lyricLines.length === 0) return;
+      let idx = -1;
+      for (let i = lyricLines.length - 1; i >= 0; i--) {
+        if (currentTime >= lyricLines[i].time) { idx = i; break; }
+      }
+      if (idx === currentLyricIndex) return;
+      currentLyricIndex = idx;
+      const allLines = lyricScroll.querySelectorAll('.lyric-line');
+      allLines.forEach((el, i) => {
+        el.classList.toggle('active', i === idx);
+      });
+      // 自动滚动到当前歌词
+      if (idx >= 0 && allLines[idx]) {
+        const container = lyricScroll;
+        const target = allLines[idx];
+        const scrollTop = target.offsetTop - container.clientHeight / 2 + target.clientHeight / 2;
+        container.scrollTo({ top: Math.max(0, scrollTop), behavior: 'smooth' });
+      }
+    }
+
     // Audio events — 直接使用 iframe 内的 audio 元素
     audio.addEventListener('timeupdate', () => {
       if (!audio.duration) return;
       pcCurrent.textContent = fmtTime(audio.currentTime);
       if (!pcSeek._dragging) pcSeek.value = (audio.currentTime / audio.duration * 100).toFixed(1);
+      updateLyricHighlight(audio.currentTime);
     });
     audio.addEventListener('loadedmetadata', () => { pcDuration.textContent = fmtTime(audio.duration); });
     audio.addEventListener('ended', () => nextSong());
@@ -424,6 +594,9 @@
       npSong.textContent = s.song_name;
       npArtist.textContent = s.artist;
       npPlatform.textContent = PLATFORM_NAMES[s.platform] || s.platform;
+
+      // 加载歌词
+      loadLyrics(s.netease_id, s.platform || 'netease');
 
       // 通过后端 API 获取播放链接
       try {
