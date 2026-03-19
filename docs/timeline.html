@@ -185,22 +185,13 @@
     </div>
   </div>
 
+  <script src="theme-switcher.js"></script>
   <script>
     const wrap = document.getElementById('timeline-wrap');
     const emptyState = document.getElementById('empty-state');
     const modal = document.getElementById('modal');
     const backdrop = document.getElementById('modal-backdrop');
 
-    // Apply theme
-    (function() {
-      const saved = localStorage.getItem('love_theme');
-      if (saved) {
-        try {
-          const t = JSON.parse(saved);
-          if (t.vars) Object.entries(t.vars).forEach(([k,v]) => document.documentElement.style.setProperty(k, v));
-        } catch(e) {}
-      }
-    })();
 
     function showModal() {
       document.getElementById('f-date').value = new Date().toISOString().split('T')[0];

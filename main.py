@@ -440,6 +440,48 @@ def upsert_mood(
     return row_id
 
 
+# ==================== 星空许愿功能 ====================
+
+def ensure_wish_table(conn: "pymysql.connections.Connection", table: str) -> None:
+    sql = f"""
+    CREATE TABLE IF NOT EXISTS `{table}` (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        content VARCHAR(200) NOT NULL,
+        x FLOAT NOT NULL DEFAULT 0.5,
+        y FLOAT NOT NULL DEFAULT 0.5,
+        color VARCHAR(20) DEFAULT '#ffd700',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    """
+    with conn.cursor() as cursor:
+        cursor.execute(sql)
+
+
+def fetch_wishes(
+    conn: "pymysql.connections.Connection", table: str
+) -> List[dict]:
+    sql = f"SELECT id, content, x, y, color, created_at FROM `{table}` ORDER BY created_at DESC"
+    with conn.cursor() as cursor:
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+    return [{
+        "id": r[0], "content": r[1], "x": r[2], "y": r[3],
+        "color": r[4], "created_at": r[5].isoformat() if r[5] else None,
+    } for r in rows]
+
+
+def insert_wish(
+    conn: "pymysql.connections.Connection", table: str,
+    content: str, x: float, y: float, color: str
+) -> int:
+    sql = f"INSERT INTO `{table}` (content, x, y, color) VALUES (%s, %s, %s, %s)"
+    with conn.cursor() as cursor:
+        cursor.execute(sql, (content, x, y, color))
+        row_id = cursor.lastrowid
+    conn.commit()
+    return row_id
+
+
 def is_image_filename(name: str) -> bool:
     suffix = Path(name).suffix.lower()
     return suffix in IMAGE_EXTENSIONS
@@ -554,6 +596,7 @@ def run_love_page(args: argparse.Namespace) -> None:
     timeline_table = "love_timeline"
     capsule_table = "love_capsule"
     mood_table = "love_mood"
+    wish_table = "love_wish"
 
     try:
         ensure_database(build_server_config(args), danmu_db_name)
@@ -565,6 +608,7 @@ def run_love_page(args: argparse.Namespace) -> None:
             ensure_timeline_table(conn, timeline_table)
             ensure_capsule_table(conn, capsule_table)
             ensure_mood_table(conn, mood_table)
+            ensure_wish_table(conn, wish_table)
         finally:
             conn.close()
         danmu_ready = True
@@ -664,6 +708,7 @@ def run_love_page(args: argparse.Namespace) -> None:
                 "/api/capsules",
                 "/api/capsules/open",
                 "/api/mood",
+                "/api/wishes",
             }:
                 self._send_no_content()
                 return
@@ -760,6 +805,16 @@ def run_love_page(args: argparse.Namespace) -> None:
                 conn = pymysql.connect(**build_db_config(args, danmu_db_name))
                 try:
                     items = fetch_mood(conn, mood_table, year, month)
+                finally:
+                    conn.close()
+                self._send_json(items)
+                return
+
+            # ===== 星星许愿 API =====
+            if path == "/api/wishes":
+                conn = pymysql.connect(**build_db_config(args, danmu_db_name))
+                try:
+                    items = fetch_wishes(conn, wish_table)
                 finally:
                     conn.close()
                 self._send_json(items)
@@ -1016,6 +1071,29 @@ def run_love_page(args: argparse.Namespace) -> None:
                     row_id = upsert_mood(
                         conn, mood_table, mood_date, emoji, note, level
                     )
+                finally:
+                    conn.close()
+                self._send_json({"ok": True, "id": row_id})
+                return
+
+            # ===== 星星许愿 POST =====
+            if path == "/api/wishes":
+                body = self._read_body().decode("utf-8", errors="ignore")
+                try:
+                    payload = json.loads(body or "{}")
+                except json.JSONDecodeError:
+                    self._send_json({"error": "invalid json"}, 400)
+                    return
+                content = str(payload.get("content", "")).strip()
+                x = float(payload.get("x", 0.5))
+                y = float(payload.get("y", 0.5))
+                color = str(payload.get("color", "#ffd700")).strip()
+                if not content:
+                    self._send_json({"error": "content required"}, 400)
+                    return
+                conn = pymysql.connect(**build_db_config(args, danmu_db_name))
+                try:
+                    row_id = insert_wish(conn, wish_table, content, x, y, color)
                 finally:
                     conn.close()
                 self._send_json({"ok": True, "id": row_id})

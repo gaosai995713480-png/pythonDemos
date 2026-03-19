@@ -1,10 +1,12 @@
-const CACHE_NAME = 'love-page-v1';
+const CACHE_NAME = 'love-page-v2';
 const STATIC_ASSETS = [
   '/index.html',
   '/login.html',
   '/gallery.html',
   '/timeline.html',
   '/mood.html',
+  '/letter.html',
+  '/wishes.html',
   '/manifest.json'
 ];
 

@@ -120,6 +120,7 @@
     <button class="lightbox-nav lightbox-next" id="lb-next">›</button>
     <div class="lightbox-counter" id="lb-counter"></div>
   </div>
+  <script src="theme-switcher.js"></script>
   <script>
     const gallery = document.getElementById('gallery');
     const lightbox = document.getElementById('lightbox');
@@ -129,17 +130,6 @@
     const emptyState = document.getElementById('empty-state');
     let photos = [];
     let currentIndex = 0;
-
-    // Load theme from localStorage
-    (function applyTheme() {
-      const saved = localStorage.getItem('love_theme');
-      if (saved) {
-        try {
-          const t = JSON.parse(saved);
-          if (t.vars) Object.entries(t.vars).forEach(([k,v]) => document.documentElement.style.setProperty(k, v));
-        } catch(e) {}
-      }
-    })();
 
     async function loadPhotos() {
       try {

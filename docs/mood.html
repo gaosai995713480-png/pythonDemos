@@ -190,6 +190,7 @@
     </div>
   </div>
 
+  <script src="theme-switcher.js"></script>
   <script>
     const MOODS = ['😆','😊','😌','😐','😢','😤','🥰','😴','🤔','🎉'];
     const LEVEL_LABELS = ['低落','一般','还行','开心','超开心'];
@@ -199,16 +200,6 @@
     let selectedEmoji = '😊';
     let selectedLevel = 3;
 
-    // Apply theme
-    (function() {
-      const saved = localStorage.getItem('love_theme');
-      if (saved) {
-        try {
-          const t = JSON.parse(saved);
-          if (t.vars) Object.entries(t.vars).forEach(([k,v]) => document.documentElement.style.setProperty(k, v));
-        } catch(e) {}
-      }
-    })();
 
     function init() {
       const now = new Date();
