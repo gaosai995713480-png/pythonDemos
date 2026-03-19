@@ -5,6 +5,7 @@ Love page server with login, photos and danmu.
 from __future__ import annotations
 
 import argparse
+import datetime
 import functools
 import io
 import json
@@ -242,6 +243,203 @@ def ensure_default_password(
     conn.commit()
 
 
+# ==================== 时间轴功能 ====================
+
+def ensure_timeline_table(conn: "pymysql.connections.Connection", table: str) -> None:
+    sql = f"""
+    CREATE TABLE IF NOT EXISTS `{table}` (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        event_date DATE NOT NULL,
+        title VARCHAR(100) NOT NULL,
+        content TEXT,
+        photo_url VARCHAR(500),
+        icon VARCHAR(10) DEFAULT '💕',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    """
+    with conn.cursor() as cursor:
+        cursor.execute(sql)
+
+
+def fetch_timeline(
+    conn: "pymysql.connections.Connection", table: str
+) -> List[dict]:
+    sql = f"SELECT id, event_date, title, content, photo_url, icon FROM `{table}` ORDER BY event_date DESC"
+    with conn.cursor() as cursor:
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+    items = []
+    for row in rows:
+        items.append({
+            "id": row[0],
+            "event_date": row[1].isoformat() if row[1] else None,
+            "title": row[2],
+            "content": row[3],
+            "photo_url": row[4],
+            "icon": row[5] or "💕",
+        })
+    return items
+
+
+def insert_timeline(
+    conn: "pymysql.connections.Connection", table: str,
+    event_date: str, title: str, content: str, photo_url: str, icon: str
+) -> int:
+    sql = f"INSERT INTO `{table}` (event_date, title, content, photo_url, icon) VALUES (%s, %s, %s, %s, %s)"
+    with conn.cursor() as cursor:
+        cursor.execute(sql, (event_date, title, content, photo_url, icon))
+        row_id = cursor.lastrowid
+    conn.commit()
+    return row_id
+
+
+def delete_timeline(
+    conn: "pymysql.connections.Connection", table: str, row_id: int
+) -> bool:
+    sql = f"DELETE FROM `{table}` WHERE id = %s"
+    with conn.cursor() as cursor:
+        cursor.execute(sql, (row_id,))
+        affected = cursor.rowcount
+    conn.commit()
+    return affected > 0
+
+
+# ==================== 时间胶囊功能 ====================
+
+def ensure_capsule_table(conn: "pymysql.connections.Connection", table: str) -> None:
+    sql = f"""
+    CREATE TABLE IF NOT EXISTS `{table}` (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        content TEXT NOT NULL,
+        open_date DATE NOT NULL,
+        is_opened TINYINT NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    """
+    with conn.cursor() as cursor:
+        cursor.execute(sql)
+
+
+def fetch_capsules(
+    conn: "pymysql.connections.Connection", table: str
+) -> List[dict]:
+    sql = f"SELECT id, content, open_date, is_opened, created_at FROM `{table}` ORDER BY open_date ASC"
+    today = datetime.date.today()
+    with conn.cursor() as cursor:
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+    items = []
+    for row in rows:
+        open_date = row[2]
+        is_opened = bool(row[3])
+        can_open = open_date <= today if open_date else False
+        items.append({
+            "id": row[0],
+            "content": row[1] if (is_opened or can_open) else None,
+            "open_date": open_date.isoformat() if open_date else None,
+            "is_opened": is_opened,
+            "can_open": can_open,
+            "created_at": row[4].isoformat() if row[4] else None,
+        })
+    return items
+
+
+def insert_capsule(
+    conn: "pymysql.connections.Connection", table: str,
+    content: str, open_date: str
+) -> int:
+    sql = f"INSERT INTO `{table}` (content, open_date) VALUES (%s, %s)"
+    with conn.cursor() as cursor:
+        cursor.execute(sql, (content, open_date))
+        row_id = cursor.lastrowid
+    conn.commit()
+    return row_id
+
+
+def open_capsule(
+    conn: "pymysql.connections.Connection", table: str, row_id: int
+) -> Optional[dict]:
+    today = datetime.date.today()
+    select_sql = f"SELECT id, content, open_date, is_opened FROM `{table}` WHERE id = %s"
+    update_sql = f"UPDATE `{table}` SET is_opened = 1 WHERE id = %s"
+    with conn.cursor() as cursor:
+        cursor.execute(select_sql, (row_id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        open_date = row[2]
+        if open_date > today:
+            return {"error": "还没到开启日期哦", "can_open": False}
+        if not row[3]:
+            cursor.execute(update_sql, (row_id,))
+            conn.commit()
+        return {
+            "id": row[0],
+            "content": row[1],
+            "open_date": open_date.isoformat(),
+            "is_opened": True,
+        }
+
+
+# ==================== 心情打卡功能 ====================
+
+def ensure_mood_table(conn: "pymysql.connections.Connection", table: str) -> None:
+    sql = f"""
+    CREATE TABLE IF NOT EXISTS `{table}` (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        mood_date DATE NOT NULL UNIQUE,
+        emoji VARCHAR(10) NOT NULL DEFAULT '😊',
+        note VARCHAR(200),
+        level TINYINT NOT NULL DEFAULT 3,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    """
+    with conn.cursor() as cursor:
+        cursor.execute(sql)
+
+
+def fetch_mood(
+    conn: "pymysql.connections.Connection", table: str,
+    year: int, month: int
+) -> List[dict]:
+    start_date = f"{year:04d}-{month:02d}-01"
+    if month == 12:
+        end_date = f"{year + 1:04d}-01-01"
+    else:
+        end_date = f"{year:04d}-{month + 1:02d}-01"
+    sql = f"SELECT id, mood_date, emoji, note, level FROM `{table}` WHERE mood_date >= %s AND mood_date < %s ORDER BY mood_date ASC"
+    with conn.cursor() as cursor:
+        cursor.execute(sql, (start_date, end_date))
+        rows = cursor.fetchall()
+    items = []
+    for row in rows:
+        items.append({
+            "id": row[0],
+            "mood_date": row[1].isoformat() if row[1] else None,
+            "emoji": row[2],
+            "note": row[3],
+            "level": row[4],
+        })
+    return items
+
+
+def upsert_mood(
+    conn: "pymysql.connections.Connection", table: str,
+    mood_date: str, emoji: str, note: str, level: int
+) -> int:
+    level = max(1, min(5, level))
+    sql = f"""
+    INSERT INTO `{table}` (mood_date, emoji, note, level)
+    VALUES (%s, %s, %s, %s)
+    ON DUPLICATE KEY UPDATE emoji = VALUES(emoji), note = VALUES(note), level = VALUES(level)
+    """
+    with conn.cursor() as cursor:
+        cursor.execute(sql, (mood_date, emoji, note, level))
+        row_id = cursor.lastrowid
+    conn.commit()
+    return row_id
+
+
 def is_image_filename(name: str) -> bool:
     suffix = Path(name).suffix.lower()
     return suffix in IMAGE_EXTENSIONS
@@ -353,6 +551,9 @@ def run_love_page(args: argparse.Namespace) -> None:
     danmu_db_name = validate_identifier(args.danmu_db_name, "Danmu database name")
     danmu_table = validate_identifier(args.danmu_table, "Danmu table name")
     auth_table = validate_identifier(args.auth_table, "Auth table name")
+    timeline_table = "love_timeline"
+    capsule_table = "love_capsule"
+    mood_table = "love_mood"
 
     try:
         ensure_database(build_server_config(args), danmu_db_name)
@@ -361,6 +562,9 @@ def run_love_page(args: argparse.Namespace) -> None:
             ensure_danmu_table(conn, danmu_table)
             ensure_auth_table(conn, auth_table)
             ensure_default_password(conn, auth_table, "20231026")
+            ensure_timeline_table(conn, timeline_table)
+            ensure_capsule_table(conn, capsule_table)
+            ensure_mood_table(conn, mood_table)
         finally:
             conn.close()
         danmu_ready = True
@@ -456,6 +660,10 @@ def run_love_page(args: argparse.Namespace) -> None:
                 "/photos/upload-file",
                 "/danmu",
                 "/danmu/like",
+                "/api/timeline",
+                "/api/capsules",
+                "/api/capsules/open",
+                "/api/mood",
             }:
                 self._send_no_content()
                 return
@@ -519,6 +727,44 @@ def run_love_page(args: argparse.Namespace) -> None:
                     conn.close()
                 self._send_json(items)
                 return
+
+            # ===== 时间轴 API =====
+            if path == "/api/timeline":
+                conn = pymysql.connect(**build_db_config(args, danmu_db_name))
+                try:
+                    items = fetch_timeline(conn, timeline_table)
+                finally:
+                    conn.close()
+                self._send_json(items)
+                return
+
+            # ===== 时间胶囊 API =====
+            if path == "/api/capsules":
+                conn = pymysql.connect(**build_db_config(args, danmu_db_name))
+                try:
+                    items = fetch_capsules(conn, capsule_table)
+                finally:
+                    conn.close()
+                self._send_json(items)
+                return
+
+            # ===== 心情打卡 API =====
+            if path == "/api/mood":
+                query = parse_qs(parsed.query)
+                try:
+                    year = int(query.get("year", [str(datetime.date.today().year)])[0])
+                    month = int(query.get("month", [str(datetime.date.today().month)])[0])
+                except ValueError:
+                    year = datetime.date.today().year
+                    month = datetime.date.today().month
+                conn = pymysql.connect(**build_db_config(args, danmu_db_name))
+                try:
+                    items = fetch_mood(conn, mood_table, year, month)
+                finally:
+                    conn.close()
+                self._send_json(items)
+                return
+
             super().do_GET()
 
         def do_POST(self) -> None:
@@ -672,6 +918,109 @@ def run_love_page(args: argparse.Namespace) -> None:
                     }
                 )
                 return
+            # ===== 时间轴 POST =====
+            if path == "/api/timeline":
+                body = self._read_body().decode("utf-8", errors="ignore")
+                try:
+                    payload = json.loads(body or "{}")
+                except json.JSONDecodeError:
+                    self._send_json({"error": "invalid json"}, 400)
+                    return
+                event_date = str(payload.get("event_date", "")).strip()
+                title = str(payload.get("title", "")).strip()
+                content = str(payload.get("content", "")).strip()
+                photo_url = str(payload.get("photo_url", "")).strip()
+                icon = str(payload.get("icon", "💕")).strip() or "💕"
+                if not event_date or not title:
+                    self._send_json({"error": "event_date and title are required"}, 400)
+                    return
+                conn = pymysql.connect(**build_db_config(args, danmu_db_name))
+                try:
+                    row_id = insert_timeline(
+                        conn, timeline_table, event_date, title, content, photo_url, icon
+                    )
+                finally:
+                    conn.close()
+                self._send_json({"ok": True, "id": row_id})
+                return
+
+            # ===== 时间胶囊 POST =====
+            if path == "/api/capsules":
+                body = self._read_body().decode("utf-8", errors="ignore")
+                try:
+                    payload = json.loads(body or "{}")
+                except json.JSONDecodeError:
+                    self._send_json({"error": "invalid json"}, 400)
+                    return
+                content = str(payload.get("content", "")).strip()
+                open_date = str(payload.get("open_date", "")).strip()
+                if not content or not open_date:
+                    self._send_json({"error": "content and open_date are required"}, 400)
+                    return
+                conn = pymysql.connect(**build_db_config(args, danmu_db_name))
+                try:
+                    row_id = insert_capsule(conn, capsule_table, content, open_date)
+                finally:
+                    conn.close()
+                self._send_json({"ok": True, "id": row_id})
+                return
+
+            # ===== 打开时间胶囊 =====
+            if path == "/api/capsules/open":
+                body = self._read_body().decode("utf-8", errors="ignore")
+                try:
+                    payload = json.loads(body or "{}")
+                except json.JSONDecodeError:
+                    self._send_json({"error": "invalid json"}, 400)
+                    return
+                try:
+                    capsule_id = int(payload.get("id", 0))
+                except (ValueError, TypeError):
+                    capsule_id = 0
+                if capsule_id <= 0:
+                    self._send_json({"error": "invalid id"}, 400)
+                    return
+                conn = pymysql.connect(**build_db_config(args, danmu_db_name))
+                try:
+                    result = open_capsule(conn, capsule_table, capsule_id)
+                finally:
+                    conn.close()
+                if result is None:
+                    self._send_json({"error": "not found"}, 404)
+                    return
+                if "error" in result:
+                    self._send_json(result, 403)
+                    return
+                self._send_json({"ok": True, **result})
+                return
+
+            # ===== 心情打卡 POST =====
+            if path == "/api/mood":
+                body = self._read_body().decode("utf-8", errors="ignore")
+                try:
+                    payload = json.loads(body or "{}")
+                except json.JSONDecodeError:
+                    self._send_json({"error": "invalid json"}, 400)
+                    return
+                mood_date = str(payload.get("mood_date", "")).strip()
+                emoji = str(payload.get("emoji", "😊")).strip() or "😊"
+                note = str(payload.get("note", "")).strip()
+                try:
+                    level = int(payload.get("level", 3))
+                except (ValueError, TypeError):
+                    level = 3
+                if not mood_date:
+                    mood_date = datetime.date.today().isoformat()
+                conn = pymysql.connect(**build_db_config(args, danmu_db_name))
+                try:
+                    row_id = upsert_mood(
+                        conn, mood_table, mood_date, emoji, note, level
+                    )
+                finally:
+                    conn.close()
+                self._send_json({"ok": True, "id": row_id})
+                return
+
             if path != "/danmu":
                 super().do_POST()
                 return
@@ -700,6 +1049,36 @@ def run_love_page(args: argparse.Namespace) -> None:
             finally:
                 conn.close()
             self._send_json({"ok": True, "id": row_id, "likes": 0, "text": text})
+
+        def do_DELETE(self) -> None:
+            path = self._normalized_path()
+            parsed = urlparse(self.path)
+
+            if not self._is_authenticated():
+                self._send_json({"error": "unauthorized"}, 401)
+                return
+
+            if path == "/api/timeline":
+                query = parse_qs(parsed.query)
+                try:
+                    row_id = int(query.get("id", ["0"])[0])
+                except ValueError:
+                    row_id = 0
+                if row_id <= 0:
+                    self._send_json({"error": "invalid id"}, 400)
+                    return
+                conn = pymysql.connect(**build_db_config(args, danmu_db_name))
+                try:
+                    ok = delete_timeline(conn, timeline_table, row_id)
+                finally:
+                    conn.close()
+                if not ok:
+                    self._send_json({"error": "not found"}, 404)
+                    return
+                self._send_json({"ok": True})
+                return
+
+            self._send_json({"error": "not found"}, 404)
 
     handler = functools.partial(QuietHandler, directory=str(web_dir))
     with ThreadingHTTPServer((args.host, args.port), handler) as server:

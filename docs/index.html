@@ -6,6 +6,9 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
+    <meta name="theme-color" content="#e73c7e" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
     <title>心动告白</title>
     <style>
       :root {
@@ -1033,90 +1036,181 @@
         box-shadow: 0 6px 16px rgba(255, 107, 157, 0.4);
       }
 
+      /* ====== Love Counter ====== */
+      .love-counter {
+        margin: 24px 0 0;
+        padding: 20px 24px;
+        border-radius: 18px;
+        background: var(--glass-bg);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--glass-border);
+        text-align: center;
+        position: relative;
+        z-index: 3;
+      }
+      .love-counter .days-big {
+        font-size: clamp(36px, 6vw, 56px);
+        font-weight: 800;
+        background: linear-gradient(135deg, var(--primary), var(--accent));
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        background-clip: text; line-height: 1.2;
+      }
+      .love-counter .days-label {
+        font-size: 14px; color: var(--text-secondary); margin-top: 4px;
+      }
+      .anniversary-list {
+        margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+      }
+      .anniversary-item {
+        padding: 6px 14px; border-radius: 10px;
+        background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+        font-size: 12px; color: var(--text-secondary);
+      }
+      .anniversary-item .countdown { color: var(--accent); font-weight: 600; }
+
+      /* ====== Side Nav ====== */
+      .side-nav {
+        position: fixed; left: 20px; top: 50%; transform: translateY(-50%);
+        z-index: 5; display: flex; flex-direction: column; gap: 10px;
+      }
+      .nav-btn {
+        width: 44px; height: 44px; border-radius: 14px; border: none;
+        background: var(--glass-bg); backdrop-filter: blur(20px);
+        border: 1px solid var(--glass-border); color: #fff; font-size: 20px;
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+        transition: all 0.2s ease; text-decoration: none;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      }
+      .nav-btn:hover { transform: scale(1.1); background: rgba(255,255,255,0.15); }
+      .nav-btn .tooltip {
+        position: absolute; left: 54px; padding: 4px 10px; border-radius: 6px;
+        background: rgba(0,0,0,0.8); font-size: 12px; white-space: nowrap;
+        opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+      }
+      .nav-btn:hover .tooltip { opacity: 1; }
+
+      /* ====== Time Capsule ====== */
+      .capsule-backdrop {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+        z-index: 20; opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+      }
+      .capsule-backdrop.is-visible { opacity: 1; pointer-events: auto; }
+      .capsule-panel {
+        position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(0.95);
+        width: min(520px, 92vw); max-height: 80vh; overflow-y: auto;
+        padding: 28px; border-radius: 24px;
+        background: var(--glass-bg); backdrop-filter: blur(40px);
+        border: 1px solid var(--glass-border);
+        box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+        z-index: 21; opacity: 0; pointer-events: none;
+        transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+      }
+      .capsule-panel.is-visible { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
+      .capsule-panel h2 { font-size: 22px; margin-bottom: 16px; }
+      .capsule-card {
+        padding: 16px; border-radius: 14px; margin-bottom: 12px;
+        background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+        transition: all 0.2s ease;
+      }
+      .capsule-card.is-sealed {
+        text-align: center; cursor: default;
+      }
+      .capsule-card .seal-icon { font-size: 36px; margin-bottom: 8px; }
+      .capsule-card .seal-date { font-size: 12px; color: var(--accent); }
+      .capsule-card .seal-countdown { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+      .capsule-card.is-ready { cursor: pointer; border-color: var(--primary); }
+      .capsule-card.is-ready:hover { background: rgba(255,107,157,0.1); }
+      .capsule-card .opened-content { font-size: 15px; line-height: 1.7; white-space: pre-wrap; }
+      .capsule-card .opened-date { font-size: 12px; color: var(--text-secondary); margin-top: 8px; }
+      .capsule-form { margin-top: 16px; }
+      .capsule-form textarea, .capsule-form input {
+        width: 100%; padding: 10px 14px; border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.06);
+        color: #fff; font-size: 14px; outline: none; margin-bottom: 10px;
+      }
+      .capsule-form textarea { resize: vertical; min-height: 80px; }
+      .capsule-form button {
+        width: 100%; padding: 10px; border-radius: 12px; border: none;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: #fff; font-weight: 600; font-size: 14px; cursor: pointer;
+      }
+
+      /* ====== Theme Switcher ====== */
+      .theme-panel {
+        position: fixed; left: 74px; top: 50%; transform: translateY(-50%);
+        padding: 14px; border-radius: 18px;
+        background: var(--glass-bg); backdrop-filter: blur(30px);
+        border: 1px solid var(--glass-border);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        z-index: 6; opacity: 0; pointer-events: none;
+        transform: translateY(-50%) translateX(-10px);
+        transition: all 0.3s ease;
+      }
+      .theme-panel.is-visible { opacity: 1; pointer-events: auto; transform: translateY(-50%) translateX(0); }
+      .theme-option {
+        width: 36px; height: 36px; border-radius: 10px; margin-bottom: 8px;
+        border: 2px solid transparent; cursor: pointer;
+        transition: all 0.2s ease; position: relative;
+      }
+      .theme-option:last-child { margin-bottom: 0; }
+      .theme-option:hover { transform: scale(1.15); }
+      .theme-option.is-active { border-color: #fff; box-shadow: 0 0 12px rgba(255,255,255,0.3); }
+
+      /* ====== Playlist Panel ====== */
+      .playlist-panel {
+        position: fixed; right: 32px; bottom: 106px;
+        width: min(260px, 80vw); padding: 16px; border-radius: 18px;
+        background: var(--glass-bg); backdrop-filter: blur(30px);
+        border: 1px solid var(--glass-border);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        z-index: 4; opacity: 0; pointer-events: none;
+        transform: translateY(10px); transition: all 0.3s ease;
+      }
+      .playlist-panel.is-visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
+      .playlist-panel h3 { font-size: 14px; margin-bottom: 10px; color: var(--text-secondary); }
+      .playlist-item {
+        padding: 8px 12px; border-radius: 10px; font-size: 13px;
+        cursor: pointer; margin-bottom: 4px; transition: all 0.2s ease;
+      }
+      .playlist-item:hover { background: rgba(255,255,255,0.1); }
+      .playlist-item.is-playing { background: rgba(255,107,157,0.2); color: var(--primary); font-weight: 600; }
+      .play-mode-btn {
+        display: block; margin-top: 8px; padding: 6px 12px; border-radius: 8px;
+        border: 1px solid rgba(255,255,255,0.15); background: transparent;
+        color: var(--text-secondary); font-size: 12px; cursor: pointer;
+        transition: all 0.2s ease; width: 100%; text-align: center;
+      }
+      .play-mode-btn:hover { background: rgba(255,255,255,0.08); }
+
+      /* ====== Audio Visualizer ====== */
+      .audio-visualizer {
+        position: fixed; right: 32px; bottom: 106px;
+        width: 64px; height: 64px; pointer-events: none; z-index: 3;
+      }
+
       @media (max-width: 720px) {
-        body {
-          align-items: flex-start;
-          padding-top: 32px;
-        }
-
-        .stage {
-          padding: 32px 24px 160px;
-        }
-
-        .lyrics {
-          margin-bottom: 32px;
-          line-height: 1.6;
-          padding: 14px 20px;
-        }
-
-        .heart {
-          width: clamp(140px, 46vw, 200px);
-          height: clamp(140px, 46vw, 200px);
-          margin-top: 32px;
-          margin-bottom: 40px;
-        }
-
-        .slideshow {
-          right: 16px;
-          bottom: 100px;
-          width: clamp(150px, 46vw, 200px);
-          padding: 10px;
-        }
-
-        .play-button {
-          right: 16px;
-          bottom: 20px;
-          width: 56px;
-          height: 56px;
-          font-size: 20px;
-        }
-
-        .danmu-bar {
-          left: 16px;
-          right: 88px;
-          bottom: 20px;
-          padding: 12px 16px;
-        }
-
-        .danmu-item {
-          font-size: 14px;
-          padding: 8px 14px;
-        }
-
-        .danmu-settings {
-          left: 16px;
-          bottom: 88px;
-          width: min(300px, 88vw);
-        }
-
-        .weather-card {
-          left: 16px;
-          top: 20px;
-          padding: 16px 20px;
-          min-width: auto;
-        }
-
-        .logout-button {
-          right: 16px;
-          top: 20px;
-          height: 40px;
-          padding: 0 16px;
-          border-radius: 12px;
-          font-size: 13px;
-        }
-
-        .upload-button,
-        .folder-upload-button {
-          display: none;
-        }
-
-        .weather-icon {
-          font-size: 36px;
-        }
-
-        .weather-temp {
-          font-size: 32px;
-        }
+        body { align-items: flex-start; padding-top: 32px; }
+        .stage { padding: 32px 24px 160px; }
+        .lyrics { margin-bottom: 32px; line-height: 1.6; padding: 14px 20px; }
+        .heart { width: clamp(140px, 46vw, 200px); height: clamp(140px, 46vw, 200px); margin-top: 32px; margin-bottom: 40px; }
+        .slideshow { right: 16px; bottom: 100px; width: clamp(150px, 46vw, 200px); padding: 10px; }
+        .play-button { right: 16px; bottom: 20px; width: 56px; height: 56px; font-size: 20px; }
+        .danmu-bar { left: 16px; right: 88px; bottom: 20px; padding: 12px 16px; }
+        .danmu-item { font-size: 14px; padding: 8px 14px; }
+        .danmu-settings { left: 16px; bottom: 88px; width: min(300px, 88vw); }
+        .weather-card { left: 16px; top: 20px; padding: 16px 20px; min-width: auto; }
+        .logout-button { right: 16px; top: 20px; height: 40px; padding: 0 16px; border-radius: 12px; font-size: 13px; }
+        .upload-button, .folder-upload-button { display: none; }
+        .weather-icon { font-size: 36px; }
+        .weather-temp { font-size: 32px; }
+        .side-nav { left: auto; right: 12px; top: auto; bottom: 80px; transform: none; flex-direction: row; }
+        .nav-btn { width: 38px; height: 38px; font-size: 17px; border-radius: 12px; }
+        .nav-btn .tooltip { display: none; }
+        .theme-panel { left: auto; right: 12px; top: auto; bottom: 130px; transform: none; flex-direction: row; display: flex; gap: 8px; }
+        .theme-option { margin-bottom: 0; }
+        .playlist-panel { right: 16px; bottom: 86px; }
+        .audio-visualizer { right: 16px; bottom: 86px; width: 56px; height: 56px; }
+        .love-counter .days-big { font-size: 36px; }
       }
     </style>
   </head>
@@ -1130,6 +1224,7 @@
       </div>
       <p>愿你的笑容，点亮我的每一天。</p>
       <div class="signature">— 永远为你心动</div>
+      <div class="love-counter" id="love-counter"></div>
     </div>
     <figure class="slideshow" id="slideshow">
       <img id="photo-frame" src="" alt="甜蜜回放" />
@@ -1244,6 +1339,35 @@
       <p>遇见你，是我这一生最温柔的幸运。</p>
       <button type="button" id="note-close">知道啦</button>
     </div>
+    <!-- Side Navigation -->
+    <nav class="side-nav" id="side-nav">
+      <a class="nav-btn" href="gallery.html" title="画廊">🖼️<span class="tooltip">心动画廊</span></a>
+      <a class="nav-btn" href="timeline.html" title="时间轴">📖<span class="tooltip">恋爱时间轴</span></a>
+      <a class="nav-btn" href="mood.html" title="心情">😊<span class="tooltip">心情日历</span></a>
+      <button class="nav-btn" id="capsule-btn" type="button" title="时间胶囊">💌<span class="tooltip">时间胶囊</span></button>
+      <button class="nav-btn" id="theme-btn" type="button" title="主题">🎨<span class="tooltip">主题切换</span></button>
+    </nav>
+    <!-- Theme Panel -->
+    <div class="theme-panel" id="theme-panel"></div>
+    <!-- Time Capsule -->
+    <div class="capsule-backdrop" id="capsule-backdrop"></div>
+    <div class="capsule-panel" id="capsule-panel">
+      <h2>💌 时间胶囊</h2>
+      <div id="capsule-list"></div>
+      <div class="capsule-form">
+        <textarea id="capsule-content" placeholder="写一段给未来的话..."></textarea>
+        <input type="date" id="capsule-date" />
+        <button type="button" id="capsule-send">封存胶囊 ✉️</button>
+      </div>
+    </div>
+    <!-- Playlist Panel -->
+    <div class="playlist-panel" id="playlist-panel">
+      <h3>🎵 播放列表</h3>
+      <div id="playlist-list"></div>
+      <button class="play-mode-btn" id="play-mode-btn" type="button">顺序播放 🔁</button>
+    </div>
+    <!-- Audio Visualizer -->
+    <canvas class="audio-visualizer" id="audio-visualizer"></canvas>
     <audio id="bgm" preload="auto" loop></audio>
     <script>
       const layer = document.getElementById("floating-layer");
@@ -1387,13 +1511,26 @@
           });
       }
 
+      // 播放模式: 'sequential', 'random', 'single'
+      let playMode = 'sequential';
+
       // 播放下一首
       function playNextSong() {
-        currentSongIndex = (currentSongIndex + 1) % playlist.length;
-        loadSong(currentSongIndex);
-        if (playing) {
+        if (playMode === 'single') {
+          bgm.currentTime = 0;
           bgm.play().catch(() => {});
+          return;
         }
+        if (playMode === 'random') {
+          let next = Math.floor(Math.random() * playlist.length);
+          if (next === currentSongIndex && playlist.length > 1) next = (next + 1) % playlist.length;
+          currentSongIndex = next;
+        } else {
+          currentSongIndex = (currentSongIndex + 1) % playlist.length;
+        }
+        loadSong(currentSongIndex);
+        if (playing) { bgm.play().catch(() => {}); }
+        renderPlaylist();
       }
 
       // 监听歌曲结束事件
@@ -2904,6 +3041,341 @@
         }
         createBurst(event.clientX, event.clientY);
       });
+
+      // ===================================================================
+      // 新功能模块
+      // ===================================================================
+
+      // ===== 1. 恋爱天数计数器 =====
+      const LOVE_START_DATE = new Date('2023-10-26T00:00:00');
+      const ANNIVERSARIES = [
+        { name: '她的生日 🎂', month: 4, day: 26 },
+        { name: '恋爱纪念日 💕', month: 10, day: 26 },
+      ];
+
+      function updateLoveCounter() {
+        const el = document.getElementById('love-counter');
+        if (!el) return;
+        const now = new Date();
+        const diffMs = now - LOVE_START_DATE;
+        const days = Math.floor(diffMs / 86400000);
+        const hours = Math.floor((diffMs % 86400000) / 3600000);
+
+        // Anniversary countdowns
+        let annHTML = '';
+        ANNIVERSARIES.forEach(a => {
+          let next = new Date(now.getFullYear(), a.month - 1, a.day);
+          if (next <= now) next = new Date(now.getFullYear() + 1, a.month - 1, a.day);
+          const daysLeft = Math.ceil((next - now) / 86400000);
+          annHTML += `<div class="anniversary-item">${a.name} <span class="countdown">还有 ${daysLeft} 天</span></div>`;
+        });
+
+        el.innerHTML = `
+          <div class="days-big">${days}</div>
+          <div class="days-label">天 ${hours} 小时，心动以来</div>
+          <div class="anniversary-list">${annHTML}</div>
+        `;
+      }
+      updateLoveCounter();
+      setInterval(updateLoveCounter, 60000);
+
+      // ===== 2. 主题切换 =====
+      const THEMES = [
+        {
+          name: '春樱', icon: '🌸',
+          bg: 'linear-gradient(-45deg, #FFB7C5, #FF69B4, #FFD1DC, #FFC0CB)',
+          vars: {
+            '--bg-grad-1': '#FFB7C5', '--bg-grad-2': '#FF69B4',
+            '--bg-grad-3': '#FFD1DC', '--bg-grad-4': '#FFC0CB',
+            '--primary': '#FF69B4', '--secondary': '#DB7093', '--accent': '#FFD700'
+          }
+        },
+        {
+          name: '星空', icon: '✨',
+          bg: 'linear-gradient(-45deg, #0f0c29, #302b63, #24243e, #1a1a2e)',
+          vars: {
+            '--bg-grad-1': '#0f0c29', '--bg-grad-2': '#302b63',
+            '--bg-grad-3': '#24243e', '--bg-grad-4': '#1a1a2e',
+            '--primary': '#a78bfa', '--secondary': '#7c3aed', '--accent': '#fbbf24'
+          }
+        },
+        {
+          name: '海边', icon: '🌊',
+          bg: 'linear-gradient(-45deg, #667eea, #764ba2, #6B8DD6, #8E37D7)',
+          vars: {
+            '--bg-grad-1': '#667eea', '--bg-grad-2': '#764ba2',
+            '--bg-grad-3': '#6B8DD6', '--bg-grad-4': '#8E37D7',
+            '--primary': '#60a5fa', '--secondary': '#3b82f6', '--accent': '#fcd34d'
+          }
+        },
+        {
+          name: '雪夜', icon: '❄️',
+          bg: 'linear-gradient(-45deg, #E3F2FD, #BBDEFB, #90CAF9, #E8EAF6)',
+          vars: {
+            '--bg-grad-1': '#4a6fa5', '--bg-grad-2': '#6b8db5',
+            '--bg-grad-3': '#89a7c5', '--bg-grad-4': '#5a7fa5',
+            '--primary': '#90caf9', '--secondary': '#42a5f5', '--accent': '#ffcc80'
+          }
+        }
+      ];
+
+      const themePanel = document.getElementById('theme-panel');
+      const themeBtn = document.getElementById('theme-btn');
+
+      function applyTheme(theme, save = true) {
+        if (!theme || !theme.vars) return;
+        Object.entries(theme.vars).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
+        if (save) localStorage.setItem('love_theme', JSON.stringify(theme));
+        // Update active state
+        themePanel.querySelectorAll('.theme-option').forEach((opt, i) => {
+          opt.classList.toggle('is-active', THEMES[i].name === theme.name);
+        });
+      }
+
+      function buildThemePanel() {
+        THEMES.forEach((t, i) => {
+          const opt = document.createElement('div');
+          opt.className = 'theme-option';
+          opt.title = t.name;
+          opt.style.background = t.bg;
+          opt.style.backgroundSize = '200% 200%';
+          opt.textContent = '';
+          opt.addEventListener('click', (e) => {
+            e.stopPropagation();
+            applyTheme(t);
+          });
+          themePanel.appendChild(opt);
+        });
+      }
+      buildThemePanel();
+
+      // Load saved theme or default to 春樱
+      (function loadTheme() {
+        const saved = localStorage.getItem('love_theme');
+        if (saved) {
+          try {
+            const t = JSON.parse(saved);
+            applyTheme(t, false);
+          } catch(e) { applyTheme(THEMES[0]); }
+        } else {
+          applyTheme(THEMES[0]); // 默认春樱
+        }
+      })();
+
+      themeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        themePanel.classList.toggle('is-visible');
+      });
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('#theme-panel') && !e.target.closest('#theme-btn')) {
+          themePanel.classList.remove('is-visible');
+        }
+      });
+
+      // ===== 3. 时间胶囊 =====
+      const capsuleBackdrop = document.getElementById('capsule-backdrop');
+      const capsulePanel = document.getElementById('capsule-panel');
+      const capsuleList = document.getElementById('capsule-list');
+      const capsuleBtn = document.getElementById('capsule-btn');
+      const capsuleContentInput = document.getElementById('capsule-content');
+      const capsuleDateInput = document.getElementById('capsule-date');
+      const capsuleSendBtn = document.getElementById('capsule-send');
+
+      function showCapsulePanel() {
+        capsuleBackdrop.classList.add('is-visible');
+        capsulePanel.classList.add('is-visible');
+        loadCapsules();
+        // Default date to 1 month from now
+        const d = new Date(); d.setMonth(d.getMonth() + 1);
+        capsuleDateInput.value = d.toISOString().split('T')[0];
+      }
+      function hideCapsulePanel() {
+        capsuleBackdrop.classList.remove('is-visible');
+        capsulePanel.classList.remove('is-visible');
+      }
+
+      capsuleBtn.addEventListener('click', showCapsulePanel);
+      capsuleBackdrop.addEventListener('click', hideCapsulePanel);
+
+      async function loadCapsules() {
+        try {
+          const res = await fetch('api/capsules');
+          const items = await res.json();
+          renderCapsules(items);
+        } catch(e) { capsuleList.innerHTML = '<p style="color:var(--text-secondary)">加载失败</p>'; }
+      }
+
+      function renderCapsules(items) {
+        if (!items.length) {
+          capsuleList.innerHTML = '<p style="text-align:center;color:var(--text-secondary);padding:20px">还没有胶囊，给未来的自己写一封信吧 ✨</p>';
+          return;
+        }
+        const today = new Date().toISOString().split('T')[0];
+        capsuleList.innerHTML = items.map(c => {
+          if (c.is_opened || c.can_open) {
+            if (c.is_opened) {
+              return `<div class="capsule-card">
+                <div class="opened-content">${c.content || ''}</div>
+                <div class="opened-date">封存于 ${c.created_at ? c.created_at.split('T')[0] : ''} · 已开启</div>
+              </div>`;
+            }
+            return `<div class="capsule-card is-ready" data-id="${c.id}">
+              <div class="seal-icon">✉️</div>
+              <div style="font-weight:600">胶囊已到期！点击拆开</div>
+              <div class="seal-date">开启日: ${c.open_date}</div>
+            </div>`;
+          }
+          const daysLeft = Math.ceil((new Date(c.open_date) - new Date()) / 86400000);
+          return `<div class="capsule-card is-sealed">
+            <div class="seal-icon">🔒</div>
+            <div class="seal-date">开启日: ${c.open_date}</div>
+            <div class="seal-countdown">还有 ${Math.max(0, daysLeft)} 天</div>
+          </div>`;
+        }).join('');
+
+        // Bind open events
+        capsuleList.querySelectorAll('.capsule-card.is-ready').forEach(card => {
+          card.addEventListener('click', async () => {
+            const id = card.dataset.id;
+            try {
+              const res = await fetch('api/capsules/open', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: Number(id) })
+              });
+              const data = await res.json();
+              if (data.ok) loadCapsules();
+              else alert(data.error || '开启失败');
+            } catch(e) { alert('网络错误'); }
+          });
+        });
+      }
+
+      capsuleSendBtn.addEventListener('click', async () => {
+        const content = capsuleContentInput.value.trim();
+        const open_date = capsuleDateInput.value;
+        if (!content) { alert('写点什么吧~'); return; }
+        if (!open_date) { alert('选个开启日期吧'); return; }
+        try {
+          const res = await fetch('api/capsules', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content, open_date })
+          });
+          if (res.ok) {
+            capsuleContentInput.value = '';
+            loadCapsules();
+          } else { alert('保存失败'); }
+        } catch(e) { alert('网络错误'); }
+      });
+
+      // ===== 4. 播放列表 =====
+      const playlistPanel = document.getElementById('playlist-panel');
+      const playlistListEl = document.getElementById('playlist-list');
+      const playModeBtn = document.getElementById('play-mode-btn');
+      const PLAY_MODES = [
+        { mode: 'sequential', label: '顺序播放 🔁' },
+        { mode: 'random', label: '随机播放 🔀' },
+        { mode: 'single', label: '单曲循环 🔂' }
+      ];
+      let playModeIndex = 0;
+
+      function renderPlaylist() {
+        playlistListEl.innerHTML = playlist.map((song, i) => {
+          return `<div class="playlist-item ${i === currentSongIndex ? 'is-playing' : ''}" data-index="${i}">
+            ${i === currentSongIndex ? '♪ ' : ''}${song.name}
+          </div>`;
+        }).join('');
+        playlistListEl.querySelectorAll('.playlist-item').forEach(item => {
+          item.addEventListener('click', () => {
+            const idx = parseInt(item.dataset.index);
+            loadSong(idx);
+            if (playing) bgm.play().catch(() => {});
+            renderPlaylist();
+          });
+        });
+      }
+
+      playModeBtn.addEventListener('click', () => {
+        playModeIndex = (playModeIndex + 1) % PLAY_MODES.length;
+        playMode = PLAY_MODES[playModeIndex].mode;
+        playModeBtn.textContent = PLAY_MODES[playModeIndex].label;
+        bgm.loop = (playMode === 'single');
+      });
+
+      // Show playlist on long press or right-click of play button
+      toggleButton.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        playlistPanel.classList.toggle('is-visible');
+        renderPlaylist();
+      });
+      // Also toggle playlist panel on double-click
+      toggleButton.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        playlistPanel.classList.toggle('is-visible');
+        renderPlaylist();
+      });
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('#playlist-panel') && !e.target.closest('#photo-toggle')) {
+          playlistPanel.classList.remove('is-visible');
+        }
+      });
+
+      // ===== 5. 音频频谱可视化 =====
+      const vizCanvas = document.getElementById('audio-visualizer');
+      const vizCtx = vizCanvas.getContext('2d');
+      let audioContext, analyser, source, dataArray, rafId;
+
+      function initVisualizer() {
+        if (audioContext) return;
+        try {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          analyser = audioContext.createAnalyser();
+          analyser.fftSize = 64;
+          source = audioContext.createMediaElementSource(bgm);
+          source.connect(analyser);
+          analyser.connect(audioContext.destination);
+          dataArray = new Uint8Array(analyser.frequencyBinCount);
+          drawViz();
+        } catch(e) { console.log('Visualizer unavailable:', e); }
+      }
+
+      function drawViz() {
+        rafId = requestAnimationFrame(drawViz);
+        if (!analyser) return;
+        analyser.getByteFrequencyData(dataArray);
+        const w = vizCanvas.width = vizCanvas.offsetWidth * 2;
+        const h = vizCanvas.height = vizCanvas.offsetHeight * 2;
+        vizCtx.clearRect(0, 0, w, h);
+        const cx = w / 2, cy = h / 2, r = Math.min(cx, cy) * 0.6;
+        const bars = dataArray.length;
+        for (let i = 0; i < bars; i++) {
+          const angle = (i / bars) * Math.PI * 2 - Math.PI / 2;
+          const val = dataArray[i] / 255;
+          const barLen = val * r * 0.8 + 2;
+          const x1 = cx + Math.cos(angle) * r;
+          const y1 = cy + Math.sin(angle) * r;
+          const x2 = cx + Math.cos(angle) * (r + barLen);
+          const y2 = cy + Math.sin(angle) * (r + barLen);
+          vizCtx.beginPath();
+          vizCtx.moveTo(x1, y1);
+          vizCtx.lineTo(x2, y2);
+          vizCtx.strokeStyle = `hsla(${330 + i * 3}, 80%, ${60 + val * 30}%, ${0.4 + val * 0.5})`;
+          vizCtx.lineWidth = 2;
+          vizCtx.lineCap = 'round';
+          vizCtx.stroke();
+        }
+      }
+
+      bgm.addEventListener('play', () => {
+        if (!audioContext) initVisualizer();
+        else if (audioContext.state === 'suspended') audioContext.resume();
+      });
+
+      // ===== 6. PWA 注册 =====
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+      }
     </script>
   </body>
 </html>

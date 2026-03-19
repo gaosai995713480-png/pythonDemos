@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>恋爱时间轴</title>
+  <style>
+    :root {
+      --primary: #ff6b9d; --secondary: #c44569; --accent: #ffc048;
+      --glass-bg: rgba(255,255,255,0.08); --glass-border: rgba(255,255,255,0.18);
+      --text-primary: #fff; --text-secondary: rgba(255,255,255,0.75);
+      --bg-grad-1: #ee7752; --bg-grad-2: #e73c7e; --bg-grad-3: #23a6d5; --bg-grad-4: #23d5ab;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    @keyframes gradient-shift { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+    body {
+      min-height: 100vh;
+      background: linear-gradient(-45deg, var(--bg-grad-1), var(--bg-grad-2), var(--bg-grad-3), var(--bg-grad-4));
+      background-size: 400% 400%; animation: gradient-shift 15s ease infinite;
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .top-bar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+      display: flex; align-items: center; gap: 16px;
+      padding: 16px 24px;
+      background: var(--glass-bg); backdrop-filter: blur(30px);
+      border-bottom: 1px solid var(--glass-border);
+    }
+    .back-btn {
+      text-decoration: none; color: #fff; font-size: 14px; font-weight: 600;
+      padding: 8px 16px; border-radius: 10px;
+      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+      transition: all 0.2s ease;
+    }
+    .back-btn:hover { background: rgba(255,255,255,0.18); transform: translateY(-1px); }
+    .top-bar h1 { font-size: 20px; font-weight: 700; }
+    .add-btn {
+      margin-left: auto; padding: 8px 18px; border-radius: 10px; border: none;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+      box-shadow: 0 4px 12px rgba(255,107,157,0.3);
+      transition: all 0.2s ease;
+    }
+    .add-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(255,107,157,0.4); }
+
+    /* Timeline */
+    .timeline-wrap { max-width: 900px; margin: 0 auto; padding: 90px 24px 60px; position: relative; }
+    .timeline-line {
+      position: absolute; left: 50%; top: 90px; bottom: 60px; width: 3px;
+      background: linear-gradient(180deg, rgba(255,107,157,0.6), rgba(196,69,105,0.2));
+      transform: translateX(-50%); border-radius: 2px;
+    }
+    .timeline-card {
+      position: relative; width: 44%; padding: 24px; margin-bottom: 40px;
+      background: var(--glass-bg); backdrop-filter: blur(26px);
+      border: 1px solid var(--glass-border); border-radius: 20px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+      opacity: 0; transform: translateX(-30px);
+      animation: slide-in 0.5s ease forwards;
+    }
+    .timeline-card:nth-child(odd) { margin-left: 6%; }
+    .timeline-card:nth-child(even) { margin-left: 50%; transform: translateX(30px); }
+    .timeline-card:nth-child(even) { animation-name: slide-in-right; }
+    @keyframes slide-in { to { opacity: 1; transform: translateX(0); } }
+    @keyframes slide-in-right { to { opacity: 1; transform: translateX(0); } }
+    .timeline-card .dot {
+      position: absolute; top: 28px; width: 16px; height: 16px;
+      border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--secondary));
+      box-shadow: 0 0 12px rgba(255,107,157,0.5);
+    }
+    .timeline-card:nth-child(odd) .dot { right: -36px; }
+    .timeline-card:nth-child(even) .dot { left: -36px; }
+    .timeline-card .icon { font-size: 28px; margin-bottom: 8px; }
+    .timeline-card .date {
+      font-size: 12px; color: var(--accent); font-weight: 600;
+      letter-spacing: 0.5px; margin-bottom: 6px;
+    }
+    .timeline-card .title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .timeline-card .content { font-size: 14px; line-height: 1.7; color: var(--text-secondary); }
+    .timeline-card .photo {
+      width: 100%; border-radius: 12px; margin-top: 12px; object-fit: cover; max-height: 200px;
+    }
+    .timeline-card .delete-btn {
+      position: absolute; top: 12px; right: 12px; width: 28px; height: 28px;
+      border-radius: 50%; border: none; background: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.5); font-size: 14px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: all 0.2s ease;
+    }
+    .timeline-card:hover .delete-btn { opacity: 1; }
+    .timeline-card .delete-btn:hover { background: rgba(255,80,80,0.3); color: #fff; }
+
+    .empty-state { text-align: center; padding: 80px 24px; font-size: 18px; color: var(--text-secondary); }
+
+    /* Form Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 20; opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+    }
+    .modal-backdrop.is-visible { opacity: 1; pointer-events: auto; }
+    .modal {
+      position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(0.95);
+      width: min(480px, 92vw); padding: 28px; border-radius: 24px;
+      background: var(--glass-bg); backdrop-filter: blur(40px);
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      z-index: 21; opacity: 0; pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+    }
+    .modal.is-visible { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
+    .modal h2 { font-size: 22px; font-weight: 700; margin-bottom: 20px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
+    .form-group input, .form-group textarea, .form-group select {
+      width: 100%; padding: 10px 14px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.06);
+      color: #fff; font-size: 14px; outline: none; transition: border-color 0.2s ease;
+    }
+    .form-group input:focus, .form-group textarea:focus {
+      border-color: var(--primary); box-shadow: 0 0 0 3px rgba(255,107,157,0.15);
+    }
+    .form-group textarea { resize: vertical; min-height: 80px; }
+    .form-actions { display: flex; gap: 10px; margin-top: 18px; }
+    .form-actions button {
+      flex: 1; padding: 10px; border-radius: 12px; border: none;
+      font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #fff;
+      box-shadow: 0 4px 12px rgba(255,107,157,0.3);
+    }
+    .btn-primary:hover { transform: translateY(-2px); }
+    .btn-cancel {
+      background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2);
+    }
+    .btn-cancel:hover { background: rgba(255,255,255,0.18); }
+
+    @media (max-width: 720px) {
+      .timeline-line { left: 24px; }
+      .timeline-card { width: calc(100% - 50px); margin-left: 50px !important; transform: translateX(20px); }
+      .timeline-card:nth-child(even) { transform: translateX(20px); animation-name: slide-in; }
+      .timeline-card .dot { left: -36px !important; right: auto !important; }
+      .top-bar { padding: 12px 16px; }
+      .top-bar h1 { font-size: 17px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <a href="index.html" class="back-btn">← 返回</a>
+    <h1>📖 恋爱时间轴</h1>
+    <button class="add-btn" id="add-btn">+ 添加事件</button>
+  </div>
+
+  <div class="timeline-wrap" id="timeline-wrap">
+    <div class="timeline-line"></div>
+  </div>
+  <div class="empty-state" id="empty-state" style="display:none">
+    还没有记录哦，点击右上角开始记录你们的故事 ✨
+  </div>
+
+  <div class="modal-backdrop" id="modal-backdrop"></div>
+  <div class="modal" id="modal">
+    <h2>📝 记录一个瞬间</h2>
+    <div class="form-group">
+      <label>日期 *</label>
+      <input type="date" id="f-date" required />
+    </div>
+    <div class="form-group">
+      <label>标题 *</label>
+      <input type="text" id="f-title" placeholder="例如：第一次牵手" maxlength="100" />
+    </div>
+    <div class="form-group">
+      <label>详细描述</label>
+      <textarea id="f-content" placeholder="那天发生了什么..."></textarea>
+    </div>
+    <div class="form-group">
+      <label>图标 emoji</label>
+      <input type="text" id="f-icon" value="💕" maxlength="4" style="width:80px" />
+    </div>
+    <div class="form-actions">
+      <button class="btn-cancel" id="f-cancel">取消</button>
+      <button class="btn-primary" id="f-submit">保存</button>
+    </div>
+  </div>
+
+  <script>
+    const wrap = document.getElementById('timeline-wrap');
+    const emptyState = document.getElementById('empty-state');
+    const modal = document.getElementById('modal');
+    const backdrop = document.getElementById('modal-backdrop');
+
+    // Apply theme
+    (function() {
+      const saved = localStorage.getItem('love_theme');
+      if (saved) {
+        try {
+          const t = JSON.parse(saved);
+          if (t.vars) Object.entries(t.vars).forEach(([k,v]) => document.documentElement.style.setProperty(k, v));
+        } catch(e) {}
+      }
+    })();
+
+    function showModal() {
+      document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+      modal.classList.add('is-visible');
+      backdrop.classList.add('is-visible');
+    }
+    function hideModal() {
+      modal.classList.remove('is-visible');
+      backdrop.classList.remove('is-visible');
+    }
+
+    document.getElementById('add-btn').addEventListener('click', showModal);
+    document.getElementById('f-cancel').addEventListener('click', hideModal);
+    backdrop.addEventListener('click', hideModal);
+
+    document.getElementById('f-submit').addEventListener('click', async () => {
+      const event_date = document.getElementById('f-date').value;
+      const title = document.getElementById('f-title').value.trim();
+      const content = document.getElementById('f-content').value.trim();
+      const icon = document.getElementById('f-icon').value.trim() || '💕';
+      if (!event_date || !title) { alert('日期和标题不能为空'); return; }
+      try {
+        const res = await fetch('api/timeline', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event_date, title, content, icon })
+        });
+        if (res.status === 401) { window.location.replace('login.html'); return; }
+        if (!res.ok) { const d = await res.json(); alert(d.error || '保存失败'); return; }
+        hideModal();
+        document.getElementById('f-title').value = '';
+        document.getElementById('f-content').value = '';
+        loadTimeline();
+      } catch(e) { alert('网络错误'); }
+    });
+
+    async function deleteEvent(id) {
+      if (!confirm('确定要删除这条记录吗？')) return;
+      try {
+        const res = await fetch(`api/timeline?id=${id}`, { method: 'DELETE' });
+        if (res.ok) loadTimeline();
+      } catch(e) {}
+    }
+
+    function renderCard(item, index) {
+      const card = document.createElement('div');
+      card.className = 'timeline-card';
+      card.style.animationDelay = `${index * 0.1}s`;
+      card.innerHTML = `
+        <div class="dot"></div>
+        <div class="icon">${item.icon || '💕'}</div>
+        <div class="date">${item.event_date || ''}</div>
+        <div class="title">${item.title || ''}</div>
+        ${item.content ? `<div class="content">${item.content}</div>` : ''}
+        ${item.photo_url ? `<img class="photo" src="${item.photo_url}" alt="" />` : ''}
+        <button class="delete-btn" onclick="deleteEvent(${item.id})">✕</button>
+      `;
+      return card;
+    }
+
+    async function loadTimeline() {
+      try {
+        const res = await fetch('api/timeline');
+        if (res.status === 401) { window.location.replace('login.html'); return; }
+        const items = await res.json();
+        // Clear old cards
+        wrap.querySelectorAll('.timeline-card').forEach(c => c.remove());
+        if (!items.length) { emptyState.style.display = ''; return; }
+        emptyState.style.display = 'none';
+        items.forEach((item, i) => wrap.appendChild(renderCard(item, i)));
+      } catch(e) {
+        emptyState.style.display = '';
+        emptyState.textContent = '加载失败，请刷新重试';
+      }
+    }
+
+    loadTimeline();
+  </script>
+</body>
+</html>

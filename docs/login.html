@@ -6,6 +6,9 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
+    <meta name="theme-color" content="#e73c7e" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
     <title>心动告白 - 登录</title>
     <style>
       :root {
@@ -395,6 +398,22 @@
       checkStatusAndRedirect();
       spawnHeart();
       window.setInterval(spawnHeart, 1400);
+
+      // 加载主题偏好
+      (function() {
+        const saved = localStorage.getItem('love_theme');
+        if (saved) {
+          try {
+            const t = JSON.parse(saved);
+            if (t.vars) Object.entries(t.vars).forEach(([k,v]) => document.documentElement.style.setProperty(k, v));
+          } catch(e) {}
+        }
+      })();
+
+      // PWA
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+      }
     </script>
   </body>
 </html>
