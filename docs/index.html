@@ -1361,7 +1361,7 @@
       <a class="nav-btn" href="letter.html" title="情信">✉️<span class="tooltip">表白信</span></a>
       <a class="nav-btn" href="wishes.html" title="许愿">⭐<span class="tooltip">星空许愿</span></a>
       <a class="nav-btn" href="map.html" title="地图">🗺️<span class="tooltip">恋爱足迹</span></a>
-      <a class="nav-btn" href="music.html" title="歌单">🎵<span class="tooltip">我们的歌</span></a>
+      <button class="nav-btn" id="music-nav-btn" type="button" title="歌单">🎵<span class="tooltip">我们的歌</span></button>
       <button class="nav-btn" id="capsule-btn" type="button" title="时间胶囊">💌<span class="tooltip">时间胶囊</span></button>
       <button class="nav-btn" id="firework-btn" type="button" title="烟花">🎆<span class="tooltip">放烟花</span></button>
       <button class="nav-btn" id="theme-btn" type="button" title="主题">🎨<span class="tooltip">主题切换</span></button>
@@ -1396,6 +1396,10 @@
       </div>
     </div>
     <audio id="bgm" preload="auto" loop></audio>
+    <!-- 音乐页 iframe 浮层 -->
+    <div id="music-overlay" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.5);">
+      <iframe id="music-iframe" src="" style="width:100%;height:100%;border:none;"></iframe>
+    </div>
     <script>
       const layer = document.getElementById("floating-layer");
       const baseCount = 3;
@@ -1515,22 +1519,29 @@
       bgm.volume = 0.6;
       loadPlaylistFromAPI();
 
-      // 页面加载时恢复 music.html 的播放状态
-      (function resumeFromMusicPage() {
-        try {
-          const state = JSON.parse(localStorage.getItem('music_playing') || '{}');
-          if (state.url && state.isPlaying) {
-            bgm.src = state.url;
-            if (state.currentTime) bgm.currentTime = state.currentTime;
-            bgm.play().then(() => {
-              playing = true;
-              if (typeof lyricsEl !== 'undefined' && state.song_name) {
-                lyricsEl.textContent = `♪ ${state.song_name} - ${state.artist || ''}`;
-              }
-            }).catch(() => {});
-          }
-        } catch(e) {}
-      })();
+      // 音乐页 iframe 浮层控制
+      const musicOverlay = document.getElementById('music-overlay');
+      const musicIframe = document.getElementById('music-iframe');
+      let musicIframeLoaded = false;
+      document.getElementById('music-nav-btn').addEventListener('click', () => {
+        if (!musicIframeLoaded) {
+          musicIframe.src = 'music.html';
+          musicIframeLoaded = true;
+        }
+        musicOverlay.style.display = 'block';
+      });
+
+      // 监听 music.html 的 postMessage（仅用于关闭浮层 + 同步歌曲信息）
+      window.addEventListener('message', (e) => {
+        if (!e.data || !e.data.type) return;
+        if (e.data.type === 'music_close') {
+          // 只隐藏浮层，不清空 iframe src，音频继续播放
+          musicOverlay.style.display = 'none';
+        } else if (e.data.type === 'music_song_info') {
+          // 在主界面显示当前播放歌曲
+          lyricsEl.textContent = `♪ ${e.data.song_name} - ${e.data.artist || ''}`;
+        }
+      });
 
       // 加载歌曲和歌词
       function loadSong(index) {

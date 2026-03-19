@@ -183,7 +183,7 @@
 </head>
 <body>
   <div class="top-bar">
-    <a class="back-btn" href="index.html">← 返回</a>
+    <a class="back-btn" href="#" id="back-btn">← 返回</a>
     <h1>🎵 我们的歌单</h1>
     <button class="add-btn" id="add-btn">+ 添加</button>
   </div>
@@ -307,6 +307,19 @@
     const pcDuration = document.getElementById('pc-duration');
     let isPlaying = false;
 
+    // 检测是否在 iframe 中运行
+    const inIframe = window.parent !== window;
+
+    // 返回按钮
+    document.getElementById('back-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      if (inIframe) {
+        window.parent.postMessage({ type: 'music_close' }, '*');
+      } else {
+        window.location.href = 'index.html';
+      }
+    });
+
     function fmtTime(s) {
       if (!s || !isFinite(s)) return '0:00';
       const m = Math.floor(s / 60);
@@ -314,7 +327,7 @@
       return m + ':' + (sec < 10 ? '0' : '') + sec;
     }
 
-    // Audio events
+    // Audio events — 直接使用 iframe 内的 audio 元素
     audio.addEventListener('timeupdate', () => {
       if (!audio.duration) return;
       pcCurrent.textContent = fmtTime(audio.currentTime);
@@ -322,6 +335,7 @@
     });
     audio.addEventListener('loadedmetadata', () => { pcDuration.textContent = fmtTime(audio.duration); });
     audio.addEventListener('ended', () => nextSong());
+
     pcSeek.addEventListener('mousedown', () => pcSeek._dragging = true);
     pcSeek.addEventListener('mouseup', () => { pcSeek._dragging = false; audio.currentTime = pcSeek.value / 100 * audio.duration; });
     pcSeek.addEventListener('input', () => { if (pcSeek._dragging) pcCurrent.textContent = fmtTime(pcSeek.value / 100 * audio.duration); });
@@ -344,7 +358,12 @@
         songs = await res.json();
         renderList();
         if (songs.length > 0 && currentIndex < 0) {
-          playSong(0);
+          // 不自动播放，只显示第一首信息
+          const s = songs[0];
+          currentIndex = 0;
+          npSong.textContent = s.song_name;
+          npArtist.textContent = s.artist;
+          npPlatform.textContent = PLATFORM_NAMES[s.platform] || s.platform;
         } else if (songs.length === 0) {
           npSong.textContent = '暂无歌曲';
           npArtist.textContent = '点击右上角添加';
@@ -412,13 +431,17 @@
         const data = await res.json();
         if (data.url) {
           audio.src = data.url;
-          audio.play().then(() => { isPlaying = true; pcToggle.textContent = '⏸'; })
-            .catch(() => { isPlaying = false; pcToggle.textContent = '▶'; });
-          // 保存播放状态到 localStorage，供 index.html 恢复
-          localStorage.setItem('music_playing', JSON.stringify({
-            url: data.url, song_name: s.song_name, artist: s.artist,
-            platform: s.platform, netease_id: s.netease_id, isPlaying: true
-          }));
+          audio.play().then(() => {
+            isPlaying = true; pcToggle.textContent = '⏸';
+            // 通知父页面当前播放的歌曲信息
+            if (inIframe) {
+              window.parent.postMessage({
+                type: 'music_song_info',
+                song_name: s.song_name,
+                artist: s.artist
+              }, '*');
+            }
+          }).catch(() => { isPlaying = false; pcToggle.textContent = '▶'; });
         } else {
           pcToggle.textContent = '▶';
           isPlaying = false;
@@ -553,17 +576,6 @@
     });
 
     function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-
-    // 离开页面前保存播放进度
-    window.addEventListener('beforeunload', () => {
-      if (audio.src && currentIndex >= 0 && currentIndex < songs.length) {
-        const s = songs[currentIndex];
-        const state = JSON.parse(localStorage.getItem('music_playing') || '{}');
-        state.currentTime = audio.currentTime;
-        state.isPlaying = isPlaying;
-        localStorage.setItem('music_playing', JSON.stringify(state));
-      }
-    });
 
     // Theme
     (function() {
