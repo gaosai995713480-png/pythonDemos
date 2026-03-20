@@ -1,4 +1,4 @@
-﻿name: Deploy
+name: Deploy
 on:
   push:
     branches: [ "master" ]
@@ -35,6 +35,8 @@ jobs:
           git config --global --add safe.directory /srv/love
           git pull origin master
           /srv/love/.venv/bin/pip install -r requirements.txt
+          cd /srv/love/frontend && npm install && npm run build
+          cd /srv/love
           sudo systemctl restart love
           sudo systemctl status love --no-pager
           EOF
