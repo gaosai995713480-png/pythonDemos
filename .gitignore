@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# IDE
+.idea/
+.vscode/
+
+# Node
+node_modules/
+
+# Vite 构建产物（由服务器 npm run build 生成，不提交）
+docs/assets/
+docs/index.html

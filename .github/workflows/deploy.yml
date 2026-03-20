@@ -33,6 +33,8 @@ jobs:
           set -e
           cd /srv/love
           git config --global --add safe.directory /srv/love
+          git checkout -- .
+          git clean -fd docs/assets
           git pull origin master
           /srv/love/.venv/bin/pip install -r requirements.txt
           cd /srv/love/frontend && npm install && npm run build
