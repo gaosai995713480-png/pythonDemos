@@ -133,7 +133,10 @@ export const useMusicStore = defineStore('music', () => {
       isPlaying.value = false
     } else {
       if (currentIndex.value < 0) {
-        play(0)
+        play(0).catch(() => {
+          isPlaying.value = false
+          playError.value = '播放请求失败'
+        })
       } else {
         // B2: await play() 并 catch，确保状态同步
         audio.play().then(() => {

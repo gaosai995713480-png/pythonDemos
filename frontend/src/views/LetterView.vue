@@ -35,6 +35,11 @@ function typeSound() {
     try { audioCtx = new (window.AudioContext || window.webkitAudioContext)() }
     catch { return }
   }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {})
+  }
+  if (audioCtx.state === 'suspended') return
+
   const osc = audioCtx.createOscillator()
   const gain = audioCtx.createGain()
   osc.type = 'sine'

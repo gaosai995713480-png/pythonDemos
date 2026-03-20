@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import TopBar from '../components/TopBar.vue'
 import { wishApi } from '../api'
@@ -74,11 +74,17 @@ async function loadWishes() {
   } catch { /* ignore */ }
 }
 
+let shootingStarTimer = null
+
 onMounted(() => {
   loadWishes()
   createBackgroundStars()
   spawnShootingStar()
-  setInterval(spawnShootingStar, 5000 + Math.random() * 8000)
+  shootingStarTimer = setInterval(spawnShootingStar, 5000 + Math.random() * 8000)
+})
+
+onUnmounted(() => {
+  if (shootingStarTimer) clearInterval(shootingStarTimer)
 })
 </script>
 
