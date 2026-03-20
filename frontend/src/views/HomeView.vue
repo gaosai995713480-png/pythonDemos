@@ -6,7 +6,7 @@ import { useMusicStore } from '../stores/music'
 import { useThemeStore } from '../stores/theme'
 import FloatingHearts from '../components/FloatingHearts.vue'
 import ThemeSwitcher from '../components/ThemeSwitcher.vue'
-import { danmuApi, capsuleApi, photoApi } from '../api'
+import { danmuApi, capsuleApi, weatherApi } from '../api'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -79,11 +79,11 @@ async function sendDanmu() {
 }
 
 // ===== Weather =====
-const GAODE_KEY = 'c34bbce1d41994a5c7819ea44a0a004f'
 const DEFAULT_ADCODE = '420100' // 武汉
 
 const weatherData = ref(null)
-const weatherCity = ref(localStorage.getItem('weather_adcode') || DEFAULT_ADCODE)
+const forecastData = ref([])
+const weatherCity = ref(localStorage.getItem('weather_adcode') || '')
 const showCitySearch = ref(false)
 const citySearchQuery = ref('')
 const citySearchResults = ref([])
@@ -91,19 +91,80 @@ const weatherCardRef = ref(null)
 const districtList = ref([])
 const breadcrumb = ref([])
 const districtLoading = ref(false)
+const weatherLoading = ref(false)
+const weatherError = ref(null)
 let searchTimer = null
+const WEATHER_REFRESH_MS = 30 * 60 * 1000
+let weatherRefreshTimer = null
+
+function weatherIcon(weather) {
+  const map = {
+    '晴': '☀️', '多云': '⛅', '阴': '☁️',
+    '小雨': '🌦️', '中雨': '🌧️', '大雨': '🌧️', '暴雨': '⛈️',
+    '雷阵雨': '⛈️', '小雪': '🌨️', '中雪': '❄️', '大雪': '❄️',
+    '雾': '🌫️', '霾': '🌫️', '浮尘': '🌫️', '沙尘暴': '🌪️',
+  }
+  for (const [k, v] of Object.entries(map)) {
+    if (weather?.includes(k)) return v
+  }
+  return '🌤️'
+}
+
+function formatForecastDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  const today = new Date()
+  const tomorrow = new Date(today)
+  tomorrow.setDate(today.getDate() + 1)
+  if (d.toDateString() === today.toDateString()) return '今天'
+  if (d.toDateString() === tomorrow.toDateString()) return '明天'
+  return `${d.getMonth() + 1}/${d.getDate()}`
+}
+
+async function autoLocate() {
+  try {
+    const loc = await weatherApi.locate()
+    if (loc.adcode) {
+      weatherCity.value = loc.adcode
+      localStorage.setItem('weather_adcode', loc.adcode)
+    } else {
+      weatherCity.value = DEFAULT_ADCODE
+    }
+  } catch {
+    weatherCity.value = DEFAULT_ADCODE
+  }
+}
 
 async function loadWeather(adcode) {
-  const code = adcode || weatherCity.value
+  const code = adcode || weatherCity.value || DEFAULT_ADCODE
+  weatherLoading.value = true
+  weatherError.value = null
   try {
-    const res = await fetch(`https://restapi.amap.com/v3/weather/weatherInfo?city=${code}&key=${GAODE_KEY}`)
-    if (res.ok) {
-      const data = await res.json()
-      if (data.status === '1' && data.lives?.length > 0) {
-        weatherData.value = data.lives[0]
+    // 并行请求：base 获取实时天气，all 获取预报
+    const [baseData, allData] = await Promise.all([
+      weatherApi.weather(code, 'base'),
+      weatherApi.weather(code, 'all'),
+    ])
+    // 实时天气
+    if (baseData.status === '1' && baseData.lives?.length > 0) {
+      weatherData.value = baseData.lives[0]
+    }
+    // 3日预报
+    if (allData.status === '1' && allData.forecasts?.length > 0) {
+      forecastData.value = allData.forecasts[0].casts || []
+      // 如果实时数据没拿到城市名，用预报的
+      if (weatherData.value && !weatherData.value.city && allData.forecasts[0].city) {
+        weatherData.value.city = allData.forecasts[0].city
       }
     }
-  } catch { /* ignore */ }
+    if (!weatherData.value) {
+      weatherError.value = baseData.info || '天气加载失败'
+    }
+  } catch (e) {
+    weatherError.value = '网络错误，无法加载天气'
+  } finally {
+    weatherLoading.value = false
+  }
 }
 
 function onCitySearch(keyword) {
@@ -111,12 +172,9 @@ function onCitySearch(keyword) {
   if (!keyword.trim()) { citySearchResults.value = []; return }
   searchTimer = setTimeout(async () => {
     try {
-      const res = await fetch(`https://restapi.amap.com/v3/config/district?keywords=${encodeURIComponent(keyword)}&key=${GAODE_KEY}&subdistrict=0`)
-      if (res.ok) {
-        const data = await res.json()
-        if (data.status === '1') {
-          citySearchResults.value = data.districts || []
-        }
+      const data = await weatherApi.district(keyword, 0)
+      if (data.status === '1') {
+        citySearchResults.value = data.districts || []
       }
     } catch { /* ignore */ }
   }, 300)
@@ -134,12 +192,9 @@ function selectCity(district) {
 async function loadDistricts(keyword = '中国') {
   districtLoading.value = true
   try {
-    const res = await fetch(`https://restapi.amap.com/v3/config/district?keywords=${encodeURIComponent(keyword)}&key=${GAODE_KEY}&subdistrict=1`)
-    if (res.ok) {
-      const data = await res.json()
-      if (data.status === '1' && data.districts?.length > 0) {
-        districtList.value = data.districts[0].districts || []
-      }
+    const data = await weatherApi.district(keyword, 1)
+    if (data.status === '1' && data.districts?.length > 0) {
+      districtList.value = data.districts[0].districts || []
     }
   } catch { /* ignore */ }
   districtLoading.value = false
@@ -185,28 +240,11 @@ function closeCitySearch(e) {
 }
 
 onMounted(() => { document.addEventListener('click', closeCitySearch) })
-onUnmounted(() => { document.removeEventListener('click', closeCitySearch) })
+onUnmounted(() => {
+  document.removeEventListener('click', closeCitySearch)
+  if (weatherRefreshTimer) clearInterval(weatherRefreshTimer)
+})
 
-// ===== Slideshow =====
-const photos = ref([])
-const currentPhotoIndex = ref(0)
-let slideshowTimer = null
-
-async function loadPhotos() {
-  try {
-    photos.value = await photoApi.list()
-    if (photos.value.length > 0) startSlideshow()
-  } catch { /* ignore */ }
-}
-
-function startSlideshow() {
-  if (slideshowTimer) clearInterval(slideshowTimer)
-  slideshowTimer = setInterval(() => {
-    if (photos.value.length) {
-      currentPhotoIndex.value = (currentPhotoIndex.value + 1) % photos.value.length
-    }
-  }, 5000)
-}
 
 // ===== Time Capsules =====
 const capsules = ref([])
@@ -253,10 +291,14 @@ async function logout() {
 }
 
 // ===== Lifecycle =====
-onMounted(() => {
+onMounted(async () => {
   loadDanmu()
+  // 天气：若无保存的城市则自动定位
+  if (!weatherCity.value) {
+    await autoLocate()
+  }
   loadWeather()
-  loadPhotos()
+  weatherRefreshTimer = setInterval(() => loadWeather(), WEATHER_REFRESH_MS)
   loadCapsules()
   musicStore.loadSongs()
   // Launch danmu after loading
@@ -267,7 +309,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   clearDanmuTimers()
-  if (slideshowTimer) clearInterval(slideshowTimer)
 })
 </script>
 
@@ -321,52 +362,80 @@ onUnmounted(() => {
     </nav>
 
     <!-- 天气卡片 -->
-    <div class="weather-card" v-if="weatherData" ref="weatherCardRef">
-      <div class="weather-city" @click.stop="toggleCityPanel()">
-        📍 {{ weatherData.city || '武汉' }}
-        <span class="city-search-icon">▾</span>
+    <div class="weather-card" v-if="weatherData || weatherLoading || weatherError" ref="weatherCardRef">
+      <!-- 加载中 -->
+      <div v-if="weatherLoading && !weatherData" class="weather-status">
+        <span class="weather-loading-spinner">⏳</span> 加载天气中...
       </div>
-      <div class="city-search-dropdown" v-if="showCitySearch" @click.stop>
-        <input
-          v-model="citySearchQuery"
-          @input="onCitySearch(citySearchQuery)"
-          placeholder="搜索省/市/区/县..."
-          class="city-search-input"
-        />
-        <!-- 搜索结果 -->
-        <ul class="city-search-results" v-if="citySearchQuery && citySearchResults.length">
-          <li v-for="d in citySearchResults" :key="d.adcode" @click="selectCity(d)">
-            <span>{{ d.name }}</span>
-            <span class="city-level">{{ levelLabel(d.level) }}</span>
-          </li>
-        </ul>
-        <!-- 层级浏览 -->
-        <template v-if="!citySearchQuery">
-          <div class="city-breadcrumb">
-            <span @click="goToBreadcrumb(-1)" class="crumb">全国</span>
-            <template v-for="(b, i) in breadcrumb" :key="i">
-              <span class="crumb-sep">›</span>
-              <span @click="goToBreadcrumb(i)" class="crumb">{{ b.name }}</span>
-            </template>
-          </div>
-          <ul class="city-search-results" v-if="districtList.length">
-            <li v-for="d in districtList" :key="d.adcode" @click="drillDown(d)">
+      <!-- 错误 -->
+      <div v-else-if="weatherError && !weatherData" class="weather-status weather-status--error">
+        <span>⚠️ {{ weatherError }}</span>
+        <button class="weather-retry-btn" @click="loadWeather()">重试</button>
+      </div>
+      <!-- 正常展示 -->
+      <template v-else-if="weatherData">
+        <div class="weather-city" @click.stop="toggleCityPanel()">
+          📍 {{ weatherData.city || '未知' }}
+          <span class="city-search-icon">▾</span>
+        </div>
+        <!-- 城市选择面板 -->
+        <div class="city-search-dropdown" :class="{ 'is-active': showCitySearch }" v-if="showCitySearch" @click.stop>
+          <div class="city-panel-handle"></div>
+          <input
+            v-model="citySearchQuery"
+            @input="onCitySearch(citySearchQuery)"
+            placeholder="搜索省/市/区/县..."
+            class="city-search-input"
+          />
+          <ul class="city-search-results" v-if="citySearchQuery && citySearchResults.length">
+            <li v-for="d in citySearchResults" :key="d.adcode" @click="selectCity(d)">
               <span>{{ d.name }}</span>
-              <span class="city-level">{{ levelLabel(d.level) }} ›</span>
+              <span class="city-level">{{ levelLabel(d.level) }}</span>
             </li>
           </ul>
-          <div v-else-if="districtLoading" class="city-loading">加载中...</div>
-        </template>
-      </div>
-      <div class="weather-temp">{{ weatherData.temperature || '--' }}°</div>
-      <div class="weather-desc">{{ weatherData.weather || '' }}</div>
+          <template v-if="!citySearchQuery">
+            <div class="city-breadcrumb">
+              <span @click="goToBreadcrumb(-1)" class="crumb">全国</span>
+              <template v-for="(b, i) in breadcrumb" :key="i">
+                <span class="crumb-sep">›</span>
+                <span @click="goToBreadcrumb(i)" class="crumb">{{ b.name }}</span>
+              </template>
+            </div>
+            <ul class="city-search-results" v-if="districtList.length">
+              <li v-for="d in districtList" :key="d.adcode" @click="drillDown(d)">
+                <span>{{ d.name }}</span>
+                <span class="city-level">{{ levelLabel(d.level) }} ›</span>
+              </li>
+            </ul>
+            <div v-else-if="districtLoading" class="city-loading">加载中...</div>
+          </template>
+        </div>
+        <!-- 主体天气 -->
+        <div class="weather-main">
+          <span class="weather-emoji">{{ weatherIcon(weatherData.weather) }}</span>
+          <span class="weather-temp">{{ weatherData.temperature || '--' }}°</span>
+        </div>
+        <div class="weather-desc">{{ weatherData.weather || '' }}</div>
+        <div class="weather-detail" v-if="weatherData.winddirection">
+          <span>💨 {{ weatherData.winddirection }}风 {{ weatherData.windpower }}级</span>
+          <span v-if="weatherData.humidity">💧 {{ weatherData.humidity }}%</span>
+        </div>
+        <div class="weather-update" v-if="weatherData.reporttime">
+          更新: {{ weatherData.reporttime?.slice(5) }}
+        </div>
+        <!-- 3日预报 -->
+        <div class="weather-forecast" v-if="forecastData?.length">
+          <div v-for="f in forecastData.slice(0, 3)" :key="f.date" class="forecast-day">
+            <div class="forecast-date">{{ formatForecastDate(f.date) }}</div>
+            <div class="forecast-icon">{{ weatherIcon(f.dayweather) }}</div>
+            <div class="forecast-temp">{{ f.nighttemp }}°~{{ f.daytemp }}°</div>
+          </div>
+        </div>
+      </template>
     </div>
+    <!-- 城市选择遮罩(移动端) -->
+    <div class="city-overlay" v-if="showCitySearch" @click="showCitySearch = false"></div>
 
-    <!-- 照片轮播 -->
-    <figure class="slideshow" v-if="photos.length" @click="router.push('/gallery')">
-      <img :src="photos[currentPhotoIndex]" alt="照片轮播" />
-      <figcaption>共 {{ photos.length }} 张照片</figcaption>
-    </figure>
 
     <!-- 时间胶囊 -->
     <section class="capsule-section" v-if="capsules.length">
@@ -540,7 +609,7 @@ h1 {
   padding: 16px 20px; border-radius: 16px;
   background: var(--glass-bg); backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
-  text-align: left; min-width: 120px;
+  text-align: left; min-width: 140px; max-width: 220px;
 }
 .weather-city {
   font-size: 13px; color: var(--text-secondary); cursor: pointer;
@@ -551,6 +620,39 @@ h1 {
 .city-search-icon { font-size: 10px; opacity: 0.6; transition: transform 0.2s; }
 .weather-temp { font-size: 32px; font-weight: 700; }
 .weather-desc { font-size: 13px; color: var(--text-secondary); }
+.weather-status {
+  font-size: 13px; color: var(--text-secondary);
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.weather-status--error { color: var(--error); }
+.weather-loading-spinner { animation: spin 2s linear infinite; display: inline-block; }
+.weather-retry-btn {
+  margin-top: 6px; padding: 4px 12px; border-radius: 8px;
+  border: 1px solid var(--glass-border); background: rgba(255,255,255,0.1);
+  color: var(--text-primary); font-size: 12px; cursor: pointer;
+  transition: background 0.2s;
+}
+.weather-retry-btn:hover { background: rgba(255,255,255,0.2); }
+.weather-main {
+  display: flex; align-items: center; gap: 6px; margin: 4px 0 2px;
+}
+.weather-emoji { font-size: 28px; line-height: 1; }
+.weather-detail {
+  display: flex; gap: 10px; font-size: 12px; color: var(--text-secondary);
+  margin-top: 6px;
+}
+.weather-update {
+  font-size: 11px; color: var(--text-secondary); opacity: 0.6;
+  margin-top: 4px;
+}
+.weather-forecast {
+  display: flex; gap: 8px; margin-top: 10px;
+  padding-top: 10px; border-top: 1px solid var(--glass-border);
+}
+.forecast-day { flex: 1; text-align: center; min-width: 0; }
+.forecast-date { font-size: 11px; color: var(--text-secondary); margin-bottom: 2px; }
+.forecast-icon { font-size: 18px; margin-bottom: 2px; }
+.forecast-temp { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
 
 .city-search-dropdown { margin-top: 8px; }
 .city-search-input {
@@ -583,25 +685,8 @@ h1 {
 .crumb:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
 .crumb-sep { opacity: 0.4; }
 .city-loading { font-size: 12px; color: var(--text-secondary); padding: 8px; text-align: center; }
-
-/* Slideshow */
-.slideshow {
-  position: fixed; right: 32px; bottom: 120px; z-index: 3;
-  width: clamp(180px, 20vw, 260px); aspect-ratio: 3 / 4;
-  padding: 10px; border-radius: 20px;
-  background: var(--glass-bg); backdrop-filter: blur(30px);
-  border: 1px solid var(--glass-border);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  overflow: hidden; cursor: pointer; margin: 0;
-  transition: transform 0.3s;
-}
-.slideshow:hover { transform: translateY(-4px); }
-.slideshow img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; transition: opacity 0.6s; }
-.slideshow figcaption {
-  position: absolute; left: 16px; bottom: 16px;
-  padding: 6px 14px; border-radius: 10px; font-size: 12px;
-  color: #fff; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(10px);
-}
+.city-panel-handle { display: none; }
+.city-overlay { display: none; }
 
 /* Capsule Section */
 .capsule-section { margin: 32px 0; text-align: left; }
@@ -701,7 +786,7 @@ h1 {
 .danmu-settings-row output { min-width: 52px; text-align: right; font-size: 13px; color: var(--text-secondary); }
 .danmu-settings-row input[type="range"] {
   flex: 1; height: 6px; border-radius: 3px;
-  background: rgba(255, 255, 255, 0.15); outline: none; -webkit-appearance: none;
+  background: rgba(255, 255, 255, 0.15); outline: none; appearance: none; -webkit-appearance: none;
 }
 .danmu-settings-row input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
@@ -736,8 +821,33 @@ h1 {
 
 /* Mobile */
 @media (max-width: 720px) {
-  .slideshow { display: none; }
-  .weather-card { position: relative; left: auto; top: auto; margin-bottom: 16px; text-align: center; }
+  .weather-card {
+    position: relative; left: auto; top: auto;
+    margin: 0 auto 16px; text-align: center;
+    max-width: 100%;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .weather-main { justify-content: center; }
+  .weather-detail { justify-content: center; }
+  .weather-forecast { justify-content: center; overflow-x: auto; }
+  .city-search-dropdown {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 101;
+    max-height: 55vh; border-radius: 20px 20px 0 0;
+    background: var(--glass-bg); backdrop-filter: blur(30px);
+    border: 1px solid var(--glass-border);
+    padding: 12px 20px 20px; margin-top: 0;
+    box-shadow: 0 -8px 32px rgba(0,0,0,0.4);
+    overflow-y: auto;
+  }
+  .city-panel-handle {
+    display: block; width: 40px; height: 4px; border-radius: 2px;
+    background: rgba(255,255,255,0.3); margin: 0 auto 12px;
+  }
+  .city-search-results { max-height: 35vh; }
+  .city-overlay {
+    display: block; position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+  }
   .danmu-bar { left: 12px; right: 90px; bottom: 16px; padding: 10px 14px; }
   .play-button { right: 16px; bottom: 16px; width: 52px; height: 52px; font-size: 20px; }
   .nav-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }

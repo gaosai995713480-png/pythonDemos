@@ -692,6 +692,22 @@ def import_zip_photos(archive_data: bytes, photos_dir: Path) -> tuple[int, int]:
     return saved, skipped
 
 
+# ==================== 天气代理 ====================
+
+def proxy_gaode(url: str, params: dict, gaode_key: str) -> dict:
+    """代理调用高德 API，统一添加 key。"""
+    params["key"] = gaode_key
+    qs = "&".join(f"{k}={quote(str(v))}" for k, v in params.items())
+    full_url = f"{url}?{qs}"
+    try:
+        req = urllib.request.Request(full_url, headers={"User-Agent": "LovePage/1.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        logging.warning("proxy_gaode error: %s", e)
+        return {"status": "0", "info": str(e)}
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run love page server."
@@ -728,6 +744,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--danmu-limit", type=int, default=50, help="Max danmu messages returned"
     )
+    parser.add_argument(
+        "--gaode-key",
+        default="c34bbce1d41994a5c7819ea44a0a004f",
+        help="Gaode (Amap) API key for weather proxy",
+    )
     return parser
 
 
@@ -760,6 +781,7 @@ def run_love_page(args: argparse.Namespace) -> None:
     wish_table = "love_wish"
     map_table = "love_map"
     music_table = "love_music"
+    gaode_key = args.gaode_key
 
     try:
         ensure_database(build_server_config(args), danmu_db_name)
@@ -876,6 +898,9 @@ def run_love_page(args: argparse.Namespace) -> None:
                 "/api/wishes",
                 "/api/map",
                 "/api/music",
+                "/api/weather",
+                "/api/weather/district",
+                "/api/weather/locate",
             }:
                 self._send_no_content()
                 return
@@ -998,6 +1023,47 @@ def run_love_page(args: argparse.Namespace) -> None:
                 finally:
                     conn.close()
                 self._send_json(items)
+                return
+
+            # ===== 天气代理 API =====
+            if path == "/api/weather":
+                query = parse_qs(parsed.query)
+                city = query.get("city", [DEFAULT_ADCODE if 'DEFAULT_ADCODE' in dir() else "420100"])[0].strip()
+                extensions = query.get("extensions", ["base"])[0].strip()
+                if extensions not in ("base", "all"):
+                    extensions = "base"
+                result = proxy_gaode(
+                    "https://restapi.amap.com/v3/weather/weatherInfo",
+                    {"city": city, "extensions": extensions},
+                    gaode_key,
+                )
+                self._send_json(result)
+                return
+
+            if path == "/api/weather/district":
+                query = parse_qs(parsed.query)
+                keywords = query.get("keywords", ["中国"])[0].strip()
+                subdistrict = query.get("subdistrict", ["1"])[0].strip()
+                result = proxy_gaode(
+                    "https://restapi.amap.com/v3/config/district",
+                    {"keywords": keywords, "subdistrict": subdistrict},
+                    gaode_key,
+                )
+                self._send_json(result)
+                return
+
+            if path == "/api/weather/locate":
+                result = proxy_gaode(
+                    "https://restapi.amap.com/v3/ip",
+                    {},
+                    gaode_key,
+                )
+                locate_data = {
+                    "adcode": result.get("adcode", ""),
+                    "city": result.get("city", ""),
+                    "province": result.get("province", ""),
+                }
+                self._send_json(locate_data)
                 return
 
             # ===== 共享歌单 API =====

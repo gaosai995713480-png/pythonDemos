@@ -145,3 +145,11 @@ export const photoApi = {
     return res.json()
   },
 }
+
+export const weatherApi = {
+  weather: (city, extensions = 'base') =>
+    get(`/api/weather?city=${city}&extensions=${extensions}`),
+  district: (keywords, subdistrict = 1) =>
+    get(`/api/weather/district?keywords=${encodeURIComponent(keywords)}&subdistrict=${subdistrict}`),
+  locate: () => get('/api/weather/locate'),
+}
