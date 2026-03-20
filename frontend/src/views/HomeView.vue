@@ -21,6 +21,7 @@ const settingsOpen = ref(false)
 const danmuSpeed = ref(12)
 const danmuDensity = ref(8)
 let danmuTimers = []
+let danmuMainTimer = null
 
 async function loadDanmu() {
   try { danmuList.value = await danmuApi.list(50) } catch { /* ignore */ }
@@ -141,10 +142,12 @@ async function loadWeather(adcode) {
   weatherError.value = null
   try {
     // 并行请求：base 获取实时天气，all 获取预报
-    const [baseData, allData] = await Promise.all([
+    const results = await Promise.allSettled([
       weatherApi.weather(code, 'base'),
       weatherApi.weather(code, 'all'),
     ])
+    const baseData = results[0].status === 'fulfilled' ? results[0].value : {}
+    const allData = results[1].status === 'fulfilled' ? results[1].value : {}
     // 实时天气
     if (baseData.status === '1' && baseData.lives?.length > 0) {
       weatherData.value = baseData.lives[0]
@@ -243,6 +246,7 @@ onMounted(() => { document.addEventListener('click', closeCitySearch) })
 onUnmounted(() => {
   document.removeEventListener('click', closeCitySearch)
   if (weatherRefreshTimer) clearInterval(weatherRefreshTimer)
+  if (searchTimer) clearTimeout(searchTimer)
 })
 
 
@@ -304,11 +308,12 @@ onMounted(async () => {
   // Launch danmu after loading
   setTimeout(launchAllDanmu, 1500)
   // Re-launch every cycle
-  danmuTimers.push(setInterval(launchAllDanmu, danmuSpeed.value * 1000 + 2000))
+  danmuMainTimer = setInterval(launchAllDanmu, danmuSpeed.value * 1000 + 2000)
 })
 
 onUnmounted(() => {
   clearDanmuTimers()
+  if (danmuMainTimer) clearInterval(danmuMainTimer)
 })
 </script>
 
