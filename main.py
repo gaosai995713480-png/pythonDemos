@@ -738,9 +738,9 @@ def run_love_page(args: argparse.Namespace) -> None:
     web_dir = base_dir / "docs"
     if not web_dir.exists():
         raise FileNotFoundError("docs directory is missing.")
-    login_page = web_dir / "login.html"
-    if not login_page.exists():
-        raise FileNotFoundError("docs/login.html is missing.")
+    index_page = web_dir / "index.html"
+    if not index_page.exists():
+        raise FileNotFoundError("docs/index.html is missing.")
     photos_dir = web_dir / "photos"
     danmu_limit = max(1, args.danmu_limit)
     danmu_maxlen = 40
@@ -892,21 +892,24 @@ def run_love_page(args: argparse.Namespace) -> None:
                     self._send_json({"authenticated": False}, 401)
                 return
 
-            if path in {"/login", "/login.html"}:
-                if self._is_authenticated():
-                    self._send_redirect("/index.html")
+            # SPA fallback: API 和静态资源透传，其余返回 index.html
+            api_prefixes = ("/auth/", "/danmu", "/api/", "/photos", "/assets/")
+            is_api_or_asset = any(path.startswith(p) for p in api_prefixes) or path == "/photos.json"
+            has_ext = "." in path.rsplit("/", 1)[-1]
+            is_static = has_ext and not path.endswith(".html")
+
+            if not is_api_or_asset and not is_static:
+                # 所有页面路由由 Vue Router 处理，返回 index.html
+                spa_index = web_dir / "index.html"
+                if spa_index.exists():
+                    data = spa_index.read_bytes()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/html; charset=utf-8")
+                    self.send_header("Content-Length", str(len(data)))
+                    self.send_header("Cache-Control", "no-store")
+                    self.end_headers()
+                    self.wfile.write(data)
                     return
-                self.path = "/login.html"
-                super().do_GET()
-                return
-
-            if path == "/":
-                self._send_redirect("/index.html" if self._is_authenticated() else "/login.html")
-                return
-
-            if not self._is_authenticated():
-                self._send_redirect("/login.html")
-                return
 
             if path == "/photos.json":
                 images: List[Path] = []
@@ -1561,7 +1564,7 @@ def run_love_page(args: argparse.Namespace) -> None:
     with ThreadingHTTPServer((args.host, args.port), handler) as server:
         host, real_port = server.server_address
         display_host = "127.0.0.1" if host == "0.0.0.0" else host
-        url = f"http://{display_host}:{real_port}/login.html"
+        url = f"http://{display_host}:{real_port}/"
         logging.info("Love page ready: %s", url)
         try:
             webbrowser.open(url, new=1)

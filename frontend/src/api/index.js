@@ -66,7 +66,18 @@ async function uploadFile(url, file, fileName) {
 // ===== 各模块 API =====
 
 export const authApi = {
-  status: () => get('/auth/status').catch(() => ({ authenticated: false })),
+  // status 不走通用 request()，避免 401 触发 window.location.replace 导致无限刷新
+  status: async () => {
+    try {
+      const res = await fetch('/auth/status', {
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (res.ok) return res.json()
+      return { authenticated: false }
+    } catch {
+      return { authenticated: false }
+    }
+  },
   login: (password) => post('/auth/login', { password }),
   logout: () => post('/auth/logout', {}),
 }

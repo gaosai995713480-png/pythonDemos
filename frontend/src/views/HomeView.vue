@@ -79,14 +79,113 @@ async function sendDanmu() {
 }
 
 // ===== Weather =====
-const weatherData = ref(null)
+const GAODE_KEY = 'c34bbce1d41994a5c7819ea44a0a004f'
+const DEFAULT_ADCODE = '420100' // 武汉
 
-async function loadWeather() {
+const weatherData = ref(null)
+const weatherCity = ref(localStorage.getItem('weather_adcode') || DEFAULT_ADCODE)
+const showCitySearch = ref(false)
+const citySearchQuery = ref('')
+const citySearchResults = ref([])
+const weatherCardRef = ref(null)
+const districtList = ref([])
+const breadcrumb = ref([])
+const districtLoading = ref(false)
+let searchTimer = null
+
+async function loadWeather(adcode) {
+  const code = adcode || weatherCity.value
   try {
-    const res = await fetch('https://api.vvhan.com/api/weather?city=武汉')
-    if (res.ok) weatherData.value = await res.json()
+    const res = await fetch(`https://restapi.amap.com/v3/weather/weatherInfo?city=${code}&key=${GAODE_KEY}`)
+    if (res.ok) {
+      const data = await res.json()
+      if (data.status === '1' && data.lives?.length > 0) {
+        weatherData.value = data.lives[0]
+      }
+    }
   } catch { /* ignore */ }
 }
+
+function onCitySearch(keyword) {
+  clearTimeout(searchTimer)
+  if (!keyword.trim()) { citySearchResults.value = []; return }
+  searchTimer = setTimeout(async () => {
+    try {
+      const res = await fetch(`https://restapi.amap.com/v3/config/district?keywords=${encodeURIComponent(keyword)}&key=${GAODE_KEY}&subdistrict=0`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.status === '1') {
+          citySearchResults.value = data.districts || []
+        }
+      }
+    } catch { /* ignore */ }
+  }, 300)
+}
+
+function selectCity(district) {
+  weatherCity.value = district.adcode
+  localStorage.setItem('weather_adcode', district.adcode)
+  showCitySearch.value = false
+  citySearchQuery.value = ''
+  citySearchResults.value = []
+  loadWeather(district.adcode)
+}
+
+async function loadDistricts(keyword = '中国') {
+  districtLoading.value = true
+  try {
+    const res = await fetch(`https://restapi.amap.com/v3/config/district?keywords=${encodeURIComponent(keyword)}&key=${GAODE_KEY}&subdistrict=1`)
+    if (res.ok) {
+      const data = await res.json()
+      if (data.status === '1' && data.districts?.length > 0) {
+        districtList.value = data.districts[0].districts || []
+      }
+    }
+  } catch { /* ignore */ }
+  districtLoading.value = false
+}
+
+function drillDown(district) {
+  if (district.level === 'city' || district.level === 'district' || district.level === 'street') {
+    selectCity(district)
+    return
+  }
+  breadcrumb.value.push({ name: district.name, adcode: district.adcode })
+  loadDistricts(district.name)
+}
+
+function goToBreadcrumb(index) {
+  if (index < 0) {
+    breadcrumb.value = []
+    loadDistricts('中国')
+  } else {
+    const item = breadcrumb.value[index]
+    breadcrumb.value = breadcrumb.value.slice(0, index + 1)
+    loadDistricts(item.name)
+  }
+}
+
+function toggleCityPanel() {
+  showCitySearch.value = !showCitySearch.value
+  if (showCitySearch.value && districtList.value.length === 0) {
+    breadcrumb.value = []
+    loadDistricts('中国')
+  }
+}
+
+function levelLabel(level) {
+  const map = { country: '国', province: '省', city: '市', district: '区/县', street: '街道' }
+  return map[level] || level
+}
+
+function closeCitySearch(e) {
+  if (weatherCardRef.value && !weatherCardRef.value.contains(e.target)) {
+    showCitySearch.value = false
+  }
+}
+
+onMounted(() => { document.addEventListener('click', closeCitySearch) })
+onUnmounted(() => { document.removeEventListener('click', closeCitySearch) })
 
 // ===== Slideshow =====
 const photos = ref([])
@@ -222,12 +321,45 @@ onUnmounted(() => {
     </nav>
 
     <!-- 天气卡片 -->
-    <div class="weather-card" v-if="weatherData && weatherData.success !== false">
-      <div class="weather-city">
-        📍 {{ weatherData.city || weatherData.data?.city || '武汉' }}
+    <div class="weather-card" v-if="weatherData" ref="weatherCardRef">
+      <div class="weather-city" @click.stop="toggleCityPanel()">
+        📍 {{ weatherData.city || '武汉' }}
+        <span class="city-search-icon">▾</span>
       </div>
-      <div class="weather-temp">{{ weatherData.data?.temp || weatherData.temp || '--' }}°</div>
-      <div class="weather-desc">{{ weatherData.data?.type || weatherData.type || '' }}</div>
+      <div class="city-search-dropdown" v-if="showCitySearch" @click.stop>
+        <input
+          v-model="citySearchQuery"
+          @input="onCitySearch(citySearchQuery)"
+          placeholder="搜索省/市/区/县..."
+          class="city-search-input"
+        />
+        <!-- 搜索结果 -->
+        <ul class="city-search-results" v-if="citySearchQuery && citySearchResults.length">
+          <li v-for="d in citySearchResults" :key="d.adcode" @click="selectCity(d)">
+            <span>{{ d.name }}</span>
+            <span class="city-level">{{ levelLabel(d.level) }}</span>
+          </li>
+        </ul>
+        <!-- 层级浏览 -->
+        <template v-if="!citySearchQuery">
+          <div class="city-breadcrumb">
+            <span @click="goToBreadcrumb(-1)" class="crumb">全国</span>
+            <template v-for="(b, i) in breadcrumb" :key="i">
+              <span class="crumb-sep">›</span>
+              <span @click="goToBreadcrumb(i)" class="crumb">{{ b.name }}</span>
+            </template>
+          </div>
+          <ul class="city-search-results" v-if="districtList.length">
+            <li v-for="d in districtList" :key="d.adcode" @click="drillDown(d)">
+              <span>{{ d.name }}</span>
+              <span class="city-level">{{ levelLabel(d.level) }} ›</span>
+            </li>
+          </ul>
+          <div v-else-if="districtLoading" class="city-loading">加载中...</div>
+        </template>
+      </div>
+      <div class="weather-temp">{{ weatherData.temperature || '--' }}°</div>
+      <div class="weather-desc">{{ weatherData.weather || '' }}</div>
     </div>
 
     <!-- 照片轮播 -->
@@ -410,9 +542,47 @@ h1 {
   border: 1px solid var(--glass-border);
   text-align: left; min-width: 120px;
 }
-.weather-city { font-size: 13px; color: var(--text-secondary); cursor: pointer; }
+.weather-city {
+  font-size: 13px; color: var(--text-secondary); cursor: pointer;
+  display: flex; align-items: center; gap: 4px;
+  transition: color 0.2s;
+}
+.weather-city:hover { color: var(--text-primary); }
+.city-search-icon { font-size: 10px; opacity: 0.6; transition: transform 0.2s; }
 .weather-temp { font-size: 32px; font-weight: 700; }
 .weather-desc { font-size: 13px; color: var(--text-secondary); }
+
+.city-search-dropdown { margin-top: 8px; }
+.city-search-input {
+  width: 100%; padding: 6px 10px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.2); box-sizing: border-box;
+  background: rgba(0,0,0,0.2); color: #fff;
+  font-size: 13px; outline: none; transition: border-color 0.2s;
+}
+.city-search-input:focus { border-color: var(--accent); }
+.city-search-input::placeholder { color: rgba(255,255,255,0.4); }
+.city-search-results {
+  list-style: none; margin: 4px 0 0; padding: 0;
+  max-height: 160px; overflow-y: auto;
+}
+.city-search-results li {
+  padding: 6px 10px; cursor: pointer;
+  border-radius: 6px; font-size: 13px;
+  display: flex; justify-content: space-between; align-items: center;
+  transition: background 0.15s;
+}
+.city-search-results li:hover { background: rgba(255,255,255,0.15); }
+.city-level { font-size: 11px; opacity: 0.5; }
+
+.city-breadcrumb {
+  display: flex; align-items: center; gap: 2px;
+  font-size: 11px; color: var(--text-secondary);
+  padding: 4px 0; margin-bottom: 4px; flex-wrap: wrap;
+}
+.crumb { cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: all 0.15s; }
+.crumb:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+.crumb-sep { opacity: 0.4; }
+.city-loading { font-size: 12px; color: var(--text-secondary); padding: 8px; text-align: center; }
 
 /* Slideshow */
 .slideshow {
