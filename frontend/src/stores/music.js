@@ -10,6 +10,7 @@ export const useMusicStore = defineStore('music', () => {
   const currentLyricIndex = ref(-1)
   const currentTime = ref(0)
   const duration = ref(0)
+  const playError = ref('')  // B1: 播放失败时展示错误信息
 
   // 使用 markRaw 避免 Vue 对 Audio 做响应式代理
   const audio = markRaw(new Audio())
@@ -100,18 +101,28 @@ export const useMusicStore = defineStore('music', () => {
     if (index < 0 || index >= songs.value.length) return
     currentIndex.value = index
     const s = songs.value[index]
+    playError.value = ''
     loadLyrics(s.netease_id, s.platform || 'netease')
     try {
       const data = await musicApi.url(s.netease_id, s.platform || 'netease')
       if (data.url) {
         audio.src = data.url
-        await audio.play()
-        isPlaying.value = true
+        // B5: 统一 try/catch 处理浏览器播放拒绝
+        try {
+          await audio.play()
+          isPlaying.value = true
+        } catch {
+          isPlaying.value = false
+          playError.value = '浏览器阻止自动播放，请手动点击播放'
+        }
       } else {
+        // B1: 播放链接获取失败给用户反馈
         isPlaying.value = false
+        playError.value = '该歌曲暂无播放源'
       }
     } catch (e) {
       isPlaying.value = false
+      playError.value = '播放请求失败'
     }
   }
 
@@ -124,8 +135,13 @@ export const useMusicStore = defineStore('music', () => {
       if (currentIndex.value < 0) {
         play(0)
       } else {
-        audio.play().catch(() => {})
-        isPlaying.value = true
+        // B2: await play() 并 catch，确保状态同步
+        audio.play().then(() => {
+          isPlaying.value = true
+        }).catch(() => {
+          isPlaying.value = false
+          playError.value = '播放失败，请重试'
+        })
       }
     }
   }
@@ -146,6 +162,28 @@ export const useMusicStore = defineStore('music', () => {
     }
   }
 
+  // B4: 删除歌曲后修正 currentIndex
+  function handleSongRemoved(removedIndex) {
+    if (songs.value.length === 0) {
+      // 歌单清空
+      currentIndex.value = -1
+      audio.pause()
+      audio.src = ''
+      isPlaying.value = false
+      lyricLines.value = []
+      return
+    }
+    if (removedIndex === currentIndex.value) {
+      // 删除的是当前播放的歌，播下一首
+      const nextIdx = currentIndex.value >= songs.value.length
+        ? 0 : currentIndex.value
+      play(nextIdx)
+    } else if (removedIndex < currentIndex.value) {
+      // 删除的在当前之前，index 前移
+      currentIndex.value--
+    }
+  }
+
   function fmtTime(s) {
     if (!s || !isFinite(s)) return '0:00'
     const m = Math.floor(s / 60)
@@ -156,8 +194,9 @@ export const useMusicStore = defineStore('music', () => {
   return {
     songs, currentIndex, isPlaying, lyricLines, currentLyricIndex,
     currentTime, duration, currentSong, currentPlatformName,
+    playError,
     audio, PLATFORM_NAMES,
     loadSongs, loadLyrics, play, togglePlay, next, prev,
-    seekTo, fmtTime,
+    seekTo, fmtTime, handleSongRemoved,
   }
 })

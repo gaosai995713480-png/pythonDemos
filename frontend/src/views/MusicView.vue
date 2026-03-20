@@ -28,7 +28,7 @@ async function searchSongs() {
   if (!searchKeyword.value.trim()) return
   searchLoading.value = true
   try {
-    searchResults.value = await musicApi.search(searchKeyword.value)
+    searchResults.value = await musicApi.search(searchKeyword.value, addPlatform.value)
   } catch { searchResults.value = [] }
   searchLoading.value = false
 }
@@ -60,9 +60,12 @@ async function addSongById() {
 
 async function removeSong(id) {
   if (!confirm('确定要删除这首歌吗？')) return
+  const removedIndex = musicStore.songs.findIndex(s => s.id === id)
   try {
     await musicApi.remove(id)
-    musicStore.loadSongs()
+    await musicStore.loadSongs()
+    // B4: 删除后修正播放索引
+    if (removedIndex >= 0) musicStore.handleSongRemoved(removedIndex)
   } catch { /* ignore */ }
 }
 
@@ -113,6 +116,7 @@ onMounted(() => musicStore.loadSongs())
         <span>{{ musicStore.fmtTime(musicStore.currentTime) }}</span>
         <span>{{ musicStore.fmtTime(musicStore.duration) }}</span>
       </div>
+      <div class="play-error" v-if="musicStore.playError">⚠️ {{ musicStore.playError }}</div>
     </div>
 
     <!-- Lyrics -->
@@ -165,10 +169,12 @@ onMounted(() => musicStore.loadSongs())
         v-for="r in searchResults"
         :key="r.id"
         class="search-item"
-        @click="addSong(r)"
       >
-        <div class="sr-title">{{ r.name }}</div>
-        <div class="sr-artist">{{ r.artist?.join?.(' / ') || r.artist }}</div>
+        <div class="sr-meta">
+          <div class="sr-title">{{ r.name }}</div>
+          <div class="sr-artist">{{ r.artist?.join?.(' / ') || r.artist }}</div>
+        </div>
+        <button class="sr-add-btn" @click="addSong(r)" title="添加到歌单">+</button>
       </div>
     </div>
     <!-- Or by ID -->
@@ -214,6 +220,7 @@ onMounted(() => musicStore.loadSongs())
 .progress-wrap { width: 100%; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); cursor: pointer; margin: 8px 0; }
 .progress-bar { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width 0.1s; }
 .time-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); }
+.play-error { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: rgba(255, 80, 80, 0.15); color: #ff6b6b; font-size: 13px; text-align: center; }
 
 /* Lyrics */
 .lyrics-card {
@@ -241,6 +248,7 @@ onMounted(() => musicStore.loadSongs())
 .song-detail { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
 .song-del { width: 28px; height: 28px; border-radius: 50%; border: none; background: transparent; color: rgba(255, 255, 255, 0.3); font-size: 14px; cursor: pointer; opacity: 0; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
 .song-item:hover .song-del { opacity: 1; }
+@media (hover: none) { .song-del { opacity: 0.6; } }
 .song-del:hover { background: rgba(255, 80, 80, 0.25); color: #fff; }
 
 /* Modal content */
@@ -252,10 +260,18 @@ onMounted(() => musicStore.loadSongs())
 .search-row input:focus { border-color: var(--primary); }
 .search-row .btn-primary { padding: 10px 18px; }
 .search-results { max-height: 200px; overflow-y: auto; margin-bottom: 16px; }
-.search-item { padding: 10px 14px; border-radius: 10px; cursor: pointer; transition: background 0.15s; }
+.search-item { padding: 10px 14px; border-radius: 10px; display: flex; align-items: center; gap: 10px; transition: background 0.15s; }
 .search-item:hover { background: rgba(255, 255, 255, 0.08); }
-.sr-title { font-size: 14px; font-weight: 600; }
-.sr-artist { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.sr-meta { flex: 1; min-width: 0; }
+.sr-title { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sr-artist { font-size: 12px; color: var(--text-secondary); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sr-add-btn {
+  width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.08); color: #fff; font-size: 18px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; flex-shrink: 0;
+}
+.sr-add-btn:hover { background: var(--primary); border-color: var(--primary); transform: scale(1.1); }
 .divider { text-align: center; font-size: 12px; color: rgba(255, 255, 255, 0.35); margin: 16px 0; position: relative; }
 .divider::before, .divider::after { content: ''; position: absolute; top: 50%; width: 30%; height: 1px; background: rgba(255, 255, 255, 0.1); }
 .divider::before { left: 0; }

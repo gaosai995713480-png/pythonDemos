@@ -608,7 +608,7 @@ def fetch_music(
     result = []
     for r in rows:
         item = {
-            "id": r[0], "song_name": r[1], "artist": r[2], "netease_id": r[3],
+            "id": r[0], "title": r[1], "artist": r[2], "netease_id": r[3],
             "sort_order": r[4],
             "created_at": r[5].isoformat() if r[5] else None,
         }
@@ -1456,7 +1456,7 @@ def run_love_page(args: argparse.Namespace) -> None:
                 platform = str(payload.get("platform", "netease")).strip()
                 if platform not in METING_PLATFORMS:
                     platform = "netease"
-                song_name = str(payload.get("song_name", "")).strip()
+                song_name = str(payload.get("title", payload.get("song_name", ""))).strip()
                 artist = str(payload.get("artist", "")).strip()
                 # 自动从 Meting 获取歌曲信息
                 if not song_name or not artist:
