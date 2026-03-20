@@ -1,0 +1,58 @@
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes beat {
+  0%, 100% { transform: rotate(-45deg) scale(1); }
+  50% { transform: rotate(-45deg) scale(1.05); }
+}
+
+@keyframes ripple {
+  0% { opacity: 0.8; transform: scale(0.85); }
+  50% { opacity: 0.4; }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+
+@keyframes float-up {
+  0% { transform: translateY(0) rotate(-45deg) scale(0.7); opacity: 0; }
+  12% { opacity: 1; }
+  100% { transform: translateY(-120vh) rotate(-45deg) scale(1.4); opacity: 0; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(18px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes title-glow {
+  0%, 100% { filter: drop-shadow(0 0 10px rgba(255, 107, 157, 0.3)); }
+  50% { filter: drop-shadow(0 0 25px rgba(255, 107, 157, 0.6)); }
+}
+
+@keyframes slide-in {
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slide-in-right {
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes twinkle {
+  0% { opacity: 0.4; transform: scale(0.8); }
+  100% { opacity: 1; transform: scale(1.2); }
+}
+
+@keyframes blink {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.7; }
+}

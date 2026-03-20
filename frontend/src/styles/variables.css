@@ -1,0 +1,15 @@
+:root {
+  --primary: #ff6b9d;
+  --secondary: #c44569;
+  --accent: #ffc048;
+  --bg-grad-1: #ee7752;
+  --bg-grad-2: #e73c7e;
+  --bg-grad-3: #23a6d5;
+  --bg-grad-4: #23d5ab;
+  --glass-bg: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.18);
+  --text-primary: #fff;
+  --text-secondary: rgba(255, 255, 255, 0.75);
+  --shadow: rgba(0, 0, 0, 0.3);
+  --error: #ffd2dc;
+}
