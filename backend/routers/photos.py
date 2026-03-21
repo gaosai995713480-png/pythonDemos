@@ -8,40 +8,9 @@ from urllib.parse import quote
 from fastapi import APIRouter, Request, Depends
 from ..config import settings
 from ..dependencies import require_auth
+from ..utils import is_image_filename, sanitize_upload_filename, photo_sort_key
 
 router = APIRouter(tags=["photos"])
-
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
-WINDOWS_RESERVED_NAMES = {
-    "con", "prn", "aux", "nul",
-    *(f"com{i}" for i in range(1, 10)),
-    *(f"lpt{i}" for i in range(1, 10)),
-}
-
-
-def is_image_filename(name: str) -> bool:
-    return Path(name).suffix.lower() in IMAGE_EXTENSIONS
-
-
-def sanitize_upload_filename(raw_name: str) -> str:
-    name = (raw_name or "").strip().replace("\x00", "")
-    if not name:
-        return ""
-    name = name.replace("\\", "/").split("/")[-1].strip()
-    name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", name).rstrip(" .")
-    if not name:
-        return ""
-    if Path(name).stem.lower() in WINDOWS_RESERVED_NAMES:
-        name = f"_{name}"
-    return name
-
-
-def photo_sort_key(path: Path) -> tuple:
-    stem = path.stem
-    parts = stem.split("_")
-    if len(parts) >= 3 and parts[2].isdigit():
-        return (0, int(parts[2]), path.name.lower())
-    return (1, 10**9, path.name.lower())
 
 
 @router.get("/photos.json")

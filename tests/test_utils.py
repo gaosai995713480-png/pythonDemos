@@ -1,5 +1,5 @@
 """
-main.py 纯函数单元测试
+main.py 纯函数单元测试 (已迁移到 backend/utils.py)
 测试不依赖数据库连接的工具函数
 """
 import sys
@@ -9,7 +9,7 @@ import pytest
 # 将项目根目录加入 sys.path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from main import validate_identifier, sanitize_upload_filename, is_image_filename, photo_sort_key
+from backend.utils import validate_identifier, sanitize_upload_filename, is_image_filename, photo_sort_key
 from pathlib import Path
 
 
