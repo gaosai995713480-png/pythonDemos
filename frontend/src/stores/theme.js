@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 
 const THEMES = [
   {
-    name: '春樱', emoji: '🌸',
+    name: '春樱', emoji: '🌸', effect: 'hearts',
     color: 'linear-gradient(135deg, #ee7752, #e73c7e)',
     vars: {
       '--primary': '#ff6b9d', '--secondary': '#c44569', '--accent': '#ffc048',
@@ -12,7 +12,7 @@ const THEMES = [
     }
   },
   {
-    name: '星空', emoji: '✨',
+    name: '星空', emoji: '✨', effect: 'hearts',
     color: 'linear-gradient(135deg, #0f0c29, #302b63)',
     vars: {
       '--primary': '#a78bfa', '--secondary': '#7c3aed', '--accent': '#f9a8d4',
@@ -21,7 +21,7 @@ const THEMES = [
     }
   },
   {
-    name: '海边', emoji: '🌊',
+    name: '海边', emoji: '🌊', effect: 'hearts',
     color: 'linear-gradient(135deg, #1cb5e0, #000851)',
     vars: {
       '--primary': '#38bdf8', '--secondary': '#0284c7', '--accent': '#fbbf24',
@@ -30,7 +30,7 @@ const THEMES = [
     }
   },
   {
-    name: '雪夜', emoji: '❄️',
+    name: '雪夜', emoji: '❄️', effect: 'hearts',
     color: 'linear-gradient(135deg, #e6dada, #274046)',
     vars: {
       '--primary': '#94a3b8', '--secondary': '#475569', '--accent': '#e2e8f0',
@@ -38,11 +38,61 @@ const THEMES = [
       '--bg-grad-3': '#536976', '--bg-grad-4': '#292e49',
     }
   },
+  {
+    name: '森林', emoji: '🌿', effect: 'leaves',
+    color: 'linear-gradient(135deg, #134e5e, #71b280)',
+    vars: {
+      '--primary': '#71b280', '--secondary': '#2d6a4f', '--accent': '#a7f3d0',
+      '--bg-grad-1': '#134e5e', '--bg-grad-2': '#71b280',
+      '--bg-grad-3': '#2d5016', '--bg-grad-4': '#1a472a',
+    }
+  },
+  {
+    name: '日落', emoji: '🌅', effect: 'hearts',
+    color: 'linear-gradient(135deg, #f12711, #f5af19)',
+    vars: {
+      '--primary': '#f59e0b', '--secondary': '#dc2626', '--accent': '#fde68a',
+      '--bg-grad-1': '#f12711', '--bg-grad-2': '#f5af19',
+      '--bg-grad-3': '#c33764', '--bg-grad-4': '#1d2671',
+    }
+  },
+  {
+    name: '薰衣草', emoji: '💜', effect: 'hearts',
+    color: 'linear-gradient(135deg, #c471f5, #fa71cd)',
+    vars: {
+      '--primary': '#c084fc', '--secondary': '#a855f7', '--accent': '#f0abfc',
+      '--bg-grad-1': '#c471f5', '--bg-grad-2': '#fa71cd',
+      '--bg-grad-3': '#e8b4f8', '--bg-grad-4': '#ad5389',
+    }
+  },
+  {
+    name: '焦糖', emoji: '🍂', effect: 'hearts',
+    color: 'linear-gradient(135deg, #8b5e3c, #d4a574)',
+    vars: {
+      '--primary': '#d4a574', '--secondary': '#8b5e3c', '--accent': '#fbbf24',
+      '--bg-grad-1': '#8b5e3c', '--bg-grad-2': '#d4a574',
+      '--bg-grad-3': '#5c3317', '--bg-grad-4': '#a0522d',
+    }
+  },
+  {
+    name: '极光', emoji: '🌌', effect: 'aurora',
+    color: 'linear-gradient(135deg, #0b3d0b, #1a0533)',
+    vars: {
+      '--primary': '#34d399', '--secondary': '#6366f1', '--accent': '#a78bfa',
+      '--bg-grad-1': '#0b3d0b', '--bg-grad-2': '#1a0533',
+      '--bg-grad-3': '#004d40', '--bg-grad-4': '#0d1b2a',
+    }
+  },
 ]
 
 export const useThemeStore = defineStore('theme', () => {
   const currentName = ref('春樱')
   const themes = THEMES
+
+  const currentEffect = computed(() => {
+    const theme = THEMES.find(t => t.name === currentName.value)
+    return theme?.effect || 'hearts'
+  })
 
   function init() {
     try {
@@ -69,5 +119,5 @@ export const useThemeStore = defineStore('theme', () => {
     localStorage.setItem('love_theme', JSON.stringify({ name, vars: theme.vars }))
   }
 
-  return { currentName, themes, init, applyTheme }
+  return { currentName, currentEffect, themes, init, applyTheme }
 })
