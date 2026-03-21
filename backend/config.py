@@ -1,31 +1,35 @@
 """
-应用配置管理 - 对应原 argparse 参数
+应用配置管理 - 从环境变量加载
 """
+import os
 from pathlib import Path
 from dataclasses import dataclass, field
+from dotenv import load_dotenv
 
+# 加载 .env 文件（如果存在）
+load_dotenv()
 
 @dataclass
 class Settings:
-    host: str = "127.0.0.1"
-    port: int = 0
+    host: str = os.getenv("LOVE_HOST", "127.0.0.1")
+    port: int = int(os.getenv("LOVE_PORT", "0"))
 
     # MySQL
-    db_host: str = "127.0.0.1"
-    db_port: int = 3306
-    db_user: str = "root"
-    db_password: str = "root"
-    db_name: str = "love_page"
+    db_host: str = os.getenv("DB_HOST", "127.0.0.1")
+    db_port: int = int(os.getenv("DB_PORT", "3306"))
+    db_user: str = os.getenv("DB_USER", "root")
+    db_password: str = os.getenv("DB_PASSWORD", "root")
+    db_name: str = os.getenv("DB_NAME", "love_page")
 
     # 表名
-    danmu_table: str = "love_danmu"
-    auth_table: str = "love_auth"
-    timeline_table: str = "love_timeline"
-    capsule_table: str = "love_capsule"
-    mood_table: str = "love_mood"
-    wish_table: str = "love_wish"
-    map_table: str = "love_map"
-    music_table: str = "love_music"
+    danmu_table: str = os.getenv("TABLE_DANMU", "love_danmu")
+    auth_table: str = os.getenv("TABLE_AUTH", "love_auth")
+    timeline_table: str = os.getenv("TABLE_TIMELINE", "love_timeline")
+    capsule_table: str = os.getenv("TABLE_CAPSULE", "love_capsule")
+    mood_table: str = os.getenv("TABLE_MOOD", "love_mood")
+    wish_table: str = os.getenv("TABLE_WISH", "love_wish")
+    map_table: str = os.getenv("TABLE_MAP", "love_map")
+    music_table: str = os.getenv("TABLE_MUSIC", "love_music")
 
     # 弹幕
     danmu_limit: int = 50
