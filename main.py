@@ -22,6 +22,12 @@ from pathlib import Path
 from typing import List, Optional
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
+from dotenv import load_dotenv
+
+# 加载 .env（Cookie 等配置），subprocess 子进程自动继承环境变量
+load_dotenv(Path(__file__).resolve().parent / ".env")
+
+
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
 WINDOWS_RESERVED_NAMES = {
     "con",

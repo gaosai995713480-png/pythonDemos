@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import TopBar from '../components/TopBar.vue'
 import GlassModal from '../components/GlassModal.vue'
 import { useMusicStore } from '../stores/music'
-import { musicApi } from '../api'
+import { musicApi, configApi } from '../api'
 
 const router = useRouter()
 const musicStore = useMusicStore()
@@ -85,11 +85,39 @@ watch(() => musicStore.currentLyricIndex, async (idx) => {
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
 })
 
+// ===== Cookie 设置 =====
+const showCookieModal = ref(false)
+const cookieList = ref([])
+const cookieSaving = ref(false)
+
+async function loadCookies() {
+  try {
+    cookieList.value = await configApi.getCookies()
+  } catch { cookieList.value = [] }
+}
+
+async function saveCookies() {
+  cookieSaving.value = true
+  try {
+    const data = {}
+    cookieList.value.forEach(c => { data[c.key] = c.value })
+    await configApi.updateCookies(data)
+    showCookieModal.value = false
+  } catch { /* ignore */ }
+  cookieSaving.value = false
+}
+
+function openCookieModal() {
+  showCookieModal.value = true
+  loadCookies()
+}
+
 onMounted(() => musicStore.loadSongs())
 </script>
 
 <template>
   <TopBar title="🎵 音乐时光" @back="router.push('/')">
+    <button class="btn-icon setting-btn" @click="openCookieModal" title="Cookie 设置">⚙️</button>
     <button class="btn-primary add-btn" @click="showAddModal = true">+ 添加歌曲</button>
   </TopBar>
 
@@ -184,6 +212,26 @@ onMounted(() => musicStore.loadSongs())
       <button class="btn-primary" @click="addSongById">添加</button>
     </div>
   </GlassModal>
+
+  <!-- Cookie Settings Modal -->
+  <GlassModal v-model="showCookieModal" title="🔑 音乐平台 Cookie">
+    <p class="cookie-tip">配置 VIP Cookie 后可播放完整会员歌曲（而非 30 秒试听）</p>
+    <div v-for="c in cookieList" :key="c.key" class="cookie-item">
+      <label class="cookie-label">{{ c.label }}</label>
+      <textarea
+        v-model="c.value"
+        class="cookie-input"
+        :placeholder="c.has_value ? '已配置（输入新值覆盖）' : '粘贴 Cookie 值...'"
+        rows="2"
+      ></textarea>
+    </div>
+    <div class="cookie-actions">
+      <button class="btn-primary" @click="saveCookies" :disabled="cookieSaving">
+        {{ cookieSaving ? '保存中...' : '💾 保存' }}
+      </button>
+    </div>
+    <p class="cookie-help">获取方式：浏览器登录音乐平台 → F12 → Application → Cookies</p>
+  </GlassModal>
 </template>
 
 <style scoped>
@@ -276,4 +324,23 @@ onMounted(() => musicStore.loadSongs())
 .divider::before, .divider::after { content: ''; position: absolute; top: 50%; width: 30%; height: 1px; background: rgba(255, 255, 255, 0.1); }
 .divider::before { left: 0; }
 .divider::after { right: 0; }
+
+/* Setting button */
+.setting-btn { margin-left: auto; background: transparent; border: none; font-size: 20px; cursor: pointer; padding: 4px; transition: transform 0.2s; }
+.setting-btn:hover { transform: rotate(45deg); }
+
+/* Cookie Modal */
+.cookie-tip { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; text-align: center; }
+.cookie-item { margin-bottom: 14px; }
+.cookie-label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--accent); }
+.cookie-input {
+  width: 100%; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15); background: rgba(255, 255, 255, 0.06);
+  color: #fff; font-size: 12px; font-family: monospace; resize: vertical; outline: none;
+  box-sizing: border-box;
+}
+.cookie-input:focus { border-color: var(--primary); }
+.cookie-actions { text-align: center; margin: 16px 0 8px; }
+.cookie-actions .btn-primary { padding: 10px 32px; }
+.cookie-help { font-size: 11px; color: rgba(255, 255, 255, 0.3); text-align: center; margin-top: 8px; }
 </style>

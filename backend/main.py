@@ -14,7 +14,7 @@ from .config import settings
 from .database import init_tables
 
 # 路由
-from .routers import auth, danmu, timeline, capsule, mood, wish, map, music, weather, photos
+from .routers import auth, danmu, timeline, capsule, mood, wish, map, music, weather, photos, config
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
@@ -42,6 +42,7 @@ app.include_router(map.router)
 app.include_router(music.router)
 app.include_router(weather.router)
 app.include_router(photos.router)
+app.include_router(config.router)
 
 
 @app.on_event("startup")

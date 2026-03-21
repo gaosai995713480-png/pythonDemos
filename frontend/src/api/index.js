@@ -166,3 +166,9 @@ export const weatherApi = {
     get(`/api/weather/district?keywords=${encodeURIComponent(keywords)}&subdistrict=${subdistrict}`),
   locate: () => get('/api/weather/locate'),
 }
+
+export const configApi = {
+  getCookies: () => get('/api/config/cookies'),
+  updateCookies: (data) => post('/api/config/cookies', data),
+}
+

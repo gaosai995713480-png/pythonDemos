@@ -160,6 +160,13 @@ def init_tables():
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """,
+            "love_config": """
+                CREATE TABLE IF NOT EXISTS `love_config` (
+                    config_key VARCHAR(50) PRIMARY KEY,
+                    config_value TEXT,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
         }
 
         with conn.cursor() as cursor:
@@ -198,6 +205,9 @@ def init_tables():
                     f"INSERT INTO `{settings.auth_table}` (password) VALUES (%s)",
                     (settings.default_password,),
                 )
+        # 从 .env 迁移 Cookie 到数据库（仅当数据库中无记录时）
+        _migrate_env_cookies(conn)
+
         conn.commit()
         _TABLE_INIT_DONE = True
         logger.info("所有数据表初始化完成")
@@ -206,3 +216,70 @@ def init_tables():
         raise
     finally:
         conn.close()
+
+
+# ==================== 配置管理 ====================
+
+_COOKIE_ENV_KEYS = [
+    "METING_NETEASE_COOKIE",
+    "METING_TENCENT_COOKIE",
+    "METING_KUGOU_COOKIE",
+    "METING_KUWO_COOKIE",
+]
+
+
+def _migrate_env_cookies(conn):
+    """首次启动时，将 .env 中的 Cookie 迁移到数据库（仅当数据库中无记录时）"""
+    import os
+    with conn.cursor() as cursor:
+        cursor.execute("SELECT COUNT(*) FROM love_config WHERE config_key LIKE 'METING_%'")
+        if cursor.fetchone()[0] > 0:
+            return  # 数据库中已有记录，不覆盖
+        for key in _COOKIE_ENV_KEYS:
+            value = os.environ.get(key, "")
+            if value:
+                cursor.execute(
+                    "INSERT INTO love_config (config_key, config_value) VALUES (%s, %s) "
+                    "ON DUPLICATE KEY UPDATE config_value = VALUES(config_value)",
+                    (key, value),
+                )
+                logger.info("已从环境变量迁移 %s 到数据库", key)
+
+
+def get_config(key: str) -> str:
+    """从数据库读取配置值"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT config_value FROM love_config WHERE config_key = %s", (key,)
+                )
+                row = cursor.fetchone()
+                return row[0] if row and row[0] else ""
+    except Exception:
+        return ""
+
+
+def get_all_cookies() -> dict:
+    """从数据库读取所有 Meting Cookie 配置"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT config_key, config_value FROM love_config WHERE config_key LIKE 'METING_%'"
+                )
+                return {r[0]: r[1] for r in cursor.fetchall() if r[1]}
+    except Exception:
+        return {}
+
+
+def set_config(key: str, value: str) -> None:
+    """写入或更新配置值"""
+    with get_db() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO love_config (config_key, config_value) VALUES (%s, %s) "
+                "ON DUPLICATE KEY UPDATE config_value = VALUES(config_value)",
+                (key, value),
+            )
+        conn.commit()
