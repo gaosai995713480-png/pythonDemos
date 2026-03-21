@@ -2,8 +2,6 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import FloatingHearts from '../components/FloatingHearts.vue'
-
 const router = useRouter()
 const authStore = useAuthStore()
 const password = ref('')
@@ -33,7 +31,6 @@ async function handleLogin() {
 </script>
 
 <template>
-  <FloatingHearts />
   <main class="login-shell">
     <section class="hero">
       <h1>只道当时是寻常</h1>

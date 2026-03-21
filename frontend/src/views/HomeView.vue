@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useMusicStore } from '../stores/music'
 import { useThemeStore } from '../stores/theme'
-import FloatingHearts from '../components/FloatingHearts.vue'
 import ThemeSwitcher from '../components/ThemeSwitcher.vue'
 import WeatherCard from '../components/WeatherCard.vue'
 import DanmuBar from '../components/DanmuBar.vue'
@@ -45,7 +44,6 @@ async function logout() {
 </script>
 
 <template>
-  <FloatingHearts />
   <DanmuBar ref="danmuRef" />
 
   <!-- 主场景 -->
