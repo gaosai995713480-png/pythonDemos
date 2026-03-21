@@ -2,24 +2,37 @@
  * 统一 API 封装层
  * - 所有请求经过统一处理
  * - 401 自动跳转登录页
+ * - 非 401 错误自动 Toast 提示
  */
-import { useRouter } from 'vue-router'
+import { useToast } from '../composables/useToast'
 
 const BASE = ''
 
 async function request(url, options = {}) {
-  const res = await fetch(`${BASE}${url}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  })
-  if (res.status === 401) {
-    window.location.replace('/login')
-    throw new Error('unauthorized')
+  try {
+    const res = await fetch(`${BASE}${url}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    })
+    if (res.status === 401) {
+      window.location.replace('/login')
+      throw new Error('unauthorized')
+    }
+    if (!res.ok) {
+      const { error } = useToast()
+      error(`请求失败 (${res.status})`)
+    }
+    return res
+  } catch (e) {
+    if (e.message !== 'unauthorized') {
+      const { error } = useToast()
+      error('网络错误，请检查连接')
+    }
+    throw e
   }
-  return res
 }
 
 async function get(url) {

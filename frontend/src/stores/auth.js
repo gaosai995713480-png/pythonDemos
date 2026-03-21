@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '../api'
+import { useMusicStore } from './music'
 
 export const useAuthStore = defineStore('auth', () => {
   const authenticated = ref(false)
@@ -28,6 +29,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function logout() {
     await authApi.logout()
+    // 全局熄灯：重置所有 Store
+    useMusicStore().reset()
     authenticated.value = false
   }
 

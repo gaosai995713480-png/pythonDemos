@@ -194,12 +194,24 @@ export const useMusicStore = defineStore('music', () => {
     return m + ':' + (sec < 10 ? '0' : '') + sec
   }
 
+  function reset() {
+    audio.pause()
+    audio.src = ''
+    isPlaying.value = false
+    currentIndex.value = -1
+    currentTime.value = 0
+    duration.value = 0
+    lyricLines.value = []
+    currentLyricIndex.value = -1
+    playError.value = ''
+  }
+
   return {
     songs, currentIndex, isPlaying, lyricLines, currentLyricIndex,
     currentTime, duration, currentSong, currentPlatformName,
     playError,
     audio, PLATFORM_NAMES,
     loadSongs, loadLyrics, play, togglePlay, next, prev,
-    seekTo, fmtTime, handleSongRemoved,
+    seekTo, fmtTime, handleSongRemoved, reset,
   }
 })
