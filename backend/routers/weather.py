@@ -8,6 +8,8 @@ router = APIRouter(prefix="/api", tags=["weather"])
 
 @router.get("/weather")
 def weather(city: str = "420100", extensions: str = "base"):
+    if not city or city == "[]":
+        city = "420100"
     if extensions not in ("base", "all"):
         extensions = "base"
     result = proxy_gaode(
@@ -35,8 +37,15 @@ def locate():
         {},
         settings.gaode_key,
     )
+    
+    def get_str(k: str) -> str:
+        v = result.get(k, "")
+        if isinstance(v, list) and len(v) == 0:
+            return ""
+        return str(v)
+
     return {
-        "adcode": result.get("adcode", ""),
-        "city": result.get("city", ""),
-        "province": result.get("province", ""),
+        "adcode": get_str("adcode"),
+        "city": get_str("city"),
+        "province": get_str("province"),
     }
