@@ -8,6 +8,7 @@ import ThemeSwitcher from '../components/ThemeSwitcher.vue'
 import WeatherCard from '../components/WeatherCard.vue'
 import DanmuBar from '../components/DanmuBar.vue'
 import CapsuleSection from '../components/CapsuleSection.vue'
+import NavSidebar from '../components/NavSidebar.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -66,33 +67,8 @@ async function logout() {
     <!-- 歌词 -->
     <div class="lyrics" v-if="currentLyric">{{ currentLyric }}</div>
 
-    <!-- 功能卡片导航网格 -->
-    <nav class="nav-grid">
-      <router-link to="/gallery" class="nav-card">
-        <span class="nav-icon">📸</span><span class="nav-label">心动画廊</span>
-      </router-link>
-      <router-link to="/timeline" class="nav-card">
-        <span class="nav-icon">📖</span><span class="nav-label">时间轴</span>
-      </router-link>
-      <router-link to="/music" class="nav-card">
-        <span class="nav-icon">🎵</span><span class="nav-label">音乐时光</span>
-      </router-link>
-      <router-link to="/letter" class="nav-card">
-        <span class="nav-icon">💌</span><span class="nav-label">表白信</span>
-      </router-link>
-      <router-link to="/mood" class="nav-card">
-        <span class="nav-icon">😊</span><span class="nav-label">心情日历</span>
-      </router-link>
-      <router-link to="/wishes" class="nav-card">
-        <span class="nav-icon">⭐</span><span class="nav-label">星空许愿</span>
-      </router-link>
-      <router-link to="/map" class="nav-card">
-        <span class="nav-icon">🗺️</span><span class="nav-label">恋爱地图</span>
-      </router-link>
-      <router-link to="/jukebox" class="nav-card">
-        <span class="nav-icon">🎤</span><span class="nav-label">点歌台</span>
-      </router-link>
-    </nav>
+    <!-- 侧边导航栏 -->
+    <NavSidebar />
 
     <!-- 天气卡片 -->
     <WeatherCard ref="weatherRef" />
@@ -219,26 +195,7 @@ h1 {
   border: 1px solid var(--glass-border);
 }
 
-/* Nav Grid */
-.nav-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 14px;
-  margin: 24px 0;
-}
 
-.nav-card {
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  padding: 18px 10px; border-radius: 16px;
-  background: var(--glass-bg); backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  text-decoration: none; color: var(--text-primary);
-  transition: all 0.25s; cursor: pointer;
-}
-
-.nav-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); background: rgba(255, 255, 255, 0.12); }
-.nav-icon { font-size: 28px; }
-.nav-label { font-size: 13px; font-weight: 600; }
 
 /* Play Button */
 .play-button {
