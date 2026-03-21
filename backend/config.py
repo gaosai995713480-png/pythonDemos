@@ -30,6 +30,7 @@ class Settings:
     wish_table: str = os.getenv("TABLE_WISH", "love_wish")
     map_table: str = os.getenv("TABLE_MAP", "love_map")
     music_table: str = os.getenv("TABLE_MUSIC", "love_music")
+    song_request_table: str = os.getenv("TABLE_SONG_REQUEST", "love_song_requests")
 
     # 弹幕
     danmu_limit: int = 50

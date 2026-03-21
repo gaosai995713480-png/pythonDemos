@@ -160,6 +160,30 @@ def init_tables():
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """,
+            settings.song_request_table: f"""
+                CREATE TABLE IF NOT EXISTS `{settings.song_request_table}` (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    song_id VARCHAR(20) NOT NULL,
+                    song_name VARCHAR(100) NOT NULL,
+                    artist VARCHAR(100) NOT NULL,
+                    platform VARCHAR(20) NOT NULL DEFAULT 'netease',
+                    nickname VARCHAR(30) DEFAULT '匿名访客',
+                    message VARCHAR(100) DEFAULT '',
+                    likes INT NOT NULL DEFAULT 0,
+                    ip VARCHAR(45) NOT NULL,
+                    is_adopted TINYINT NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
+            f"{settings.song_request_table}_likes": f"""
+                CREATE TABLE IF NOT EXISTS `{settings.song_request_table}_likes` (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    request_id BIGINT NOT NULL,
+                    ip VARCHAR(45) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY uniq_request_ip (request_id, ip)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
             "love_config": """
                 CREATE TABLE IF NOT EXISTS `love_config` (
                     config_key VARCHAR(50) PRIMARY KEY,

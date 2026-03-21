@@ -49,6 +49,11 @@ const routes = [
     component: () => import('../views/MapView.vue'),
   },
   {
+    path: '/jukebox',
+    name: 'Jukebox',
+    component: () => import('../views/JukeboxView.vue'),
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/',
   },

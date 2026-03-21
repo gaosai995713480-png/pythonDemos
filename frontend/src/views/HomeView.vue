@@ -89,6 +89,9 @@ async function logout() {
       <router-link to="/map" class="nav-card">
         <span class="nav-icon">🗺️</span><span class="nav-label">恋爱地图</span>
       </router-link>
+      <router-link to="/jukebox" class="nav-card">
+        <span class="nav-icon">🎤</span><span class="nav-label">点歌台</span>
+      </router-link>
     </nav>
 
     <!-- 天气卡片 -->

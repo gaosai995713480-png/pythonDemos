@@ -172,3 +172,11 @@ export const configApi = {
   updateCookies: (data) => post('/api/config/cookies', data),
 }
 
+export const jukeboxApi = {
+  list: (limit = 50) => get(`/api/jukebox?limit=${limit}`),
+  create: (data) => post('/api/jukebox', data),
+  like: (id) => post('/api/jukebox/like', { id }),
+  adopt: (id) => post('/api/jukebox/adopt', { id }),
+  remove: (id) => del(`/api/jukebox?id=${id}`),
+}
+
