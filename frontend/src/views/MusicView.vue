@@ -100,8 +100,16 @@ async function saveCookies() {
   cookieSaving.value = true
   try {
     const data = {}
-    cookieList.value.forEach(c => { data[c.key] = c.value })
-    await configApi.updateCookies(data)
+    cookieList.value.forEach(c => {
+      // 只有用户输入了新值，才发送给后端更新
+      if (c.value && c.value.trim()) {
+        data[c.key] = c.value.trim()
+      }
+    })
+    // 如果没有任何更新，直接关闭弹窗
+    if (Object.keys(data).length > 0) {
+      await configApi.updateCookies(data)
+    }
     showCookieModal.value = false
   } catch { /* ignore */ }
   cookieSaving.value = false

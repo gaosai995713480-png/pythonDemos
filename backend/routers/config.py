@@ -31,8 +31,7 @@ def get_cookies(_=Depends(require_auth)):
         result.append({
             "key": key,
             "label": _PLATFORM_LABELS.get(key, key),
-            "value": value,
-            "masked": _mask_cookie(value),
+            "value": "",  # 永远不要将真实 Cookie 下发给前端输入框，防止敏感信息泄漏
             "has_value": bool(value),
         })
     return result
