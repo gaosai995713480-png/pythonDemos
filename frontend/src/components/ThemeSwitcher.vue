@@ -75,6 +75,8 @@ function onClickOutside() {
   border-radius: 14px;
   padding: 10px;
   display: flex;
+  flex-wrap: wrap;
+  max-width: 220px;
   gap: 8px;
   opacity: 0;
   pointer-events: none;
