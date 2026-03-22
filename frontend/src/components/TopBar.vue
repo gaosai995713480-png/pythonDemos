@@ -61,5 +61,26 @@ h1 {
   font-size: 18px;
   font-weight: 700;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .top-bar {
+    padding: 10px 14px;
+    gap: 8px;
+  }
+
+  .back-btn {
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+
+  h1 {
+    font-size: 15px;
+  }
 }
 </style>

@@ -213,8 +213,47 @@ onMounted(loadMonth)
 .btn-cancel { background: rgba(255, 255, 255, 0.1); color: #fff; }
 
 @media (max-width: 720px) {
-  .cal-grid { padding: 14px; gap: 6px; }
-  .cal-day .emoji { font-size: 15px; }
-  .container { padding: 72px 12px 40px; }
+  .container {
+    padding: 72px 12px 40px;
+  }
+
+  .cal-grid {
+    padding: 14px;
+    gap: 6px;
+  }
+
+  .cal-day .emoji {
+    font-size: 15px;
+  }
+
+  .stat-card {
+    min-width: 80px;
+    padding: 14px 10px;
+  }
+
+  .stat-card .value {
+    font-size: 22px;
+  }
+
+  .emoji-picker {
+    gap: 8px;
+  }
+
+  .emoji-option {
+    width: 44px;
+    height: 44px;
+    font-size: 22px;
+    border-radius: 12px;
+  }
+
+  .level-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 13px;
+  }
+
+  .month-label {
+    font-size: 18px;
+  }
 }
 </style>

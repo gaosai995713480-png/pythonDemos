@@ -73,4 +73,17 @@ h2 {
   margin-bottom: 20px;
   text-align: center;
 }
+
+@media (max-width: 720px) {
+  .modal-card {
+    width: 95%;
+    padding: 22px 16px;
+    border-radius: 20px;
+  }
+
+  h2 {
+    font-size: 17px;
+    margin-bottom: 16px;
+  }
+}
 </style>

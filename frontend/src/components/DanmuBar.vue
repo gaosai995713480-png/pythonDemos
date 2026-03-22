@@ -322,10 +322,57 @@ onUnmounted(() => {
 .danmu-panel-like.is-liked { color: var(--accent); }
 
 @media (max-width: 720px) {
-  .danmu-bar { left: 12px; right: 90px; bottom: 16px; padding: 10px 14px; }
-  .danmu-panel { left: 8px; right: 8px; bottom: 80px; max-height: 45vh; border-radius: 16px; }
-  .danmu-panel-header { padding: 12px 16px 10px; }
-  .danmu-panel-body { padding: 8px 12px; }
-  .danmu-panel-item { padding: 8px 10px; }
+  .danmu-bar {
+    left: 12px;
+    right: 80px;
+    bottom: 16px;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .danmu-bar input {
+    font-size: 14px;
+  }
+
+  .danmu-counter {
+    display: none;
+  }
+
+  .danmu-bar button:last-child {
+    padding: 6px 14px;
+    font-size: 13px;
+  }
+
+  .danmu-settings-toggle {
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
+  }
+
+  .danmu-settings {
+    left: 12px;
+    width: calc(100vw - 24px);
+    bottom: 84px;
+  }
+
+  .danmu-panel {
+    left: 8px;
+    right: 8px;
+    bottom: 80px;
+    max-height: 45vh;
+    border-radius: 16px;
+  }
+
+  .danmu-panel-header {
+    padding: 12px 16px 10px;
+  }
+
+  .danmu-panel-body {
+    padding: 8px 12px;
+  }
+
+  .danmu-panel-item {
+    padding: 8px 10px;
+  }
 }
 </style>

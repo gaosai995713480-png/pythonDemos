@@ -224,7 +224,49 @@ h1 {
 
 /* Mobile */
 @media (max-width: 720px) {
-  .play-button { right: 16px; bottom: 16px; width: 52px; height: 52px; font-size: 20px; }
-  .nav-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .stage {
+    padding: 24px 16px 160px;
+  }
+
+  .corner-actions {
+    top: 10px;
+    right: 12px;
+  }
+
+  .heart-container {
+    margin: 24px 0;
+  }
+
+  .heart {
+    width: 70px;
+    height: 70px;
+  }
+
+  .heart::before,
+  .heart::after {
+    width: 70px;
+    height: 70px;
+  }
+
+  .heart::before {
+    top: -35px;
+  }
+
+  .heart::after {
+    left: -35px;
+  }
+
+  .lyrics {
+    padding: 12px 16px;
+    font-size: 15px;
+  }
+
+  .play-button {
+    right: 16px;
+    bottom: 16px;
+    width: 52px;
+    height: 52px;
+    font-size: 20px;
+  }
 }
 </style>

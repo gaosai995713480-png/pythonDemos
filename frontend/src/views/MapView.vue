@@ -320,4 +320,50 @@ onMounted(async () => {
 
 :deep(.love-marker) { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 24px; filter: drop-shadow(0 2px 6px rgba(255, 107, 157, 0.5)); cursor: pointer; transition: transform 0.2s; }
 :deep(.love-marker:hover) { transform: scale(1.3); }
+
+@media (max-width: 720px) {
+  #map-container {
+    top: 50px;
+  }
+
+  .search-wrap {
+    top: 58px;
+    left: 10px;
+    right: 10px;
+  }
+
+  .search-box {
+    padding: 6px 12px;
+    border-radius: 12px;
+  }
+
+  .search-box input {
+    font-size: 14px;
+  }
+
+  .fab-add {
+    width: 48px;
+    height: 48px;
+    bottom: 20px;
+    right: 14px;
+    font-size: 24px;
+  }
+
+  .detail-card {
+    padding: 16px 18px 28px;
+  }
+
+  .detail-title {
+    font-size: 18px;
+  }
+
+  .detail-actions button {
+    padding: 10px;
+    font-size: 13px;
+  }
+
+  .marker-count {
+    font-size: 12px;
+  }
+}
 </style>

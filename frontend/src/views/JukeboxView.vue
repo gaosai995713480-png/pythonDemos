@@ -447,7 +447,49 @@ onMounted(() => loadRequests())
 
 /* Mobile */
 @media (max-width: 720px) {
-  .jukebox-container { padding-top: 80px; }
-  .search-section, .request-section { padding: 18px; }
+  .jukebox-container {
+    padding: 72px 14px 50px;
+  }
+
+  .search-section,
+  .request-section {
+    padding: 18px 14px;
+  }
+
+  .section-title {
+    font-size: 18px;
+  }
+
+  .plat-btn {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .search-row .btn-primary {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  .request-card {
+    padding: 14px;
+  }
+
+  .rc-song-name {
+    font-size: 15px;
+  }
+
+  .rc-footer {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .rc-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .rc-remove-btn {
+    opacity: 0.5;
+  }
 }
 </style>

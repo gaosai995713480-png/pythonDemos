@@ -1,3 +1,7 @@
+---
+name: ppt-agent
+description: PPT slide generation workflow with research, outline, design, review, and delivery agents
+---
 # PPT Agent Plugin
 
 Always answer in Chinese (Simplified).

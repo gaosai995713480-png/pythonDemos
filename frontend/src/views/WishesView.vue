@@ -40,9 +40,14 @@ function onSkyClick(e) {
     x: e.clientX / window.innerWidth,
     y: e.clientY / window.innerHeight,
   }
-  modalPos.value = {
-    left: Math.min(e.clientX, window.innerWidth - 240) + 'px',
-    top: Math.min(e.clientY + 20, window.innerHeight - 100) + 'px',
+  const isMobile = window.innerWidth <= 720
+  if (isMobile) {
+    modalPos.value = { left: '16px', right: '16px', bottom: '20px', top: 'auto' }
+  } else {
+    modalPos.value = {
+      left: Math.min(e.clientX, window.innerWidth - 240) + 'px',
+      top: Math.min(e.clientY + 20, window.innerHeight - 100) + 'px',
+    }
   }
   modalVisible.value = true
   wishInput.value = ''
@@ -201,5 +206,33 @@ onUnmounted(() => {
   margin-top: 8px; width: 100%; padding: 6px; border-radius: 8px; border: none;
   background: linear-gradient(135deg, #ffd700, #ffaa00);
   color: #1a0e2e; font-weight: 700; font-size: 13px; cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .wish-modal {
+    left: 16px !important;
+    right: 16px !important;
+    top: auto !important;
+    bottom: 20px !important;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .wish-modal input {
+    width: auto;
+    flex: 1;
+  }
+
+  .wish-modal button {
+    margin-top: 0;
+    width: auto;
+    padding: 8px 16px;
+    white-space: nowrap;
+  }
+
+  .hint {
+    bottom: 80px;
+  }
 }
 </style>

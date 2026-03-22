@@ -351,4 +351,86 @@ onMounted(() => musicStore.loadSongs())
 .cookie-actions { text-align: center; margin: 16px 0 8px; }
 .cookie-actions .btn-primary { padding: 10px 32px; }
 .cookie-help { font-size: 11px; color: rgba(255, 255, 255, 0.3); text-align: center; margin-top: 8px; }
+
+@media (max-width: 720px) {
+  .music-container {
+    padding: 72px 14px 50px;
+  }
+
+  .player-card {
+    padding: 20px 16px;
+    border-radius: 20px;
+  }
+
+  .disc {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 12px;
+  }
+
+  .disc-inner {
+    font-size: 28px;
+  }
+
+  .song-title {
+    font-size: 17px;
+  }
+
+  .controls {
+    gap: 16px;
+    margin: 16px 0;
+  }
+
+  .ctrl-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+
+  .play-btn {
+    width: 50px;
+    height: 50px;
+    font-size: 20px;
+  }
+
+  .song-item {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .song-name {
+    font-size: 14px;
+  }
+
+  .song-del {
+    opacity: 0.5;
+  }
+
+  .add-btn {
+    font-size: 13px;
+    padding: 6px 14px;
+  }
+
+  .setting-btn {
+    font-size: 18px;
+  }
+
+  .platform-row {
+    gap: 6px;
+  }
+
+  .plat-btn {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .search-row .btn-primary {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  .cookie-input {
+    font-size: 11px;
+  }
+}
 </style>
