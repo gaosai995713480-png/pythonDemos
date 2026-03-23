@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends
 from ..database import get_db
 from ..config import settings
-from ..dependencies import require_auth
+from ..dependencies import require_auth, require_role
 
 router = APIRouter(prefix="/api", tags=["timeline"])
 
@@ -29,7 +29,7 @@ def list_timeline():
 
 
 @router.post("/timeline")
-def create_timeline(body: dict, _=Depends(require_auth)):
+def create_timeline(body: dict, _=Depends(require_role("admin"))):
     event_date = str(body.get("event_date", "")).strip()
     title = str(body.get("title", "")).strip()
     content = str(body.get("content", "")).strip()
@@ -51,7 +51,7 @@ def create_timeline(body: dict, _=Depends(require_auth)):
 
 
 @router.delete("/timeline")
-def delete_timeline(id: int, _=Depends(require_auth)):
+def delete_timeline(id: int, _=Depends(require_role("admin"))):
     if id <= 0:
         return {"error": "invalid id"}, 400
     with get_db() as conn:

@@ -75,121 +75,114 @@ def init_tables():
         tables = {
             settings.danmu_table: f"""
                 CREATE TABLE IF NOT EXISTS `{settings.danmu_table}` (
-                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                    content VARCHAR(120) NOT NULL,
-                    likes INT NOT NULL DEFAULT 0,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '弹幕ID',
+                    content VARCHAR(120) NOT NULL COMMENT '弹幕内容',
+                    likes INT NOT NULL DEFAULT 0 COMMENT '点赞数',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='弹幕表'
             """,
             f"{settings.danmu_table}_likes": f"""
                 CREATE TABLE IF NOT EXISTS `{settings.danmu_table}_likes` (
-                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                    danmu_id BIGINT NOT NULL,
-                    ip VARCHAR(45) NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '记录ID',
+                    danmu_id BIGINT NOT NULL COMMENT '弹幕ID',
+                    ip VARCHAR(45) NOT NULL COMMENT '点赞者IP',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '点赞时间',
                     UNIQUE KEY uniq_danmu_ip (danmu_id, ip)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """,
-            settings.auth_table: f"""
-                CREATE TABLE IF NOT EXISTS `{settings.auth_table}` (
-                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                    password VARCHAR(255) NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='弹幕点赞记录'
             """,
             settings.timeline_table: f"""
                 CREATE TABLE IF NOT EXISTS `{settings.timeline_table}` (
-                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                    event_date DATE NOT NULL,
-                    title VARCHAR(100) NOT NULL,
-                    content TEXT,
-                    photo_url VARCHAR(500),
-                    icon VARCHAR(10) DEFAULT '💕',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '事件ID',
+                    event_date DATE NOT NULL COMMENT '事件日期',
+                    title VARCHAR(100) NOT NULL COMMENT '事件标题',
+                    content TEXT COMMENT '事件描述',
+                    photo_url VARCHAR(500) COMMENT '配图URL',
+                    icon VARCHAR(10) DEFAULT '💕' COMMENT '图标emoji',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='恋爱时间轴'
             """,
             settings.capsule_table: f"""
                 CREATE TABLE IF NOT EXISTS `{settings.capsule_table}` (
-                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                    content TEXT NOT NULL,
-                    open_date DATE NOT NULL,
-                    is_opened TINYINT NOT NULL DEFAULT 0,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '胶囊ID',
+                    content TEXT NOT NULL COMMENT '胶囊内容',
+                    open_date DATE NOT NULL COMMENT '开启日期',
+                    is_opened TINYINT NOT NULL DEFAULT 0 COMMENT '是否已开启：0=未开, 1=已开',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='时间胶囊'
             """,
             settings.mood_table: f"""
                 CREATE TABLE IF NOT EXISTS `{settings.mood_table}` (
-                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                    mood_date DATE NOT NULL UNIQUE,
-                    emoji VARCHAR(10) NOT NULL DEFAULT '😊',
-                    note VARCHAR(200),
-                    level TINYINT NOT NULL DEFAULT 3,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '记录ID',
+                    mood_date DATE NOT NULL UNIQUE COMMENT '心情日期，每天唯一',
+                    emoji VARCHAR(10) NOT NULL DEFAULT '😊' COMMENT '心情emoji',
+                    note VARCHAR(200) COMMENT '心情备注',
+                    level TINYINT NOT NULL DEFAULT 3 COMMENT '心情等级：1-5',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='心情打卡'
             """,
             settings.wish_table: f"""
                 CREATE TABLE IF NOT EXISTS `{settings.wish_table}` (
-                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                    content VARCHAR(200) NOT NULL,
-                    x FLOAT NOT NULL DEFAULT 0.5,
-                    y FLOAT NOT NULL DEFAULT 0.5,
-                    color VARCHAR(20) DEFAULT '#ffd700',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '愿望ID',
+                    content VARCHAR(200) NOT NULL COMMENT '愿望内容',
+                    x FLOAT NOT NULL DEFAULT 0.5 COMMENT '页面X坐标(0-1)',
+                    y FLOAT NOT NULL DEFAULT 0.5 COMMENT '页面Y坐标(0-1)',
+                    color VARCHAR(20) DEFAULT '#ffd700' COMMENT '愿望颜色',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='许愿墙'
             """,
             settings.map_table: f"""
                 CREATE TABLE IF NOT EXISTS `{settings.map_table}` (
-                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                    title VARCHAR(100) NOT NULL,
-                    note TEXT,
-                    photo_url VARCHAR(500),
-                    lat DOUBLE NOT NULL,
-                    lng DOUBLE NOT NULL,
-                    visit_date DATE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '标记ID',
+                    title VARCHAR(100) NOT NULL COMMENT '地点名称',
+                    note TEXT COMMENT '地点备注',
+                    photo_url VARCHAR(500) COMMENT '照片URL',
+                    lat DOUBLE NOT NULL COMMENT '纬度',
+                    lng DOUBLE NOT NULL COMMENT '经度',
+                    visit_date DATE COMMENT '到访日期',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='恋爱地图'
             """,
             settings.music_table: f"""
                 CREATE TABLE IF NOT EXISTS `{settings.music_table}` (
-                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                    song_name VARCHAR(100) NOT NULL,
-                    artist VARCHAR(100) NOT NULL,
-                    netease_id VARCHAR(20) NOT NULL,
-                    platform VARCHAR(20) NOT NULL DEFAULT 'netease',
-                    sort_order INT DEFAULT 0,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '歌曲ID',
+                    song_name VARCHAR(100) NOT NULL COMMENT '歌曲名',
+                    artist VARCHAR(100) NOT NULL COMMENT '歌手',
+                    netease_id VARCHAR(20) NOT NULL COMMENT '平台歌曲ID',
+                    platform VARCHAR(20) NOT NULL DEFAULT 'netease' COMMENT '音乐平台：netease/tencent/kugou/kuwo',
+                    sort_order INT DEFAULT 0 COMMENT '排序权重',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='歌单'
             """,
             settings.song_request_table: f"""
                 CREATE TABLE IF NOT EXISTS `{settings.song_request_table}` (
-                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                    song_id VARCHAR(20) NOT NULL,
-                    song_name VARCHAR(100) NOT NULL,
-                    artist VARCHAR(100) NOT NULL,
-                    platform VARCHAR(20) NOT NULL DEFAULT 'netease',
-                    nickname VARCHAR(30) DEFAULT '匿名访客',
-                    message VARCHAR(100) DEFAULT '',
-                    likes INT NOT NULL DEFAULT 0,
-                    ip VARCHAR(45) NOT NULL,
-                    is_adopted TINYINT NOT NULL DEFAULT 0,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '推荐ID',
+                    song_id VARCHAR(20) NOT NULL COMMENT '平台歌曲ID',
+                    song_name VARCHAR(100) NOT NULL COMMENT '歌曲名',
+                    artist VARCHAR(100) NOT NULL COMMENT '歌手',
+                    platform VARCHAR(20) NOT NULL DEFAULT 'netease' COMMENT '音乐平台',
+                    nickname VARCHAR(30) DEFAULT '匿名访客' COMMENT '推荐人昵称',
+                    message VARCHAR(100) DEFAULT '' COMMENT '推荐理由',
+                    likes INT NOT NULL DEFAULT 0 COMMENT '点赞数',
+                    ip VARCHAR(45) NOT NULL COMMENT '推荐者IP',
+                    is_adopted TINYINT NOT NULL DEFAULT 0 COMMENT '是否已采纳：0=未采纳, 1=已采纳',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='点歌台推荐'
             """,
             f"{settings.song_request_table}_likes": f"""
                 CREATE TABLE IF NOT EXISTS `{settings.song_request_table}_likes` (
-                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                    request_id BIGINT NOT NULL,
-                    ip VARCHAR(45) NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '记录ID',
+                    request_id BIGINT NOT NULL COMMENT '推荐ID',
+                    ip VARCHAR(45) NOT NULL COMMENT '点赞者IP',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '点赞时间',
                     UNIQUE KEY uniq_request_ip (request_id, ip)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='点歌台点赞记录'
             """,
             "love_config": """
                 CREATE TABLE IF NOT EXISTS `love_config` (
-                    config_key VARCHAR(50) PRIMARY KEY,
-                    config_value TEXT,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                    config_key VARCHAR(50) PRIMARY KEY COMMENT '配置键，如 INVITE_CODE、METING_NETEASE_COOKIE',
+                    config_value TEXT COMMENT '配置值',
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统配置表'
             """,
             settings.page_password_table: f"""
                 CREATE TABLE IF NOT EXISTS `{settings.page_password_table}` (
@@ -197,6 +190,16 @@ def init_tables():
                     password VARCHAR(255) NOT NULL COMMENT '页面访问密码',
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
+            settings.users_table: f"""
+                CREATE TABLE IF NOT EXISTS `{settings.users_table}` (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '用户ID',
+                    username VARCHAR(50) UNIQUE NOT NULL COMMENT '用户名，唯一',
+                    password VARCHAR(255) NOT NULL COMMENT '登录密码',
+                    role VARCHAR(20) NOT NULL DEFAULT 'visitor' COMMENT '角色：admin=管理员, visitor=访客',
+                    disabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否禁用：0=正常, 1=禁用',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间'
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表'
             """,
         }
 
@@ -221,21 +224,7 @@ def init_tables():
         except Exception:
             pass
 
-        # 兼容 password_hash → password
-        if not _has_column(conn, settings.auth_table, "password") and _has_column(conn, settings.auth_table, "password_hash"):
-            with conn.cursor() as cursor:
-                cursor.execute(f"ALTER TABLE `{settings.auth_table}` ADD COLUMN password VARCHAR(255) NULL")
-                cursor.execute(f"UPDATE `{settings.auth_table}` SET password = password_hash WHERE password IS NULL")
-                cursor.execute(f"ALTER TABLE `{settings.auth_table}` MODIFY COLUMN password VARCHAR(255) NOT NULL")
 
-        # 确保默认密码
-        with conn.cursor() as cursor:
-            cursor.execute(f"SELECT COUNT(*) FROM `{settings.auth_table}`")
-            if cursor.fetchone()[0] == 0:
-                cursor.execute(
-                    f"INSERT INTO `{settings.auth_table}` (password) VALUES (%s)",
-                    (settings.default_password,),
-                )
 
         # 确保画廊默认密码
         with conn.cursor() as cursor:
@@ -246,6 +235,24 @@ def init_tables():
                 cursor.execute(
                     f"INSERT INTO `{settings.page_password_table}` (page_key, password) VALUES (%s, %s)",
                     ("gallery", "201220"),
+                )
+
+        # 确保默认 admin 用户
+        with conn.cursor() as cursor:
+            cursor.execute(f"SELECT COUNT(*) FROM `{settings.users_table}`")
+            if cursor.fetchone()[0] == 0:
+                cursor.execute(
+                    f"INSERT INTO `{settings.users_table}` (username, password, role) VALUES (%s, %s, %s)",
+                    ("admin", "201220", "admin"),
+                )
+
+        # 确保默认邀请码
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM love_config WHERE config_key = 'INVITE_CODE'")
+            if cursor.fetchone()[0] == 0:
+                cursor.execute(
+                    "INSERT INTO love_config (config_key, config_value) VALUES (%s, %s)",
+                    ("INVITE_CODE", "love2023"),
                 )
 
         # 从 .env 迁移 Cookie 到数据库（仅当数据库中无记录时）

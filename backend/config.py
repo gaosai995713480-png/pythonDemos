@@ -23,7 +23,7 @@ class Settings:
 
     # 表名
     danmu_table: str = os.getenv("TABLE_DANMU", "love_danmu")
-    auth_table: str = os.getenv("TABLE_AUTH", "love_auth")
+
     timeline_table: str = os.getenv("TABLE_TIMELINE", "love_timeline")
     capsule_table: str = os.getenv("TABLE_CAPSULE", "love_capsule")
     mood_table: str = os.getenv("TABLE_MOOD", "love_mood")
@@ -36,11 +36,12 @@ class Settings:
     danmu_limit: int = 50
     danmu_maxlen: int = 40
 
-    # 默认密码
-    default_password: str = "20231026"
 
     # 页面密码表
     page_password_table: str = os.getenv("TABLE_PAGE_PASSWORD", "love_page_password")
+
+    # 用户表
+    users_table: str = os.getenv("TABLE_USERS", "love_users")
 
     # 高德 API
     gaode_key: str = "c34bbce1d41994a5c7819ea44a0a004f"

@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router'
 import TopBar from '../components/TopBar.vue'
 import GlassModal from '../components/GlassModal.vue'
 import { mapApi } from '../api'
+import { useAuthStore } from '../stores/auth'
+const authStore = useAuthStore()
 
 const router = useRouter()
 const markers = ref([])
@@ -230,7 +232,7 @@ onMounted(async () => {
   <div id="map-container"></div>
 
   <!-- FAB -->
-  <button class="fab-add" @click="map && openForm('', map.getCenter().lat, map.getCenter().lng)">+</button>
+  <button v-if="authStore.isAdmin" class="fab-add" @click="map && openForm('', map.getCenter().lat, map.getCenter().lng)">+</button>
 
   <!-- Detail Card -->
   <div class="detail-backdrop" :class="{ 'is-visible': showDetail }" @click="showDetail = false"></div>
@@ -241,8 +243,8 @@ onMounted(async () => {
     <div class="detail-date">{{ selectedMarker.visit_date ? `📅 ${selectedMarker.visit_date}` : '' }}</div>
     <div class="detail-note">{{ selectedMarker.note || '暂无备注' }}</div>
     <div class="detail-actions">
-      <button class="btn-edit" @click="editDetail">✏️ 编辑</button>
-      <button class="btn-delete" @click="deleteDetail">🗑️ 删除</button>
+      <button v-if="authStore.isAdmin" class="btn-edit" @click="editDetail">✏️ 编辑</button>
+      <button v-if="authStore.isAdmin" class="btn-delete" @click="deleteDetail">🗑️ 删除</button>
     </div>
   </div>
 

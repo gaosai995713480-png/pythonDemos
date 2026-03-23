@@ -15,7 +15,7 @@ from .config import settings
 from .database import init_tables
 
 # 路由
-from .routers import auth, danmu, timeline, capsule, mood, wish, map, music, weather, photos, config, jukebox, gallery
+from .routers import auth, danmu, timeline, capsule, mood, wish, map, music, weather, photos, config, jukebox, gallery, users
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
@@ -49,6 +49,7 @@ app.include_router(photos.router)
 app.include_router(config.router)
 app.include_router(jukebox.router)
 app.include_router(gallery.router)
+app.include_router(users.router)
 
 
 @app.on_event("startup")
@@ -61,8 +62,7 @@ def startup():
         logger.warning("数据库初始化失败（部分功能可能不可用）: %s", e)
 
 
-# 静态文件（photos、assets 等）
-app.mount("/photos", StaticFiles(directory=str(settings.photos_dir), check_dir=False), name="photos")
+# 静态文件（assets 等）
 app.mount("/assets", StaticFiles(directory=str(settings.web_dir / "assets")), name="assets")
 
 

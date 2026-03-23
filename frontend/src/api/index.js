@@ -21,7 +21,12 @@ async function request(url, options = {}) {
       window.location.replace('/login')
       throw new Error('unauthorized')
     }
-    if (!res.ok) {
+    if (res.status === 403) {
+      const data = await res.clone().json().catch(() => ({}))
+      const { error } = useToast()
+      error(data.detail || data.error || '权限不足')
+    }
+    if (!res.ok && res.status !== 403) {
       const { error } = useToast()
       error(`请求失败 (${res.status})`)
     }
@@ -61,6 +66,31 @@ async function del(url) {
   return res.json()
 }
 
+async function readJsonSafe(res) {
+  return res.json().catch(() => ({}))
+}
+
+async function handlePhotoResponse(res) {
+  if (res.status === 401) {
+    window.location.replace('/login')
+    throw new Error('unauthorized')
+  }
+  const data = await readJsonSafe(res)
+  if (res.status === 403) {
+    const { error } = useToast()
+    const message = data.detail || data.error || '权限不足'
+    error(message)
+    throw new Error(message)
+  }
+  if (!res.ok) {
+    const { error } = useToast()
+    const message = data.detail || data.error || `请求失败 (${res.status})`
+    error(message)
+    throw new Error(message)
+  }
+  return data
+}
+
 // 上传文件（非 JSON）
 async function uploadFile(url, file, fileName) {
   const data = await file.arrayBuffer()
@@ -69,11 +99,7 @@ async function uploadFile(url, file, fileName) {
     headers: { 'X-File-Name': encodeURIComponent(fileName) },
     body: data,
   })
-  if (res.status === 401) {
-    window.location.replace('/login')
-    throw new Error('unauthorized')
-  }
-  return res.json()
+  return handlePhotoResponse(res)
 }
 
 // ===== 各模块 API =====
@@ -91,8 +117,16 @@ export const authApi = {
       return { authenticated: false }
     }
   },
-  login: (password) => post('/auth/login', { password }),
+  login: (username, password) => post('/auth/login', { username, password }),
+  register: (username, password, invite_code) => post('/auth/register', { username, password, invite_code }),
   logout: () => post('/auth/logout', {}),
+}
+
+export const usersApi = {
+  list: () => get('/api/users'),
+  toggle: (id) => post(`/api/users/${id}/toggle`, {}),
+  getInviteCode: () => get('/api/users/invite-code'),
+  updateInviteCode: (code) => post('/api/users/invite-code', { code }),
 }
 
 export const danmuApi = {
@@ -143,7 +177,10 @@ export const musicApi = {
 }
 
 export const photoApi = {
-  list: () => get('/photos.json'),
+  list: async () => {
+    const res = await fetch(`${BASE}/photos.json`)
+    return handlePhotoResponse(res)
+  },
   upload: (file, fileName) => uploadFile('/photos/upload-file', file, fileName),
   importZip: async (file) => {
     const data = await file.arrayBuffer()
@@ -151,11 +188,7 @@ export const photoApi = {
       method: 'POST',
       body: data,
     })
-    if (res.status === 401) {
-      window.location.replace('/login')
-      throw new Error('unauthorized')
-    }
-    return res.json()
+    return handlePhotoResponse(res)
   },
 }
 
@@ -183,4 +216,3 @@ export const jukeboxApi = {
   adopt: (id) => post('/api/jukebox/adopt', { id }),
   remove: (id) => del(`/api/jukebox?id=${id}`),
 }
-

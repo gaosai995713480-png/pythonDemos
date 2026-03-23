@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends
 from ..database import get_db
 from ..config import settings
-from ..dependencies import require_auth
+from ..dependencies import require_auth, require_role
 
 router = APIRouter(prefix="/api", tags=["map"])
 
@@ -27,7 +27,7 @@ def list_markers():
 
 
 @router.post("/map")
-def create_marker(body: dict, _=Depends(require_auth)):
+def create_marker(body: dict, _=Depends(require_role("admin"))):
     title = str(body.get("title", "")).strip()
     note = str(body.get("note", "")).strip()
     photo_url = str(body.get("photo_url", "")).strip()
@@ -53,7 +53,7 @@ def create_marker(body: dict, _=Depends(require_auth)):
 
 
 @router.put("/map")
-def update_marker(body: dict, _=Depends(require_auth)):
+def update_marker(body: dict, _=Depends(require_role("admin"))):
     try:
         row_id = int(body.get("id", 0))
     except (ValueError, TypeError):
@@ -88,7 +88,7 @@ def update_marker(body: dict, _=Depends(require_auth)):
 
 
 @router.delete("/map")
-def delete_marker(id: int, _=Depends(require_auth)):
+def delete_marker(id: int, _=Depends(require_role("admin"))):
     if id <= 0:
         return {"error": "invalid id"}, 400
     with get_db() as conn:

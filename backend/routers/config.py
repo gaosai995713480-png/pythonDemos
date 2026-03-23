@@ -1,7 +1,7 @@
 """系统配置路由（Cookie 管理等）"""
 from fastapi import APIRouter, Depends
 from ..database import get_all_cookies, set_config, _COOKIE_ENV_KEYS
-from ..dependencies import require_auth
+from ..dependencies import require_auth, require_role
 
 router = APIRouter(prefix="/api/config", tags=["config"])
 
@@ -22,7 +22,7 @@ def _mask_cookie(value: str) -> str:
 
 
 @router.get("/cookies")
-def get_cookies(_=Depends(require_auth)):
+def get_cookies(_=Depends(require_role("admin"))):
     """获取所有音乐平台 Cookie 配置（脱敏显示）"""
     db_cookies = get_all_cookies()
     result = []
@@ -38,7 +38,7 @@ def get_cookies(_=Depends(require_auth)):
 
 
 @router.post("/cookies")
-def update_cookies(body: dict, _=Depends(require_auth)):
+def update_cookies(body: dict, _=Depends(require_role("admin"))):
     """更新音乐平台 Cookie 配置"""
     updated = 0
     for key in _COOKIE_ENV_KEYS:

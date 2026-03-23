@@ -1,30 +1,36 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { authApi } from '../api'
 import { useAuthStore } from '../stores/auth'
+
 const router = useRouter()
 const authStore = useAuthStore()
 const username = ref('')
 const password = ref('')
+const inviteCode = ref('')
 const error = ref('')
 const loading = ref(false)
 
-async function handleLogin() {
+async function handleRegister() {
   error.value = ''
-  if (!username.value || !password.value) {
-    error.value = '请输入用户名和密码'
+  if (!username.value || !password.value || !inviteCode.value) {
+    error.value = '请填写所有字段'
     return
   }
   loading.value = true
   try {
-    const data = await authStore.login(username.value, password.value)
+    const data = await authApi.register(username.value, password.value, inviteCode.value)
     if (data.ok) {
+      authStore.authenticated = true
+      authStore.username = data.username
+      authStore.role = data.role
       router.replace('/')
     } else {
-      error.value = data.error || '登录失败'
+      error.value = data.error || '注册失败'
     }
   } catch {
-    error.value = '登录失败，请稍后重试'
+    error.value = '注册失败，请稍后重试'
   } finally {
     loading.value = false
   }
@@ -34,41 +40,51 @@ async function handleLogin() {
 <template>
   <main class="login-shell">
     <section class="hero">
-      <h1>只道当时是寻常</h1>
-      <p>先登录，再一起进入我们的回忆与心动时刻。</p>
-      <div class="hero-note">系统已开启访问控制，仅允许授权用户进入。</div>
+      <h1>加入我们</h1>
+      <p>填写信息注册账号，和我们一起记录美好时光。</p>
+      <div class="hero-note">注册需要邀请码，请向管理员获取。</div>
     </section>
     <section class="panel">
-      <h2>欢迎回来</h2>
-      <p class="subtitle">请输入账号密码继续访问</p>
-      <form @submit.prevent="handleLogin" novalidate>
+      <h2>注册账号</h2>
+      <p class="subtitle">填写以下信息完成注册</p>
+      <form @submit.prevent="handleRegister" novalidate>
         <div class="form-row">
-          <label for="username">用户名</label>
+          <label for="reg-username">用户名</label>
           <input
-            id="username"
+            id="reg-username"
             v-model="username"
             type="text"
             autocomplete="username"
-            placeholder="请输入用户名"
+            placeholder="2-20 个字符"
             @input="error = ''"
           />
         </div>
         <div class="form-row">
-          <label for="password">密码</label>
+          <label for="reg-password">密码</label>
           <input
-            id="password"
+            id="reg-password"
             v-model="password"
             type="password"
-            autocomplete="current-password"
-            placeholder="请输入密码"
+            autocomplete="new-password"
+            placeholder="4-50 个字符"
+            @input="error = ''"
+          />
+        </div>
+        <div class="form-row">
+          <label for="invite-code">邀请码</label>
+          <input
+            id="invite-code"
+            v-model="inviteCode"
+            type="text"
+            placeholder="请输入邀请码"
             @input="error = ''"
           />
         </div>
         <button class="submit-btn" type="submit" :disabled="loading">
-          {{ loading ? '登录中...' : '进入页面' }}
+          {{ loading ? '注册中...' : '立即注册' }}
         </button>
         <p class="error-text" role="status" aria-live="polite">{{ error }}</p>
-        <p class="register-link">还没有账号？<router-link to="/register">立即注册</router-link></p>
+        <p class="register-link">已有账号？<router-link to="/login">返回登录</router-link></p>
       </form>
     </section>
   </main>
@@ -96,9 +112,7 @@ async function handleLogin() {
   animation: card-enter 0.45s ease both;
 }
 
-.hero {
-  padding: clamp(28px, 3.2vw, 42px);
-}
+.hero { padding: clamp(28px, 3.2vw, 42px); }
 
 .hero h1 {
   margin: 0 0 14px;
@@ -125,21 +139,11 @@ async function handleLogin() {
   color: rgba(255, 255, 255, 0.84);
 }
 
-.panel {
-  padding: clamp(22px, 2.8vw, 34px);
-}
+.panel { padding: clamp(22px, 2.8vw, 34px); }
 
-.panel h2 {
-  margin: 0 0 6px;
-  font-size: 28px;
-  font-weight: 700;
-}
+.panel h2 { margin: 0 0 6px; font-size: 28px; font-weight: 700; }
 
-.subtitle {
-  margin: 0 0 22px;
-  color: var(--text-secondary);
-  font-size: 14px;
-}
+.subtitle { margin: 0 0 22px; color: var(--text-secondary); font-size: 14px; }
 
 .form-row {
   display: flex;
@@ -148,10 +152,7 @@ async function handleLogin() {
   margin-bottom: 16px;
 }
 
-.form-row label {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.8);
-}
+.form-row label { font-size: 13px; color: rgba(255, 255, 255, 0.8); }
 
 .form-row input {
   height: 44px;
@@ -165,9 +166,7 @@ async function handleLogin() {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.form-row input::placeholder {
-  color: rgba(255, 255, 255, 0.5);
-}
+.form-row input::placeholder { color: rgba(255, 255, 255, 0.5); }
 
 .form-row input:focus {
   border-color: rgba(255, 255, 255, 0.7);
@@ -188,22 +187,10 @@ async function handleLogin() {
   transition: transform 0.2s, filter 0.2s;
 }
 
-.submit-btn:hover {
-  transform: translateY(-1px);
-  filter: brightness(1.03);
-}
+.submit-btn:hover { transform: translateY(-1px); filter: brightness(1.03); }
+.submit-btn:disabled { cursor: not-allowed; opacity: 0.75; }
 
-.submit-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.75;
-}
-
-.error-text {
-  min-height: 20px;
-  margin: 10px 0 0;
-  font-size: 13px;
-  color: var(--error);
-}
+.error-text { min-height: 20px; margin: 10px 0 0; font-size: 13px; color: var(--error); }
 
 .register-link {
   margin-top: 14px;
@@ -212,23 +199,11 @@ async function handleLogin() {
   text-align: center;
 }
 
-.register-link a {
-  color: var(--primary);
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.register-link a:hover {
-  text-decoration: underline;
-}
+.register-link a { color: var(--primary); text-decoration: none; font-weight: 600; }
+.register-link a:hover { text-decoration: underline; }
 
 @media (max-width: 860px) {
-  .login-shell {
-    grid-template-columns: 1fr;
-    width: min(560px, 92vw);
-    gap: 16px;
-  }
-
+  .login-shell { grid-template-columns: 1fr; width: min(560px, 92vw); gap: 16px; }
   .hero { padding-bottom: 22px; }
   .hero p { font-size: 15px; }
 }

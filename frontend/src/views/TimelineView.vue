@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router'
 import TopBar from '../components/TopBar.vue'
 import GlassModal from '../components/GlassModal.vue'
 import { timelineApi } from '../api'
+import { useAuthStore } from '../stores/auth'
+const authStore = useAuthStore()
 
 const router = useRouter()
 const items = ref([])
@@ -43,7 +45,7 @@ onMounted(load)
 
 <template>
   <TopBar title="📖 恋爱时间轴" @back="router.push('/')">
-    <button class="btn-primary add-btn" @click="openAdd">+ 添加事件</button>
+    <button v-if="authStore.isAdmin" class="btn-primary add-btn" @click="openAdd">+ 添加事件</button>
   </TopBar>
 
   <div class="timeline-wrap" v-if="items.length">
@@ -60,7 +62,7 @@ onMounted(load)
       <div class="title">{{ item.title }}</div>
       <div v-if="item.content" class="content">{{ item.content }}</div>
       <img v-if="item.photo_url" class="photo" :src="item.photo_url" alt="" />
-      <button class="delete-btn" @click="remove(item.id)">✕</button>
+      <button v-if="authStore.isAdmin" class="delete-btn" @click="remove(item.id)">✕</button>
     </div>
   </div>
 

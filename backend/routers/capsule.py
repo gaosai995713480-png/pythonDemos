@@ -3,7 +3,7 @@ import datetime
 from fastapi import APIRouter, Depends
 from ..database import get_db
 from ..config import settings
-from ..dependencies import require_auth
+from ..dependencies import require_auth, require_role
 
 router = APIRouter(prefix="/api", tags=["capsule"])
 
@@ -34,7 +34,7 @@ def list_capsules():
 
 
 @router.post("/capsules")
-def create_capsule(body: dict, _=Depends(require_auth)):
+def create_capsule(body: dict, _=Depends(require_role("admin"))):
     content = str(body.get("content", "")).strip()
     open_date = str(body.get("open_date", "")).strip()
     if not content or not open_date:

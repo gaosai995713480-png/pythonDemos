@@ -3,7 +3,7 @@ import datetime
 from fastapi import APIRouter, Depends
 from ..database import get_db
 from ..config import settings
-from ..dependencies import require_auth
+from ..dependencies import require_auth, require_role
 
 router = APIRouter(prefix="/api", tags=["mood"])
 
@@ -42,7 +42,7 @@ def list_mood(year: int = None, month: int = None):
 
 
 @router.post("/mood")
-def save_mood(body: dict, _=Depends(require_auth)):
+def save_mood(body: dict, _=Depends(require_role("admin"))):
     mood_date = str(body.get("mood_date", "")).strip()
     emoji = str(body.get("emoji", "😊")).strip() or "😊"
     note = str(body.get("note", "")).strip()

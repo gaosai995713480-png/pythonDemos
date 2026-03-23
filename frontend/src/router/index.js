@@ -9,6 +9,12 @@ const routes = [
     meta: { guest: true },
   },
   {
+    path: '/register',
+    name: 'Register',
+    component: () => import('../views/RegisterView.vue'),
+    meta: { guest: true },
+  },
+  {
     path: '/',
     name: 'Home',
     component: () => import('../views/HomeView.vue'),
@@ -54,6 +60,12 @@ const routes = [
     component: () => import('../views/JukeboxView.vue'),
   },
   {
+    path: '/users',
+    name: 'Users',
+    component: () => import('../views/UsersView.vue'),
+    meta: { adminOnly: true },
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/',
   },
@@ -82,6 +94,11 @@ router.beforeEach(async (to) => {
   // 非 guest 页面：未登录跳转登录
   if (!authStore.authenticated) {
     return '/login'
+  }
+
+  // adminOnly 页面：非 admin 跳转首页
+  if (to.meta.adminOnly && !authStore.isAdmin) {
+    return '/'
   }
 
   return true

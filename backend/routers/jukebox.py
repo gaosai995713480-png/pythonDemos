@@ -4,7 +4,7 @@ from collections import defaultdict
 from fastapi import APIRouter, Request, Depends
 from ..database import get_db
 from ..config import settings
-from ..dependencies import require_auth
+from ..dependencies import require_auth, require_role
 from ..services.meting import METING_PLATFORMS
 
 router = APIRouter(prefix="/api", tags=["jukebox"])
@@ -144,7 +144,7 @@ def like_request(body: dict, request: Request):
 
 
 @router.post("/jukebox/adopt")
-def adopt_request(body: dict, _=Depends(require_auth)):
+def adopt_request(body: dict, _=Depends(require_role("admin"))):
     try:
         request_id = int(body.get("id", 0))
     except (ValueError, TypeError):
@@ -182,7 +182,7 @@ def adopt_request(body: dict, _=Depends(require_auth)):
 
 
 @router.delete("/jukebox")
-def delete_request(id: int, _=Depends(require_auth)):
+def delete_request(id: int, _=Depends(require_role("admin"))):
     if id <= 0:
         return {"error": "invalid id"}, 400
 

@@ -1,20 +1,19 @@
 """照片路由"""
 import io
-import re
 import zipfile
-from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from fastapi import APIRouter, Request, Depends
+from fastapi.responses import FileResponse, JSONResponse
 from ..config import settings
-from ..dependencies import require_auth
+from ..dependencies import require_gallery_access, require_role
 from ..utils import is_image_filename, sanitize_upload_filename, photo_sort_key
 
 router = APIRouter(tags=["photos"])
 
 
 @router.get("/photos.json")
-def list_photos():
+def list_photos(_=Depends(require_gallery_access)):
     photos_dir = settings.photos_dir
     images = []
     if photos_dir.exists():
@@ -25,21 +24,33 @@ def list_photos():
     return [f"photos/{quote(item.name)}" for item in images]
 
 
+@router.get("/photos/{file_name:path}")
+def get_photo(file_name: str, _=Depends(require_gallery_access)):
+    safe_name = sanitize_upload_filename(unquote(file_name))
+    if not safe_name or not is_image_filename(safe_name):
+        return JSONResponse({"error": "invalid photo name"}, status_code=400)
+
+    target = settings.photos_dir / safe_name
+    if not target.exists() or not target.is_file():
+        return JSONResponse({"error": "photo not found"}, status_code=404)
+
+    return FileResponse(target)
+
+
 @router.post("/photos/upload-file")
-async def upload_photo(request: Request, _=Depends(require_auth)):
+async def upload_photo(request: Request, _=Depends(require_role("admin"))):
     file_name = request.headers.get("X-File-Name", "").strip()
-    from urllib.parse import unquote
     file_name = unquote(file_name)
     safe_name = sanitize_upload_filename(file_name)
 
     if not safe_name:
-        return {"error": "missing file name"}, 400
+        return JSONResponse({"error": "missing file name"}, status_code=400)
     if not is_image_filename(safe_name):
-        return {"error": "only image files are allowed"}, 400
+        return JSONResponse({"error": "only image files are allowed"}, status_code=400)
 
     file_data = await request.body()
     if not file_data:
-        return {"error": "empty file"}, 400
+        return JSONResponse({"error": "empty file"}, status_code=400)
 
     photos_dir = settings.photos_dir
     photos_dir.mkdir(parents=True, exist_ok=True)
@@ -53,10 +64,10 @@ async def upload_photo(request: Request, _=Depends(require_auth)):
 
 
 @router.post("/photos/import")
-async def import_photos(request: Request, _=Depends(require_auth)):
+async def import_photos(request: Request, _=Depends(require_role("admin"))):
     archive_data = await request.body()
     if not archive_data:
-        return {"error": "empty upload"}, 400
+        return JSONResponse({"error": "empty upload"}, status_code=400)
 
     photos_dir = settings.photos_dir
     photos_dir.mkdir(parents=True, exist_ok=True)
@@ -78,6 +89,6 @@ async def import_photos(request: Request, _=Depends(require_auth)):
                 target.write_bytes(archive.read(info))
                 saved += 1
     except zipfile.BadZipFile:
-        return {"error": "invalid zip file"}, 400
+        return JSONResponse({"error": "invalid zip file"}, status_code=400)
 
     return {"ok": True, "saved": saved, "skipped": skipped}

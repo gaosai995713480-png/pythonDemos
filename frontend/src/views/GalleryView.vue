@@ -1,13 +1,17 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import TopBar from '../components/TopBar.vue'
 import { photoApi, galleryApi } from '../api'
+import { useAuthStore } from '../stores/auth'
+
+const authStore = useAuthStore()
 
 const router = useRouter()
 const photos = ref([])
 const currentIndex = ref(0)
 const lightboxActive = ref(false)
+const actionError = ref('')
 
 // ===== 密码锁 =====
 const STORAGE_KEY = 'gallery_unlocked'
@@ -25,7 +29,7 @@ async function verifyPassword() {
     if (data.ok) {
       unlocked.value = true
       sessionStorage.setItem(STORAGE_KEY, '1')
-      loadPhotos()
+      await loadPhotos()
     } else {
       lockError.value = data.error || '密码错误'
     }
@@ -44,7 +48,18 @@ function onLockKeydown(e) {
 async function loadPhotos() {
   try {
     photos.value = await photoApi.list()
-  } catch (e) { /* ignore */ }
+    actionError.value = ''
+  } catch (e) {
+    photos.value = []
+    const message = e?.message || '照片加载失败'
+    if (message === '画廊未解锁') {
+      unlocked.value = false
+      sessionStorage.removeItem(STORAGE_KEY)
+      lockError.value = '画廊已锁定，请重新输入密码'
+      return
+    }
+    actionError.value = message
+  }
 }
 
 function openLightbox(index) {
@@ -77,9 +92,55 @@ function onTouchEnd(e) {
   if (Math.abs(dx) > 50) navigate(dx > 0 ? -1 : 1)
 }
 
+// ===== 上传/导入 =====
+const uploadInput = ref(null)
+const importInput = ref(null)
+const uploading = ref(false)
+
+async function handleUpload(e) {
+  const files = e.target.files
+  if (!files || !files.length) return
+  uploading.value = true
+  actionError.value = ''
+  try {
+    for (const file of files) {
+      await photoApi.upload(file, file.name)
+    }
+    await loadPhotos()
+  } catch (e) {
+    actionError.value = e?.message || '上传失败'
+  }
+  finally {
+    uploading.value = false
+    if (uploadInput.value) uploadInput.value.value = ''
+  }
+}
+
+async function handleImport(e) {
+  const file = e.target.files?.[0]
+  if (!file) return
+  uploading.value = true
+  actionError.value = ''
+  try {
+    await photoApi.importZip(file)
+    await loadPhotos()
+  } catch (e) {
+    actionError.value = e?.message || '导入失败'
+  }
+  finally {
+    uploading.value = false
+    if (importInput.value) importInput.value.value = ''
+  }
+}
+
 onMounted(() => {
   if (unlocked.value) loadPhotos()
   document.addEventListener('keydown', onKeydown)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onKeydown)
+  document.body.style.overflow = ''
 })
 </script>
 
@@ -115,8 +176,16 @@ onMounted(() => {
   <!-- 画廊主体 -->
   <template v-else>
     <TopBar title="💕 心动画廊" @back="router.push('/')">
+      <template v-if="authStore.isAdmin">
+        <input ref="uploadInput" type="file" accept="image/*" multiple hidden @change="handleUpload" />
+        <input ref="importInput" type="file" accept=".zip" hidden @change="handleImport" />
+        <button class="gallery-action-btn" :disabled="uploading" @click="uploadInput?.click()">📷 上传</button>
+        <button class="gallery-action-btn" :disabled="uploading" @click="importInput?.click()">📦 导入</button>
+      </template>
       <span class="photo-count">{{ photos.length ? `共 ${photos.length} 张` : '' }}</span>
     </TopBar>
+
+    <p v-if="actionError" class="gallery-error">{{ actionError }}</p>
 
     <div class="gallery" v-if="photos.length">
       <div
@@ -290,6 +359,14 @@ onMounted(() => {
 /* ===== 画廊 ===== */
 .photo-count { font-size: 13px; color: var(--text-secondary); margin-left: auto; }
 
+.gallery-error {
+  max-width: 1400px;
+  margin: 88px auto 0;
+  padding: 0 24px;
+  color: #ff7b7b;
+  font-size: 14px;
+}
+
 .gallery {
   padding: 80px 24px 40px;
   column-count: 4;
@@ -373,9 +450,27 @@ onMounted(() => {
 }
 
 @media (max-width: 1100px) { .gallery { column-count: 3; } }
+/* ===== 上传/导入按钮 ===== */
+.gallery-action-btn {
+  padding: 6px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.gallery-action-btn:hover { background: rgba(255, 255, 255, 0.2); }
+.gallery-action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
 @media (max-width: 720px) {
+  .gallery-error { margin-top: 78px; padding: 0 12px; font-size: 13px; }
   .gallery { column-count: 2; padding: 72px 12px 24px; column-gap: 10px; }
   .gallery-item { margin-bottom: 10px; border-radius: 12px; }
   .lock-card { padding: 36px 20px 28px; }
+  .gallery-action-btn { padding: 4px 10px; font-size: 12px; }
 }
 </style>
