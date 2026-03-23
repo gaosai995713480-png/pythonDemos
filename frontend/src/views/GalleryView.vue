@@ -2,13 +2,45 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import TopBar from '../components/TopBar.vue'
-import { photoApi } from '../api'
+import { photoApi, galleryApi } from '../api'
 
 const router = useRouter()
 const photos = ref([])
 const currentIndex = ref(0)
 const lightboxActive = ref(false)
 
+// ===== 密码锁 =====
+const STORAGE_KEY = 'gallery_unlocked'
+const unlocked = ref(sessionStorage.getItem(STORAGE_KEY) === '1')
+const lockPassword = ref('')
+const lockError = ref('')
+const lockLoading = ref(false)
+
+async function verifyPassword() {
+  if (!lockPassword.value.trim()) return
+  lockLoading.value = true
+  lockError.value = ''
+  try {
+    const data = await galleryApi.verify(lockPassword.value)
+    if (data.ok) {
+      unlocked.value = true
+      sessionStorage.setItem(STORAGE_KEY, '1')
+      loadPhotos()
+    } else {
+      lockError.value = data.error || '密码错误'
+    }
+  } catch {
+    lockError.value = '验证失败，请重试'
+  } finally {
+    lockLoading.value = false
+  }
+}
+
+function onLockKeydown(e) {
+  if (e.key === 'Enter') verifyPassword()
+}
+
+// ===== 画廊 =====
 async function loadPhotos() {
   try {
     photos.value = await photoApi.list()
@@ -46,48 +78,216 @@ function onTouchEnd(e) {
 }
 
 onMounted(() => {
-  loadPhotos()
+  if (unlocked.value) loadPhotos()
   document.addEventListener('keydown', onKeydown)
 })
 </script>
 
 <template>
-  <TopBar title="💕 心动画廊" @back="router.push('/')">
-    <span class="photo-count">{{ photos.length ? `共 ${photos.length} 张` : '' }}</span>
-  </TopBar>
-
-  <div class="gallery" v-if="photos.length">
-    <div
-      v-for="(src, i) in photos"
-      :key="src"
-      class="gallery-item"
-      @click="openLightbox(i)"
-    >
-      <img :src="src" :alt="`照片 ${i + 1}`" loading="lazy" />
+  <!-- 密码锁遮罩 -->
+  <div v-if="!unlocked" class="lock-screen">
+    <div class="lock-card">
+      <div class="lock-icon">🔒</div>
+      <h2 class="lock-title">这里是私密空间</h2>
+      <p class="lock-hint">请输入画廊密码以继续</p>
+      <div class="lock-input-wrap">
+        <input
+          v-model="lockPassword"
+          type="password"
+          class="lock-input"
+          placeholder="请输入密码"
+          autofocus
+          @keydown="onLockKeydown"
+        />
+      </div>
+      <p v-if="lockError" class="lock-error">{{ lockError }}</p>
+      <button
+        class="lock-btn"
+        :disabled="lockLoading || !lockPassword.trim()"
+        @click="verifyPassword"
+      >
+        {{ lockLoading ? '验证中...' : '解锁' }}
+      </button>
+      <button class="lock-back" @click="router.push('/')">← 返回首页</button>
     </div>
   </div>
 
-  <div class="empty-state" v-else>还没有照片哦，快去上传吧 📸</div>
+  <!-- 画廊主体 -->
+  <template v-else>
+    <TopBar title="💕 心动画廊" @back="router.push('/')">
+      <span class="photo-count">{{ photos.length ? `共 ${photos.length} 张` : '' }}</span>
+    </TopBar>
 
-  <!-- Lightbox -->
-  <Teleport to="body">
-    <div class="lightbox" :class="{ 'is-active': lightboxActive }" @click.self="closeLightbox">
-      <button class="lightbox-close" @click="closeLightbox">✕</button>
-      <button class="lightbox-nav lightbox-prev" @click="navigate(-1)">‹</button>
-      <img
-        v-if="photos.length"
-        :src="photos[currentIndex]"
-        alt="大图"
-        @touchstart="onTouchStart"
-        @touchend="onTouchEnd"
-      />
-      <button class="lightbox-nav lightbox-next" @click="navigate(1)">›</button>
-      <div class="lightbox-counter">{{ currentIndex + 1 }} / {{ photos.length }}</div>
+    <div class="gallery" v-if="photos.length">
+      <div
+        v-for="(src, i) in photos"
+        :key="src"
+        class="gallery-item"
+        @click="openLightbox(i)"
+      >
+        <img :src="src" :alt="`照片 ${i + 1}`" loading="lazy" />
+      </div>
     </div>
-  </Teleport>
+
+    <div class="empty-state" v-else>还没有照片哦，快去上传吧 📸</div>
+
+    <!-- Lightbox -->
+    <Teleport to="body">
+      <div class="lightbox" :class="{ 'is-active': lightboxActive }" @click.self="closeLightbox">
+        <button class="lightbox-close" @click="closeLightbox">✕</button>
+        <button class="lightbox-nav lightbox-prev" @click="navigate(-1)">‹</button>
+        <img
+          v-if="photos.length"
+          :src="photos[currentIndex]"
+          alt="大图"
+          @touchstart="onTouchStart"
+          @touchend="onTouchEnd"
+        />
+        <button class="lightbox-nav lightbox-next" @click="navigate(1)">›</button>
+        <div class="lightbox-counter">{{ currentIndex + 1 }} / {{ photos.length }}</div>
+      </div>
+    </Teleport>
+  </template>
 </template>
 
 <style scoped>
+/* ===== 密码锁 ===== */
+.lock-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0a0a1a 0%, #1a1035 50%, #0d0d2b 100%);
+}
+
+.lock-card {
+  width: 92%;
+  max-width: 380px;
+  background: rgba(30, 30, 55, 0.85);
+  backdrop-filter: blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28px;
+  padding: 48px 32px 36px;
+  text-align: center;
+  animation: lockCardIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes lockCardIn {
+  from { opacity: 0; transform: scale(0.92) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.lock-icon {
+  font-size: 56px;
+  margin-bottom: 16px;
+  animation: lockPulse 2s ease-in-out infinite;
+}
+
+@keyframes lockPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+.lock-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, #ff6b9d, #c084fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.lock-hint {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-bottom: 28px;
+}
+
+.lock-input-wrap {
+  margin-bottom: 12px;
+}
+
+.lock-input {
+  width: 100%;
+  padding: 14px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.lock-input:focus {
+  border-color: rgba(192, 132, 252, 0.5);
+  box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.15);
+}
+
+.lock-input::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.lock-error {
+  color: #ff6b6b;
+  font-size: 13px;
+  margin-bottom: 8px;
+  animation: shakeError 0.4s ease;
+}
+
+@keyframes shakeError {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+.lock-btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #ff6b9d, #c084fc);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 12px;
+}
+
+.lock-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(192, 132, 252, 0.3);
+}
+
+.lock-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.lock-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.lock-back {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 8px;
+  transition: color 0.2s;
+}
+
+.lock-back:hover {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ===== 画廊 ===== */
 .photo-count { font-size: 13px; color: var(--text-secondary); margin-left: auto; }
 
 .gallery {
@@ -176,5 +376,6 @@ onMounted(() => {
 @media (max-width: 720px) {
   .gallery { column-count: 2; padding: 72px 12px 24px; column-gap: 10px; }
   .gallery-item { margin-bottom: 10px; border-radius: 12px; }
+  .lock-card { padding: 36px 20px 28px; }
 }
 </style>

@@ -191,6 +191,13 @@ def init_tables():
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """,
+            settings.page_password_table: f"""
+                CREATE TABLE IF NOT EXISTS `{settings.page_password_table}` (
+                    page_key VARCHAR(50) PRIMARY KEY COMMENT '页面标识，如 gallery、letter',
+                    password VARCHAR(255) NOT NULL COMMENT '页面访问密码',
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
         }
 
         with conn.cursor() as cursor:
@@ -229,6 +236,18 @@ def init_tables():
                     f"INSERT INTO `{settings.auth_table}` (password) VALUES (%s)",
                     (settings.default_password,),
                 )
+
+        # 确保画廊默认密码
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT COUNT(*) FROM `{settings.page_password_table}` WHERE page_key = 'gallery'"
+            )
+            if cursor.fetchone()[0] == 0:
+                cursor.execute(
+                    f"INSERT INTO `{settings.page_password_table}` (page_key, password) VALUES (%s, %s)",
+                    ("gallery", "201220"),
+                )
+
         # 从 .env 迁移 Cookie 到数据库（仅当数据库中无记录时）
         _migrate_env_cookies(conn)
 
@@ -307,3 +326,21 @@ def set_config(key: str, value: str) -> None:
                 (key, value),
             )
         conn.commit()
+
+
+def verify_page_password(page_key: str, password: str) -> bool:
+    """验证页面密码（通用）"""
+    import hmac
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    f"SELECT password FROM `{settings.page_password_table}` WHERE page_key = %s",
+                    (page_key,),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    return False
+                return hmac.compare_digest(password, row[0])
+    except Exception:
+        return False

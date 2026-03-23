@@ -159,6 +159,10 @@ export const photoApi = {
   },
 }
 
+export const galleryApi = {
+  verify: (password) => post('/api/gallery/verify', { password }),
+}
+
 export const weatherApi = {
   weather: (city, extensions = 'base') =>
     get(`/api/weather?city=${city}&extensions=${extensions}`),

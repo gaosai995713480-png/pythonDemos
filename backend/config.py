@@ -39,6 +39,9 @@ class Settings:
     # 默认密码
     default_password: str = "20231026"
 
+    # 页面密码表
+    page_password_table: str = os.getenv("TABLE_PAGE_PASSWORD", "love_page_password")
+
     # 高德 API
     gaode_key: str = "c34bbce1d41994a5c7819ea44a0a004f"
 
