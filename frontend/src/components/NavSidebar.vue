@@ -34,6 +34,14 @@ const groups = [
       { to: '/jukebox', icon: '🎤', label: '点歌台', desc: '朋友们的歌曲推荐' },
     ],
   },
+  {
+    key: 'tools',
+    icon: '🔧',
+    label: '生活工具',
+    items: [
+      { to: '/express', icon: '📦', label: '快递查询', desc: '查看物流轨迹' },
+    ],
+  },
 ]
 
 const activeGroup = ref(null)

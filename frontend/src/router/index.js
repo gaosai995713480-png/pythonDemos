@@ -60,6 +60,11 @@ const routes = [
     component: () => import('../views/JukeboxView.vue'),
   },
   {
+    path: '/express',
+    name: 'Express',
+    component: () => import('../views/ExpressView.vue'),
+  },
+  {
     path: '/users',
     name: 'Users',
     component: () => import('../views/UsersView.vue'),

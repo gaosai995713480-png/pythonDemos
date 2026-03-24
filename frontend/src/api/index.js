@@ -216,3 +216,14 @@ export const jukeboxApi = {
   adopt: (id) => post('/api/jukebox/adopt', { id }),
   remove: (id) => del(`/api/jukebox?id=${id}`),
 }
+
+export const expressApi = {
+  query: (num, com, phone = '') =>
+    get(`/api/express/query?num=${encodeURIComponent(num)}&com=${encodeURIComponent(com)}&phone=${encodeURIComponent(phone)}`),
+  detect: (num) =>
+    get(`/api/express/detect?num=${encodeURIComponent(num)}`),
+  companies: () => get('/api/express/companies'),
+  getConfig: () => get('/api/express/config'),
+  updateConfig: (data) => post('/api/express/config', data),
+}
+
