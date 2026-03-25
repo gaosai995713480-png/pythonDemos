@@ -133,20 +133,37 @@ function loadAmapSDK() {
     if (window.AMap) { resolve(); return }
     window._AMapSecurityConfig = { securityJsCode: 'ca6c1f4b7f9f6da24ab08e9f5497621a' }
     const script = document.createElement('script')
-    script.src = 'https://webapi.amap.com/maps?v=2.0&key=5bf41e2540a12180a9208bbcaea7c696&plugin=AMap.Geocoder'
+    script.src = 'https://webapi.amap.com/maps?v=2.0&key=5bf41e2540a12180a9208bbcaea7c696&plugin=AMap.Geocoder,AMap.Driving'
     script.onload = resolve
     document.head.appendChild(script)
   })
 }
 
-function extractCity(context) {
-  // 从物流信息中提取城市名：匹配【城市名】或末尾的 城市名市
-  const m1 = context.match(/【(.+?)】/)
-  if (m1) return m1[1].replace(/(市|区|县|镇)$/, '')
-  // 提取 "已到达 城市"
-  const m2 = context.match(/(到达|发往|离开|到了|送往)\s*(\S+?)(?:市|转运|分拣|营业|公司|中心|站|处|点|仓)/)
-  if (m2) return m2[2]
-  return null
+function extractCityFromArea(areaName) {
+  // 从 areaName 提取城市，如 "安徽,芜湖市,鸠江区" → "芜湖"
+  if (!areaName) return null
+  const parts = areaName.split(',')
+  if (parts.length >= 2) {
+    return parts[1].replace(/(市|区|县)$/, '')
+  }
+  return parts[0].replace(/(省|市|区|县)$/, '')
+}
+
+function extractCitiesFromContext(context) {
+  // 从物流描述中提取所有城市名（【xxx中心】【xxx网点】等）
+  if (!context) return []
+  const cities = []
+  const matches = context.matchAll(/【(.+?)】/g)
+  for (const m of matches) {
+    // 清洗："芜湖转运中心" → "芜湖"，"武汉转运中心" → "武汉"
+    const raw = m[1]
+    const clean = raw.replace(/(转运中心|分拣中心|营业部|中心|网点|站|公司|集散|仓|处)$/g, '')
+      .replace(/(市|区|县|镇)$/, '')
+    if (clean && clean.length >= 2 && clean.length <= 6) {
+      cities.push(clean)
+    }
+  }
+  return cities
 }
 
 async function geocodeCity(city) {
@@ -168,30 +185,55 @@ function clearMap() {
   if (!map) return
   mapMarkers.forEach(m => map.remove(m))
   mapMarkers = []
-  if (polyline) { map.remove(polyline); polyline = null }
+  if (polyline) {
+    if (Array.isArray(polyline)) {
+      polyline.forEach(p => map.remove(p))
+    } else {
+      map.remove(polyline)
+    }
+    polyline = null
+  }
 }
 
 async function initMapRoute(trackData) {
   if (!trackData || trackData.length === 0) return
 
-  // 提取唯一城市
-  const citySet = new Map()
-  const reversed = [...trackData].reverse() // 时间正序
+  // 从时间正序遍历（API 返回倒序，所以 reverse）
+  const reversed = [...trackData].reverse()
+  const cityList = [] // 保持顺序的城市列表
+  const seen = new Set()
 
   for (const item of reversed) {
-    const city = extractCity(item.context || item.ftime || '')
-    if (city && !citySet.has(city)) {
-      citySet.set(city, { time: item.ftime || item.time, context: item.context })
+    const candidates = []
+
+    // 优先使用 API 返回的 areaName
+    const areaCity = extractCityFromArea(item.areaName)
+    if (areaCity) candidates.push(areaCity)
+
+    // 从物流描述补充
+    const ctxCities = extractCitiesFromContext(item.context)
+    candidates.push(...ctxCities)
+
+    // 去重并按顺序加入（含模糊去重：如 "芜湖鸠江惠众" 包含已有的 "芜湖" 则跳过）
+    for (const city of candidates) {
+      if (seen.has(city)) continue
+      // 模糊去重：如果已有城市是 city 的前缀，或 city 是已有城市的前缀
+      let dup = false
+      for (const s of seen) {
+        if (city.startsWith(s) || s.startsWith(city)) { dup = true; break }
+      }
+      if (dup) continue
+      seen.add(city)
+      cityList.push({ city, time: item.ftime || item.time, context: item.context })
     }
   }
 
-  if (citySet.size < 2) return // 至少需要两个城市才能画路线
+  if (cityList.length < 2) return
 
   await loadAmapSDK()
   showMap.value = true
   await nextTick()
 
-  // 初始化地图
   if (!map) {
     map = new AMap.Map('express-map', {
       zoom: 5,
@@ -204,10 +246,10 @@ async function initMapRoute(trackData) {
 
   // 地理编码所有城市
   const points = []
-  for (const [city, info] of citySet) {
-    const coords = await geocodeCity(city)
+  for (const info of cityList) {
+    const coords = await geocodeCity(info.city)
     if (coords) {
-      points.push({ city, coords, ...info })
+      points.push({ ...info, coords })
     }
   }
 
@@ -219,15 +261,28 @@ async function initMapRoute(trackData) {
     const isLast = i === points.length - 1
     const content = document.createElement('div')
     content.className = 'express-marker'
-    content.textContent = isFirst ? '📦' : isLast ? '📍' : '🔵'
-    content.style.fontSize = (isFirst || isLast) ? '24px' : '14px'
+
+    if (isFirst) {
+      // 起点 — "发" 标记
+      content.innerHTML = '<span class="origin-tag">发</span>'
+    } else if (isLast) {
+      // 当前位置 — 快递车
+      content.innerHTML = '<span class="truck-marker">🚚</span><span class="pulse-dot truck-pulse"></span>'
+    } else {
+      // 中间节点
+      content.innerHTML = '<span class="mid-dot"></span>'
+    }
+
+    const labelText = isLast
+      ? `<div class="marker-label current-label">📍 ${p.city}（当前）</div>`
+      : `<div class="marker-label">${isFirst ? '发 ' : ''}${p.city}</div>`
 
     const marker = new AMap.Marker({
       position: p.coords,
       content,
       offset: new AMap.Pixel(-12, -12),
       label: {
-        content: `<div class="marker-label">${p.city}</div>`,
+        content: labelText,
         direction: 'top',
       },
     })
@@ -235,20 +290,66 @@ async function initMapRoute(trackData) {
     mapMarkers.push(marker)
   })
 
-  // 画路线
+  // 绘制沿公路的路线（AMap.Driving）
+  const origin = points[0].coords
+  const destination = points[points.length - 1].coords
+  const waypoints = points.slice(1, -1).map(p => new AMap.LngLat(p.coords[0], p.coords[1]))
+
+  try {
+    const driving = new AMap.Driving({
+      map: null, // 不自动渲染，手动画
+      policy: AMap.DrivingPolicy.LEAST_DISTANCE,
+    })
+
+    driving.search(
+      new AMap.LngLat(origin[0], origin[1]),
+      new AMap.LngLat(destination[0], destination[1]),
+      { waypoints },
+      (status, result) => {
+        if (status === 'complete' && result.routes && result.routes.length > 0) {
+          // 提取路线坐标
+          const routePath = []
+          const route = result.routes[0]
+          for (const step of route.steps) {
+            routePath.push(...step.path.map(p => [p.lng, p.lat]))
+          }
+          // 绘制路线
+          polyline = new AMap.Polyline({
+            path: routePath,
+            strokeColor: '#ef4444',
+            strokeWeight: 4,
+            strokeStyle: 'solid',
+            lineJoin: 'round',
+            strokeOpacity: 0.9,
+            showDir: true,
+          })
+          map.add(polyline)
+          map.setFitView([...mapMarkers, polyline], false, [60, 60, 60, 60])
+        } else {
+          // 驾车路线失败，回退到直线
+          drawFallbackLine(points)
+        }
+      }
+    )
+  } catch {
+    drawFallbackLine(points)
+  }
+
+  map.setFitView(mapMarkers, false, [60, 60, 60, 60])
+}
+
+function drawFallbackLine(points) {
   const path = points.map(p => p.coords)
   polyline = new AMap.Polyline({
     path,
-    strokeColor: '#6366f1',
+    strokeColor: '#ef4444',
     strokeWeight: 3,
-    strokeStyle: 'solid',
+    strokeStyle: 'dashed',
     lineJoin: 'round',
     strokeOpacity: 0.8,
     showDir: true,
   })
   map.add(polyline)
-
-  map.setFitView(mapMarkers, false, [60, 60, 60, 60])
 }
 
 // 历史记录
@@ -821,6 +922,96 @@ onUnmounted(() => {
 @keyframes fadeSlideIn {
   from { opacity: 0; transform: translateX(-8px); }
   to { opacity: 1; transform: translateX(0); }
+}
+
+/* 当前位置脉冲动画 */
+:global(.pulse-dot) {
+  display: block;
+  width: 14px;
+  height: 14px;
+  background: #6366f1;
+  border-radius: 50%;
+  position: relative;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+}
+:global(.pulse-dot::after) {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid #818cf8;
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+@keyframes pulse-ring {
+  0% { transform: scale(0.6); opacity: 1; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* 发/收 标签 */
+:global(.origin-tag),
+:global(.dest-tag) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+}
+:global(.origin-tag) {
+  background: #6366f1;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+}
+:global(.dest-tag) {
+  background: #ef4444;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+  position: relative;
+  z-index: 2;
+}
+:global(.express-marker) {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+:global(.mid-dot) {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+:global(.truck-marker) {
+  font-size: 26px;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5));
+  position: relative;
+  z-index: 2;
+}
+:global(.truck-pulse) {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  z-index: 1;
+}
+
+/* 地图标记标签 */
+:global(.marker-label) {
+  background: rgba(30, 30, 62, 0.85);
+  color: #e2e8f0;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+:global(.current-label) {
+  background: rgba(99, 102, 241, 0.3);
+  border-color: #818cf8;
+  color: #c7d2fe;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 3px 10px;
 }
 
 /* 历史记录 */
