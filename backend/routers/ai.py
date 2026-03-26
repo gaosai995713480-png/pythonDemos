@@ -12,6 +12,7 @@ from ..services.ai_chat import (
     get_claude_config,
     get_codex_config,
     get_glm_config,
+    get_grok_config,
     CLAUDE_MODEL_KEY,
     CODEX_BASE_URL_KEY,
     CODEX_API_KEY_KEY,
@@ -19,6 +20,9 @@ from ..services.ai_chat import (
     GLM_BASE_URL_KEY,
     GLM_API_KEY_KEY,
     GLM_MODEL_KEY,
+    GROK_BASE_URL_KEY,
+    GROK_API_KEY_KEY,
+    GROK_MODEL_KEY,
 )
 
 logger = logging.getLogger(__name__)
@@ -36,7 +40,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=10000)
     history: list[ChatMessage] = Field(default_factory=list)
-    provider: str = Field(default="codex", pattern="^(claude|codex|glm)$")
+    provider: str = Field(default="codex", pattern="^(claude|codex|glm|grok)$")
 
 
 # ==================== SSE 生成器 ====================
@@ -48,7 +52,8 @@ async def _sse_generator(provider_name: str, messages: list[dict]):
     try:
         provider = get_provider(provider_name)
         if not provider.is_available():
-            label = "Claude CLI" if provider_name == "claude" else "Codex API"
+            labels = {"claude": "Claude CLI", "codex": "Codex API", "glm": "GLM API", "grok": "Grok API"}
+            label = labels.get(provider_name, provider_name)
             error_msg = f"[错误] {label} 未配置，请管理员在设置中配置"
             yield f"data: {json.dumps(error_msg)}\n\n"
             return
@@ -71,8 +76,10 @@ def ai_status():
     claude_provider = get_provider("claude")
     codex_provider = get_provider("codex")
     glm_provider = get_provider("glm")
+    grok_provider = get_provider("grok")
     codex_cfg = get_codex_config()
     glm_cfg = get_glm_config()
+    grok_cfg = get_grok_config()
     return {
         "claude": {
             "available": claude_provider.is_available(),
@@ -87,6 +94,11 @@ def ai_status():
             "available": glm_provider.is_available(),
             "model": glm_cfg["model"],
             "base_url": glm_cfg["base_url"],
+        },
+        "grok": {
+            "available": grok_provider.is_available(),
+            "model": grok_cfg["model"],
+            "base_url": grok_cfg["base_url"],
         },
     }
 
@@ -184,6 +196,40 @@ def update_glm_config(body: dict, _=Depends(require_role("admin"))):
         "base_url": GLM_BASE_URL_KEY,
         "api_key": GLM_API_KEY_KEY,
         "model": GLM_MODEL_KEY,
+    }
+    for field, config_key in key_map.items():
+        if field in body:
+            value = str(body[field]).strip()
+            if value:
+                set_config(config_key, value)
+                updated += 1
+    return {"ok": True, "updated": updated}
+
+
+# ==================== Grok 配置 ====================
+
+@router.get("/config/grok")
+def grok_config(_=Depends(require_role("admin"))):
+    cfg = get_grok_config()
+    api_key = cfg["api_key"]
+    masked = ""
+    if api_key:
+        masked = api_key[:8] + "****" + api_key[-4:] if len(api_key) > 16 else "****"
+    return {
+        "base_url": cfg["base_url"],
+        "api_key_masked": masked,
+        "api_key_configured": bool(api_key),
+        "model": cfg["model"],
+    }
+
+
+@router.post("/config/grok")
+def update_grok_config(body: dict, _=Depends(require_role("admin"))):
+    updated = 0
+    key_map = {
+        "base_url": GROK_BASE_URL_KEY,
+        "api_key": GROK_API_KEY_KEY,
+        "model": GROK_MODEL_KEY,
     }
     for field, config_key in key_map.items():
         if field in body:

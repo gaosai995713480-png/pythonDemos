@@ -18,16 +18,19 @@ const providerStatus = reactive({
   claude: { available: false, model: '' },
   codex: { available: false, model: '', base_url: '' },
   glm: { available: false, model: '', base_url: '' },
+  grok: { available: false, model: '', base_url: '' },
 })
 
 // 各供应商独立对话历史
 const claudeMessages = ref([])
 const codexMessages = ref([])
 const glmMessages = ref([])
+const grokMessages = ref([])
 
 const currentMessages = computed(() => {
   if (activeProvider.value === 'claude') return claudeMessages.value
   if (activeProvider.value === 'glm') return glmMessages.value
+  if (activeProvider.value === 'grok') return grokMessages.value
   return codexMessages.value
 })
 
@@ -48,7 +51,7 @@ function loadMessages(provider) {
 }
 
 function saveMessages(provider) {
-  const msgsMap = { claude: claudeMessages.value, codex: codexMessages.value, glm: glmMessages.value }
+  const msgsMap = { claude: claudeMessages.value, codex: codexMessages.value, glm: glmMessages.value, grok: grokMessages.value }
   const msgs = msgsMap[provider]
   const toSave = msgs.slice(-MAX_MESSAGES)
   try {
@@ -62,6 +65,7 @@ const configSaving = ref(false)
 const claudeConfig = ref({ model: 'claude-sonnet-4-20250514' })
 const codexConfig = ref({ base_url: '', api_key: '', model: 'gpt-5.4-codex' })
 const glmConfig = ref({ base_url: 'https://open.bigmodel.cn/api/paas/v4', api_key: '', model: 'glm-4-flash' })
+const grokConfig = ref({ base_url: 'https://api.x.ai', api_key: '', model: 'grok-3' })
 
 // 检查供应商状态
 async function checkStatus() {
@@ -72,6 +76,7 @@ async function checkStatus() {
       Object.assign(providerStatus.claude, data.claude)
       Object.assign(providerStatus.codex, data.codex)
       Object.assign(providerStatus.glm, data.glm)
+      if (data.grok) Object.assign(providerStatus.grok, data.grok)
     }
   } catch { /* ignore */ }
 }
@@ -79,10 +84,11 @@ async function checkStatus() {
 // 加载配置
 async function loadConfig() {
   try {
-    const [cRes, xRes, gRes] = await Promise.all([
+    const [cRes, xRes, gRes, kRes] = await Promise.all([
       fetch('/api/ai/config/claude'),
       fetch('/api/ai/config/codex'),
       fetch('/api/ai/config/glm'),
+      fetch('/api/ai/config/grok'),
     ])
     if (cRes.ok) {
       const d = await cRes.json()
@@ -97,6 +103,11 @@ async function loadConfig() {
       const d = await gRes.json()
       glmConfig.value.base_url = d.base_url || ''
       glmConfig.value.model = d.model || ''
+    }
+    if (kRes.ok) {
+      const d = await kRes.json()
+      grokConfig.value.base_url = d.base_url || ''
+      grokConfig.value.model = d.model || ''
     }
   } catch { /* ignore */ }
 }
@@ -143,6 +154,20 @@ async function saveGlmConfig() {
   configSaving.value = false
 }
 
+// 保存 Grok 配置
+async function saveGrokConfig() {
+  configSaving.value = true
+  try {
+    await fetch('/api/ai/config/grok', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(grokConfig.value),
+    })
+    await checkStatus()
+  } catch { /* ignore */ }
+  configSaving.value = false
+}
+
 function openConfig() {
   loadConfig()
   showConfig.value = true
@@ -153,6 +178,7 @@ onMounted(() => {
   initMessages('claude')
   initMessages('codex')
   initMessages('glm')
+  initMessages('grok')
 })
 
 function toggleChat() {
@@ -161,7 +187,7 @@ function toggleChat() {
 }
 
 function initMessages(provider) {
-  const msgsMap = { claude: claudeMessages, codex: codexMessages, glm: glmMessages }
+  const msgsMap = { claude: claudeMessages, codex: codexMessages, glm: glmMessages, grok: grokMessages }
   const msgs = msgsMap[provider]
   if (msgs.value.length > 0) return
 
@@ -169,7 +195,7 @@ function initMessages(provider) {
   if (saved.length > 0) {
     msgs.value = saved
   } else {
-    const labels = { claude: 'Claude', codex: 'Codex', glm: 'GLM' }
+    const labels = { claude: 'Claude', codex: 'Codex', glm: 'GLM', grok: 'Grok' }
     msgs.value.push({
       role: 'assistant',
       content: `你好！我是 ${labels[provider]}，有什么可以帮你的吗？ 😊`,
@@ -202,7 +228,7 @@ async function sendMessage() {
   const text = inputText.value.trim()
   if (!text || isLoading.value) return
 
-  const msgsMap = { claude: claudeMessages, codex: codexMessages, glm: glmMessages }
+  const msgsMap = { claude: claudeMessages, codex: codexMessages, glm: glmMessages, grok: grokMessages }
   const msgs = msgsMap[activeProvider.value]
 
   msgs.value.push({ role: 'user', content: text })
@@ -289,8 +315,8 @@ function handleKeydown(e) {
 }
 
 function clearChat() {
-  const msgsMap = { claude: claudeMessages, codex: codexMessages, glm: glmMessages }
-  const labels = { claude: 'Claude', codex: 'Codex', glm: 'GLM' }
+  const msgsMap = { claude: claudeMessages, codex: codexMessages, glm: glmMessages, grok: grokMessages }
+  const labels = { claude: 'Claude', codex: 'Codex', glm: 'GLM', grok: 'Grok' }
   const msgs = msgsMap[activeProvider.value]
   msgs.value = [{
     role: 'assistant',
@@ -306,19 +332,37 @@ async function handleBubbleClick(e) {
   const code = decodeURIComponent(btn.dataset.code || '')
   if (!code) return
 
-  try {
-    await navigator.clipboard.writeText(code)
+  let success = false
+
+  // 优先使用现代 Clipboard API（仅 HTTPS / localhost 可用）
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(code)
+      success = true
+    } catch { /* fallback below */ }
+  }
+
+  // 降级方案：通过临时 textarea + execCommand 实现（兼容 HTTP 环境）
+  if (!success) {
+    const ta = document.createElement('textarea')
+    ta.value = code
+    ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0'
+    document.body.appendChild(ta)
+    ta.select()
+    try {
+      success = document.execCommand('copy')
+    } catch { /* ignore */ }
+    document.body.removeChild(ta)
+  }
+
+  if (success) {
     const originalHTML = btn.innerHTML
-    // 换成绿色的勾勾 SVG
     btn.innerHTML = `<svg class="copy-icon success" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 13L9 17L19 7" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
     btn.classList.add('copied')
-    
     setTimeout(() => {
       btn.innerHTML = originalHTML
       btn.classList.remove('copied')
     }, 2000)
-  } catch (err) {
-    console.error('Copy failed:', err)
   }
 }
 </script>
@@ -355,6 +399,14 @@ async function handleBubbleClick(e) {
             >
               <span class="provider-dot" :class="{ online: providerStatus.glm.available }"></span>
               GLM
+            </button>
+            <button
+              class="provider-tab"
+              :class="{ active: activeProvider === 'grok' }"
+              @click="switchProvider('grok')"
+            >
+              <span class="provider-dot" :class="{ online: providerStatus.grok.available }"></span>
+              Grok
             </button>
             <button
               class="provider-tab"
@@ -430,6 +482,32 @@ async function handleBubbleClick(e) {
 
           <div class="config-divider"></div>
 
+          <!-- Grok 配置 -->
+          <div class="config-section">
+            <div class="config-section-title">🟠 Grok (xAI)</div>
+            <div class="config-field">
+              <label>API 地址</label>
+              <input v-model="grokConfig.base_url" type="text" placeholder="https://api.x.ai" />
+            </div>
+            <div class="config-field">
+              <label>API Key</label>
+              <input v-model="grokConfig.api_key" type="password" placeholder="xai-..." />
+            </div>
+            <div class="config-field">
+              <label>模型</label>
+              <input v-model="grokConfig.model" type="text" placeholder="grok-3" />
+            </div>
+            <button
+              class="config-save"
+              :disabled="!grokConfig.base_url || !grokConfig.api_key || configSaving"
+              @click="saveGrokConfig"
+            >
+              {{ configSaving ? '保存中...' : '💾 保存 Grok' }}
+            </button>
+          </div>
+
+          <div class="config-divider"></div>
+
           <!-- Claude 配置 -->
           <div class="config-section">
             <div class="config-section-title">🟣 Claude (CLI 本地)</div>
@@ -446,7 +524,7 @@ async function handleBubbleClick(e) {
 
         <!-- 不可用提示 -->
         <div v-else-if="!providerStatus[activeProvider]?.available" class="chat-unavailable">
-          <p>⚠️ {{ { claude: 'Claude CLI', codex: 'Codex API', glm: 'GLM API' }[activeProvider] }} 未配置</p>
+          <p>⚠️ {{ { claude: 'Claude CLI', codex: 'Codex API', glm: 'GLM API', grok: 'Grok API' }[activeProvider] }} 未配置</p>
           <p v-if="authStore.isAdmin" class="chat-unavailable-hint">点击 ⚙️ 进行配置</p>
           <p v-else class="chat-unavailable-hint">请联系管理员配置</p>
         </div>
@@ -461,11 +539,11 @@ async function handleBubbleClick(e) {
           >
             <!-- 助手头像 -->
             <div class="msg-avatar assistant-avatar" v-if="msg.role === 'assistant'">
-              <span class="avatar-icon">{{ { claude: '🟣', codex: '🟢', glm: '🔵' }[activeProvider] }}</span>
+              <span class="avatar-icon">{{ { claude: '🟣', codex: '🟢', glm: '🔵', grok: '🟠' }[activeProvider] }}</span>
             </div>
             
             <div class="msg-content-wrapper">
-              <div class="msg-name" v-if="msg.role === 'assistant'">{{ { claude: 'Claude', codex: 'Codex', glm: 'GLM' }[activeProvider] }}</div>
+              <div class="msg-name" v-if="msg.role === 'assistant'">{{ { claude: 'Claude', codex: 'Codex', glm: 'GLM', grok: 'Grok' }[activeProvider] }}</div>
               <div class="msg-bubble">
                 <span class="msg-text" v-html="renderMarkdown(msg.content)"></span>
                 <span v-if="isLoading && i === currentMessages.length - 1 && msg.role === 'assistant'" class="msg-cursor">▊</span>
