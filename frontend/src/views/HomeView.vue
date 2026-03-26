@@ -53,6 +53,7 @@ async function logout() {
     <!-- 右上角工具栏 -->
     <div class="corner-actions">
       <ThemeSwitcher />
+      <button v-if="authStore.isAdmin" class="btn-ghost" title="用户管理与邀请码" @click="router.push('/users')">👥 管理</button>
       <button class="btn-ghost" title="登出" @click="logout">退出</button>
     </div>
 

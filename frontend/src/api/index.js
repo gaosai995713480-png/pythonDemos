@@ -21,14 +21,18 @@ async function request(url, options = {}) {
       window.location.replace('/login')
       throw new Error('unauthorized')
     }
-    if (res.status === 403) {
+    if (!res.ok) {
+      // 尝试读取后端返回的具体错误信息
       const data = await res.clone().json().catch(() => ({}))
-      const { error } = useToast()
-      error(data.detail || data.error || '权限不足')
-    }
-    if (!res.ok && res.status !== 403) {
-      const { error } = useToast()
-      error(`请求失败 (${res.status})`)
+      const msg = data.error || data.detail || ''
+      if (res.status === 403) {
+        const { error } = useToast()
+        error(msg || '权限不足')
+      } else {
+        // 400/409/500 等：优先展示后端返回的具体原因
+        const { error } = useToast()
+        error(msg || `请求失败 (${res.status})`)
+      }
     }
     return res
   } catch (e) {
