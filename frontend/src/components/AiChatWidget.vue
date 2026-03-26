@@ -298,6 +298,29 @@ function clearChat() {
   }]
   saveMessages(activeProvider.value)
 }
+
+async function handleBubbleClick(e) {
+  const btn = e.target.closest('.code-copy-btn')
+  if (!btn) return
+
+  const code = decodeURIComponent(btn.dataset.code || '')
+  if (!code) return
+
+  try {
+    await navigator.clipboard.writeText(code)
+    const originalHTML = btn.innerHTML
+    // 换成绿色的勾勾 SVG
+    btn.innerHTML = `<svg class="copy-icon success" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 13L9 17L19 7" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+    btn.classList.add('copied')
+    
+    setTimeout(() => {
+      btn.innerHTML = originalHTML
+      btn.classList.remove('copied')
+    }, 2000)
+  } catch (err) {
+    console.error('Copy failed:', err)
+  }
+}
 </script>
 
 <template>
@@ -429,7 +452,7 @@ function clearChat() {
         </div>
 
         <!-- 消息列表 -->
-        <div v-else ref="listRef" class="chat-messages">
+        <div v-else ref="listRef" class="chat-messages" @click="handleBubbleClick">
           <div
             v-for="(msg, i) in currentMessages"
             :key="`${activeProvider}-${i}`"
@@ -486,7 +509,21 @@ function renderMarkdown(text) {
   // 1. 代码块保护（先提取，防止内部被误处理）
   const codeBlocks = []
   text = text.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
-    codeBlocks.push(`<pre><code>${code.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`)
+    const escapedCode = code.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    const safeCode = encodeURIComponent(code)
+    const copySvg = `<svg class="copy-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 5H6C4.89543 5 4 5.89543 4 7V19C4 20.1046 4.89543 21 6 21H16C17.1046 21 18 20.1046 18 19V17M8 5C8 6.10457 8.89543 7 10 7H12C13.1046 7 14 6.10457 14 5M8 5C8 3.89543 8.89543 3 10 3H12C13.1046 3 14 3.89543 14 5M14 5H16C17.1046 5 18 5.89543 18 7V10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="14" y="14" width="6" height="6" rx="1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+    
+    codeBlocks.push(`
+      <div class="code-block-wrapper">
+        <div class="code-block-header">
+          <span class="code-lang">${lang || ''}</span>
+          <button class="code-copy-btn" data-code="${safeCode}" title="复制代码">
+            ${copySvg}
+          </button>
+        </div>
+        <pre><code>${escapedCode}</code></pre>
+      </div>
+    `)
     return `%%CODE_BLOCK_${codeBlocks.length - 1}%%`
   })
 
@@ -799,10 +836,34 @@ function applyInline(text) {
 @keyframes blink { 50% { opacity: 0; } }
 
 /* markdown 元素复用之前你优化的那套 */
-.msg-bubble :deep(pre) {
-  background: rgba(10, 10, 15, 0.8); border-radius: 10px;
-  padding: 12px 14px; margin: 10px 0; overflow-x: auto; font-size: 13px;
+.msg-bubble :deep(.code-block-wrapper) {
+  margin: 12px 0; border-radius: 8px; overflow: hidden;
+  background: rgba(10, 10, 15, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+.msg-bubble :deep(.code-block-header) {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 12px; background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.msg-bubble :deep(.code-lang) {
+  font-size: 12px; color: rgba(255, 255, 255, 0.5);
+  font-family: 'Fira Code', 'Consolas', monospace;
+  text-transform: lowercase;
+}
+.msg-bubble :deep(.code-copy-btn) {
+  background: transparent; border: none; cursor: pointer;
+  padding: 4px; border-radius: 4px; display: flex; align-items: center; justify-content: center;
+  color: rgba(255, 255, 255, 0.5); transition: all 0.2s;
+}
+.msg-bubble :deep(.code-copy-btn:hover) {
+  background: rgba(255, 255, 255, 0.1); color: #fff;
+}
+.msg-bubble :deep(.copy-icon) { width: 14px; height: 14px; }
+.msg-bubble :deep(pre) {
+  padding: 12px 14px; margin: 0; overflow-x: auto; font-size: 13px;
+  background: transparent; border: none; border-radius: 0;
 }
 .msg-bubble :deep(code) { font-family: 'Fira Code', 'Consolas', monospace; }
 .msg-bubble :deep(.inline-code) {
