@@ -1,4 +1,4 @@
-"""AI 聊天路由 — 双供应商独立架构"""
+"""AI 聊天路由 — 多供应商独立架构"""
 import logging
 
 from fastapi import APIRouter, Depends
@@ -11,10 +11,14 @@ from ..services.ai_chat import (
     get_provider,
     get_claude_config,
     get_codex_config,
+    get_glm_config,
     CLAUDE_MODEL_KEY,
     CODEX_BASE_URL_KEY,
     CODEX_API_KEY_KEY,
     CODEX_MODEL_KEY,
+    GLM_BASE_URL_KEY,
+    GLM_API_KEY_KEY,
+    GLM_MODEL_KEY,
 )
 
 logger = logging.getLogger(__name__)
@@ -32,7 +36,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=10000)
     history: list[ChatMessage] = Field(default_factory=list)
-    provider: str = Field(default="claude", pattern="^(claude|codex)$")
+    provider: str = Field(default="codex", pattern="^(claude|codex|glm)$")
 
 
 # ==================== SSE 生成器 ====================
@@ -66,7 +70,9 @@ def ai_status():
     """检查各供应商的可用状态"""
     claude_provider = get_provider("claude")
     codex_provider = get_provider("codex")
+    glm_provider = get_provider("glm")
     codex_cfg = get_codex_config()
+    glm_cfg = get_glm_config()
     return {
         "claude": {
             "available": claude_provider.is_available(),
@@ -76,6 +82,11 @@ def ai_status():
             "available": codex_provider.is_available(),
             "model": codex_cfg["model"],
             "base_url": codex_cfg["base_url"],
+        },
+        "glm": {
+            "available": glm_provider.is_available(),
+            "model": glm_cfg["model"],
+            "base_url": glm_cfg["base_url"],
         },
     }
 
@@ -139,6 +150,40 @@ def update_codex_config(body: dict, _=Depends(require_role("admin"))):
         "base_url": CODEX_BASE_URL_KEY,
         "api_key": CODEX_API_KEY_KEY,
         "model": CODEX_MODEL_KEY,
+    }
+    for field, config_key in key_map.items():
+        if field in body:
+            value = str(body[field]).strip()
+            if value:
+                set_config(config_key, value)
+                updated += 1
+    return {"ok": True, "updated": updated}
+
+
+# ==================== GLM 配置 ====================
+
+@router.get("/config/glm")
+def glm_config(_=Depends(require_role("admin"))):
+    cfg = get_glm_config()
+    api_key = cfg["api_key"]
+    masked = ""
+    if api_key:
+        masked = api_key[:8] + "****" + api_key[-4:] if len(api_key) > 16 else "****"
+    return {
+        "base_url": cfg["base_url"],
+        "api_key_masked": masked,
+        "api_key_configured": bool(api_key),
+        "model": cfg["model"],
+    }
+
+
+@router.post("/config/glm")
+def update_glm_config(body: dict, _=Depends(require_role("admin"))):
+    updated = 0
+    key_map = {
+        "base_url": GLM_BASE_URL_KEY,
+        "api_key": GLM_API_KEY_KEY,
+        "model": GLM_MODEL_KEY,
     }
     for field, config_key in key_map.items():
         if field in body:

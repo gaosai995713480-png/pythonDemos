@@ -17,15 +17,19 @@ const activeProvider = ref('codex') // 'codex' | 'claude'
 const providerStatus = reactive({
   claude: { available: false, model: '' },
   codex: { available: false, model: '', base_url: '' },
+  glm: { available: false, model: '', base_url: '' },
 })
 
 // 各供应商独立对话历史
 const claudeMessages = ref([])
 const codexMessages = ref([])
+const glmMessages = ref([])
 
-const currentMessages = computed(() =>
-  activeProvider.value === 'claude' ? claudeMessages.value : codexMessages.value
-)
+const currentMessages = computed(() => {
+  if (activeProvider.value === 'claude') return claudeMessages.value
+  if (activeProvider.value === 'glm') return glmMessages.value
+  return codexMessages.value
+})
 
 // ===== localStorage 持久化 =====
 const MAX_MESSAGES = 50
@@ -44,7 +48,8 @@ function loadMessages(provider) {
 }
 
 function saveMessages(provider) {
-  const msgs = provider === 'claude' ? claudeMessages.value : codexMessages.value
+  const msgsMap = { claude: claudeMessages.value, codex: codexMessages.value, glm: glmMessages.value }
+  const msgs = msgsMap[provider]
   const toSave = msgs.slice(-MAX_MESSAGES)
   try {
     localStorage.setItem(chatStorageKey(provider), JSON.stringify(toSave))
@@ -56,6 +61,7 @@ const showConfig = ref(false)
 const configSaving = ref(false)
 const claudeConfig = ref({ model: 'claude-sonnet-4-20250514' })
 const codexConfig = ref({ base_url: '', api_key: '', model: 'gpt-5.4-codex' })
+const glmConfig = ref({ base_url: 'https://open.bigmodel.cn/api/paas/v4', api_key: '', model: 'glm-4-flash' })
 
 // 检查供应商状态
 async function checkStatus() {
@@ -65,6 +71,7 @@ async function checkStatus() {
       const data = await res.json()
       Object.assign(providerStatus.claude, data.claude)
       Object.assign(providerStatus.codex, data.codex)
+      Object.assign(providerStatus.glm, data.glm)
     }
   } catch { /* ignore */ }
 }
@@ -72,9 +79,10 @@ async function checkStatus() {
 // 加载配置
 async function loadConfig() {
   try {
-    const [cRes, xRes] = await Promise.all([
+    const [cRes, xRes, gRes] = await Promise.all([
       fetch('/api/ai/config/claude'),
       fetch('/api/ai/config/codex'),
+      fetch('/api/ai/config/glm'),
     ])
     if (cRes.ok) {
       const d = await cRes.json()
@@ -84,7 +92,11 @@ async function loadConfig() {
       const d = await xRes.json()
       codexConfig.value.base_url = d.base_url || ''
       codexConfig.value.model = d.model || ''
-      // api_key 不回填
+    }
+    if (gRes.ok) {
+      const d = await gRes.json()
+      glmConfig.value.base_url = d.base_url || ''
+      glmConfig.value.model = d.model || ''
     }
   } catch { /* ignore */ }
 }
@@ -117,6 +129,20 @@ async function saveCodexConfig() {
   configSaving.value = false
 }
 
+// 保存 GLM 配置
+async function saveGlmConfig() {
+  configSaving.value = true
+  try {
+    await fetch('/api/ai/config/glm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(glmConfig.value),
+    })
+    await checkStatus()
+  } catch { /* ignore */ }
+  configSaving.value = false
+}
+
 function openConfig() {
   loadConfig()
   showConfig.value = true
@@ -126,6 +152,7 @@ onMounted(() => {
   checkStatus()
   initMessages('claude')
   initMessages('codex')
+  initMessages('glm')
 })
 
 function toggleChat() {
@@ -134,17 +161,18 @@ function toggleChat() {
 }
 
 function initMessages(provider) {
-  const msgs = provider === 'claude' ? claudeMessages : codexMessages
-  if (msgs.value.length > 0) return // 内存中已有（跨页面跳转回来）
+  const msgsMap = { claude: claudeMessages, codex: codexMessages, glm: glmMessages }
+  const msgs = msgsMap[provider]
+  if (msgs.value.length > 0) return
 
   const saved = loadMessages(provider)
   if (saved.length > 0) {
     msgs.value = saved
   } else {
-    const label = provider === 'claude' ? 'Claude' : 'Codex'
+    const labels = { claude: 'Claude', codex: 'Codex', glm: 'GLM' }
     msgs.value.push({
       role: 'assistant',
-      content: `你好！我是 ${label}，有什么可以帮你的吗？ 😊`,
+      content: `你好！我是 ${labels[provider]}，有什么可以帮你的吗？ 😊`,
     })
   }
 }
@@ -174,7 +202,8 @@ async function sendMessage() {
   const text = inputText.value.trim()
   if (!text || isLoading.value) return
 
-  const msgs = activeProvider.value === 'claude' ? claudeMessages : codexMessages
+  const msgsMap = { claude: claudeMessages, codex: codexMessages, glm: glmMessages }
+  const msgs = msgsMap[activeProvider.value]
 
   msgs.value.push({ role: 'user', content: text })
   inputText.value = ''
@@ -260,12 +289,14 @@ function handleKeydown(e) {
 }
 
 function clearChat() {
-  const msgs = activeProvider.value === 'claude' ? claudeMessages : codexMessages
-  const label = activeProvider.value === 'claude' ? 'Claude' : 'Codex'
+  const msgsMap = { claude: claudeMessages, codex: codexMessages, glm: glmMessages }
+  const labels = { claude: 'Claude', codex: 'Codex', glm: 'GLM' }
+  const msgs = msgsMap[activeProvider.value]
   msgs.value = [{
     role: 'assistant',
-    content: `你好！我是 ${label}，有什么可以帮你的吗？ 😊`,
+    content: `你好！我是 ${labels[activeProvider.value]}，有什么可以帮你的吗？ 😊`,
   }]
+  saveMessages(activeProvider.value)
 }
 </script>
 
@@ -293,6 +324,14 @@ function clearChat() {
             >
               <span class="provider-dot" :class="{ online: providerStatus.codex.available }"></span>
               Codex
+            </button>
+            <button
+              class="provider-tab"
+              :class="{ active: activeProvider === 'glm' }"
+              @click="switchProvider('glm')"
+            >
+              <span class="provider-dot" :class="{ online: providerStatus.glm.available }"></span>
+              GLM
             </button>
             <button
               class="provider-tab"
@@ -342,6 +381,32 @@ function clearChat() {
 
           <div class="config-divider"></div>
 
+          <!-- GLM 配置 -->
+          <div class="config-section">
+            <div class="config-section-title">🔵 GLM (智谱)</div>
+            <div class="config-field">
+              <label>API 地址</label>
+              <input v-model="glmConfig.base_url" type="text" placeholder="https://open.bigmodel.cn/api/paas/v4" />
+            </div>
+            <div class="config-field">
+              <label>API Key</label>
+              <input v-model="glmConfig.api_key" type="password" placeholder="输入智谱 API Key" />
+            </div>
+            <div class="config-field">
+              <label>模型</label>
+              <input v-model="glmConfig.model" type="text" placeholder="glm-4-flash" />
+            </div>
+            <button
+              class="config-save"
+              :disabled="!glmConfig.base_url || !glmConfig.api_key || configSaving"
+              @click="saveGlmConfig"
+            >
+              {{ configSaving ? '保存中...' : '💾 保存 GLM' }}
+            </button>
+          </div>
+
+          <div class="config-divider"></div>
+
           <!-- Claude 配置 -->
           <div class="config-section">
             <div class="config-section-title">🟣 Claude (CLI 本地)</div>
@@ -358,7 +423,7 @@ function clearChat() {
 
         <!-- 不可用提示 -->
         <div v-else-if="!providerStatus[activeProvider]?.available" class="chat-unavailable">
-          <p>⚠️ {{ activeProvider === 'claude' ? 'Claude CLI' : 'Codex API' }} 未配置</p>
+          <p>⚠️ {{ { claude: 'Claude CLI', codex: 'Codex API', glm: 'GLM API' }[activeProvider] }} 未配置</p>
           <p v-if="authStore.isAdmin" class="chat-unavailable-hint">点击 ⚙️ 进行配置</p>
           <p v-else class="chat-unavailable-hint">请联系管理员配置</p>
         </div>
@@ -373,11 +438,11 @@ function clearChat() {
           >
             <!-- 助手头像 -->
             <div class="msg-avatar assistant-avatar" v-if="msg.role === 'assistant'">
-              <span class="avatar-icon">{{ activeProvider === 'claude' ? '🟣' : '🟢' }}</span>
+              <span class="avatar-icon">{{ { claude: '🟣', codex: '🟢', glm: '🔵' }[activeProvider] }}</span>
             </div>
             
             <div class="msg-content-wrapper">
-              <div class="msg-name" v-if="msg.role === 'assistant'">{{ activeProvider === 'claude' ? 'Claude' : 'Codex' }}</div>
+              <div class="msg-name" v-if="msg.role === 'assistant'">{{ { claude: 'Claude', codex: 'Codex', glm: 'GLM' }[activeProvider] }}</div>
               <div class="msg-bubble">
                 <span class="msg-text" v-html="renderMarkdown(msg.content)"></span>
                 <span v-if="isLoading && i === currentMessages.length - 1 && msg.role === 'assistant'" class="msg-cursor">▊</span>

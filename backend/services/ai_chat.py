@@ -1,7 +1,8 @@
 """
-AI 聊天服务 — 双供应商独立架构
+AI 聊天服务 — 多供应商独立架构
 Claude: 通过本地 Claude CLI subprocess 调用
 Codex: 通过 httpx 调用 OpenAI Responses API
+GLM: 通过 httpx 调用智谱 Chat Completions API
 """
 import asyncio
 import json
@@ -46,6 +47,22 @@ def get_codex_config() -> dict:
         "base_url": get_config(CODEX_BASE_URL_KEY) or "",
         "api_key": get_config(CODEX_API_KEY_KEY) or "",
         "model": get_config(CODEX_MODEL_KEY) or _CODEX_DEFAULT_MODEL,
+    }
+
+
+# ==================== GLM (智谱) 配置 ====================
+
+GLM_BASE_URL_KEY = "GLM_BASE_URL"
+GLM_API_KEY_KEY = "GLM_API_KEY"
+GLM_MODEL_KEY = "GLM_MODEL"
+_GLM_DEFAULT_MODEL = "z-ai/glm-4.7"
+
+
+def get_glm_config() -> dict:
+    return {
+        "base_url": get_config(GLM_BASE_URL_KEY) or "https://open.bigmodel.cn/api/paas/v4",
+        "api_key": get_config(GLM_API_KEY_KEY) or "",
+        "model": get_config(GLM_MODEL_KEY) or _GLM_DEFAULT_MODEL,
     }
 
 
@@ -219,6 +236,69 @@ class CodexProvider(AiProvider):
                         continue
 
 
+# ==================== GLM (智谱) 实现 ====================
+
+class GlmProvider(AiProvider):
+    """智谱 GLM — OpenAI Chat Completions API 兼容 (stream)"""
+
+    def __init__(self, base_url: str, api_key: str, model: str):
+        self.base_url = base_url.rstrip("/")
+        self.api_key = api_key
+        self.model = model
+
+    def is_available(self) -> bool:
+        return bool(self.base_url and self.api_key)
+
+    async def stream_chat(
+        self, messages: list[dict]
+    ) -> AsyncGenerator[str, None]:
+        url = f"{self.base_url}/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
+        chat_messages = []
+        for msg in messages:
+            chat_messages.append({
+                "role": msg.get("role", "user"),
+                "content": msg.get("content", ""),
+            })
+
+        body = {
+            "model": self.model,
+            "stream": True,
+            "messages": chat_messages,
+        }
+
+        async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
+            async with client.stream(
+                "POST", url, headers=headers, json=body
+            ) as resp:
+                if resp.status_code != 200:
+                    error_body = await resp.aread()
+                    logger.error("GLM API 错误 [%s]: %s", resp.status_code, error_body[:500])
+                    yield f"[错误] API 返回 {resp.status_code}"
+                    return
+
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    data_str = line[6:]
+                    if data_str.strip() == "[DONE]":
+                        break
+                    try:
+                        event = json.loads(data_str)
+                        choices = event.get("choices", [])
+                        if choices:
+                            delta = choices[0].get("delta", {})
+                            content = delta.get("content", "")
+                            if content:
+                                yield content
+                    except json.JSONDecodeError:
+                        continue
+
+
 # ==================== 工厂方法 ====================
 
 def get_claude_provider() -> ClaudeCliProvider:
@@ -237,11 +317,23 @@ def get_codex_provider() -> CodexProvider:
     )
 
 
+def get_glm_provider() -> GlmProvider:
+    """获取 GLM 供应商实例"""
+    cfg = get_glm_config()
+    return GlmProvider(
+        base_url=cfg["base_url"],
+        api_key=cfg["api_key"],
+        model=cfg["model"],
+    )
+
+
 def get_provider(name: str) -> AiProvider:
     """根据名称获取对应的 AI Provider"""
     if name == "claude":
         return get_claude_provider()
     elif name == "codex":
         return get_codex_provider()
+    elif name == "glm":
+        return get_glm_provider()
     else:
         raise ValueError(f"不支持的 AI 供应商: {name}")
