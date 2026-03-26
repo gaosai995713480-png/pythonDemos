@@ -227,3 +227,9 @@ export const expressApi = {
   updateConfig: (data) => post('/api/express/config', data),
 }
 
+export const aiApi = {
+  status: () => get('/api/ai/status'),
+  getConfig: () => get('/api/ai/config'),
+  updateConfig: (data) => post('/api/ai/config', data),
+}
+

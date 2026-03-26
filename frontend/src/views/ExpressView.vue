@@ -133,7 +133,7 @@ function loadAmapSDK() {
     if (window.AMap) { resolve(); return }
     window._AMapSecurityConfig = { securityJsCode: 'ca6c1f4b7f9f6da24ab08e9f5497621a' }
     const script = document.createElement('script')
-    script.src = 'https://webapi.amap.com/maps?v=2.0&key=5bf41e2540a12180a9208bbcaea7c696&plugin=AMap.Geocoder,AMap.Driving'
+    script.src = 'https://webapi.amap.com/maps?v=2.0&key=5bf41e2540a12180a9208bbcaea7c696&plugin=AMap.Geocoder,AMap.Driving,AMap.CitySearch'
     script.onload = resolve
     document.head.appendChild(script)
   })
@@ -336,6 +336,89 @@ async function initMapRoute(trackData) {
   }
 
   map.setFitView(mapMarkers, false, [60, 60, 60, 60])
+
+  // ===== 方案E：自动推断收货地 =====
+  const inferredDest = inferDestCity(trackData, cityList)
+  let destCityName = inferredDest
+  if (!destCityName) {
+    destCityName = await detectUserCity()
+  }
+  // 确保目的地不是已在地图上的最后一个城市（避免重复标记）
+  const lastCity = cityList[cityList.length - 1]?.city
+  if (destCityName && destCityName !== lastCity && !lastCity?.startsWith(destCityName) && !destCityName.startsWith(lastCity || '')) {
+    const destCoords = await geocodeCity(destCityName)
+    if (destCoords) {
+      const lastPoint = points[points.length - 1]
+      // 目的地 "收" 标记
+      const destContent = document.createElement('div')
+      destContent.className = 'express-marker'
+      destContent.innerHTML = '<span class="dest-tag">收</span>'
+      const destMarker = new AMap.Marker({
+        position: destCoords,
+        content: destContent,
+        offset: new AMap.Pixel(-12, -12),
+        label: {
+          content: `<div class="marker-label dest-label">收 ${destCityName}</div>`,
+          direction: 'top',
+        },
+      })
+      map.add(destMarker)
+      mapMarkers.push(destMarker)
+
+      // 剩余路线（灰色虚线）
+      const remainLine = new AMap.Polyline({
+        path: [lastPoint.coords, destCoords],
+        strokeColor: '#94a3b8',
+        strokeWeight: 2,
+        strokeStyle: 'dashed',
+        lineJoin: 'round',
+        strokeOpacity: 0.6,
+      })
+      map.add(remainLine)
+      mapMarkers.push(remainLine)
+
+      map.setFitView(mapMarkers, false, [60, 60, 60, 60])
+    }
+  }
+}
+
+// 从物流文本推断目的地城市
+function inferDestCity(trackData, cityList) {
+  // 策略：找时间最早的一条"已发往"信息中的目标城市，或物流信息显示的最终目的地
+  // 按时间正序遍历（最早到最晚）
+  const reversed = [...trackData].reverse()
+  let lastDest = null
+
+  for (const item of reversed) {
+    const ctx = item.context || ''
+    // 匹配"已发往【xxx】"或"发往【xxx】"
+    const m = ctx.match(/发往[《【](.+?)[》】]/)
+    if (m) {
+      const raw = m[1].replace(/(转运中心|分拣中心|营业部|中心|网点|站|公司|集散|仓|处)$/g, '').replace(/(市|区|县|镇)$/, '')
+      if (raw && raw.length >= 2 && raw.length <= 6) {
+        lastDest = raw
+      }
+    }
+  }
+  return lastDest
+}
+
+// IP 定位获取用户所在城市（兆底）
+async function detectUserCity() {
+  return new Promise((resolve) => {
+    try {
+      const citySearch = new AMap.CitySearch()
+      citySearch.getLocalCity((status, result) => {
+        if (status === 'complete' && result.city) {
+          resolve(result.city.replace(/市$/, ''))
+        } else {
+          resolve(null)
+        }
+      })
+    } catch {
+      resolve(null)
+    }
+  })
 }
 
 function drawFallbackLine(points) {
@@ -1009,6 +1092,14 @@ onUnmounted(() => {
   background: rgba(99, 102, 241, 0.3);
   border-color: #818cf8;
   color: #c7d2fe;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 3px 10px;
+}
+:global(.dest-label) {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: #f87171;
+  color: #fca5a5;
   font-weight: 600;
   font-size: 12px;
   padding: 3px 10px;
