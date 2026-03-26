@@ -1,11 +1,12 @@
 """AI 聊天路由 — 多供应商独立架构"""
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from typing import Optional
 
-from ..database import get_config, set_config
+from ..database import get_config, set_config, get_db
 from ..dependencies import require_auth, require_role
 from ..services.ai_chat import (
     get_provider,
@@ -41,6 +42,7 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=10000)
     history: list[ChatMessage] = Field(default_factory=list)
     provider: str = Field(default="codex", pattern="^(claude|codex|glm|grok)$")
+    skill_id: Optional[int] = Field(default=None)
 
 
 # ==================== SSE 生成器 ====================
@@ -104,9 +106,28 @@ def ai_status():
 
 
 @router.post("/chat")
-async def ai_chat(req: ChatRequest, _=Depends(require_auth)):
+async def ai_chat(req: ChatRequest, request: Request, _=Depends(require_auth)):
     """AI 聊天 — 返回 SSE 流式响应"""
     messages = []
+
+    # 注入技能预设的 system prompt
+    if req.skill_id:
+        from ..dependencies import get_current_user as _get_user
+        user = _get_user(request)
+        if user:
+            try:
+                with get_db() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute(
+                            "SELECT system_prompt FROM ai_skill_presets WHERE id = %s AND username = %s",
+                            (req.skill_id, user.username),
+                        )
+                        row = cur.fetchone()
+                        if row and row[0]:
+                            messages.append({"role": "system", "content": row[0]})
+            except Exception as e:
+                logger.warning("查询 Skill 失败: %s", e)
+
     for h in req.history[-20:]:
         messages.append({"role": h.role, "content": h.content})
     messages.append({"role": "user", "content": req.message})

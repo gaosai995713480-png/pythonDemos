@@ -170,7 +170,108 @@ async function saveGrokConfig() {
 
 function openConfig() {
   loadConfig()
+  loadSkills()
   showConfig.value = true
+}
+
+// ===== 技能预设 =====
+const skillsList = ref([])
+const showSkillDropdown = ref(false)
+const showSkillForm = ref(false)
+const editingSkill = ref(null)
+const skillForm = ref({ name: '', icon: '🤖', system_prompt: '' })
+
+// 每个供应商独立的激活技能
+const activeSkills = reactive({}) // { codex: {id,name,icon,...}, glm: null, ... }
+
+function skillStorageKey() {
+  const user = authStore.username || 'anonymous'
+  return `ai_active_skills_${user}`
+}
+
+function loadActiveSkills() {
+  try {
+    const raw = localStorage.getItem(skillStorageKey())
+    if (raw) Object.assign(activeSkills, JSON.parse(raw))
+  } catch { /* ignore */ }
+}
+
+function saveActiveSkills() {
+  try {
+    localStorage.setItem(skillStorageKey(), JSON.stringify(activeSkills))
+  } catch { /* ignore */ }
+}
+
+function setActiveSkill(provider, skill) {
+  activeSkills[provider] = skill
+  saveActiveSkills()
+  showSkillDropdown.value = false
+}
+
+function clearActiveSkill(provider) {
+  activeSkills[provider] = null
+  saveActiveSkills()
+}
+
+async function loadSkills() {
+  try {
+    const res = await fetch('/api/ai/skills')
+    if (res.ok) skillsList.value = await res.json()
+  } catch { /* ignore */ }
+}
+
+async function saveSkill() {
+  const body = { name: skillForm.value.name, icon: skillForm.value.icon, system_prompt: skillForm.value.system_prompt }
+  try {
+    let res
+    if (editingSkill.value) {
+      res = await fetch(`/api/ai/skills/${editingSkill.value.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    } else {
+      res = await fetch('/api/ai/skills', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    }
+    if (!res.ok) {
+      const err = await res.text()
+      console.error('Skill save failed:', res.status, err)
+      alert(`保存失败: ${res.status}`)
+      return
+    }
+    await loadSkills()
+    showSkillForm.value = false
+    editingSkill.value = null
+    skillForm.value = { name: '', icon: '🤖', system_prompt: '' }
+  } catch (e) { console.error('Skill save error:', e) }
+}
+
+function startEditSkill(skill) {
+  editingSkill.value = skill
+  skillForm.value = { name: skill.name, icon: skill.icon, system_prompt: skill.system_prompt }
+  showSkillForm.value = true
+}
+
+function startCreateSkill() {
+  editingSkill.value = null
+  skillForm.value = { name: '', icon: '🤖', system_prompt: '' }
+  showSkillForm.value = true
+}
+
+async function deleteSkill(skill) {
+  try {
+    await fetch(`/api/ai/skills/${skill.id}`, { method: 'DELETE' })
+    await loadSkills()
+    // 如果删除的是当前激活的，清除激活
+    for (const p of ['codex', 'glm', 'grok', 'claude']) {
+      if (activeSkills[p]?.id === skill.id) activeSkills[p] = null
+    }
+    saveActiveSkills()
+  } catch { /* ignore */ }
 }
 
 onMounted(() => {
@@ -179,6 +280,8 @@ onMounted(() => {
   initMessages('codex')
   initMessages('glm')
   initMessages('grok')
+  loadSkills()
+  loadActiveSkills()
 })
 
 function toggleChat() {
@@ -254,6 +357,7 @@ async function sendMessage() {
         message: text,
         history,
         provider: activeProvider.value,
+        skill_id: activeSkills[activeProvider.value]?.id || null,
       }),
       signal: abortController.signal,
     })
@@ -418,108 +522,124 @@ async function handleBubbleClick(e) {
             </button>
           </div>
 
-          <button v-if="authStore.isAdmin" class="chat-header-btn" title="配置" @click="openConfig">⚙️</button>
+          <button class="chat-header-btn" title="配置" @click="openConfig">⚙️</button>
           <button class="chat-header-btn" title="清空对话" @click="clearChat">🗑️</button>
           <button class="chat-header-close" @click="isOpen = false">✕</button>
         </div>
 
+        <!-- 技能选择器 -->
+        <div v-if="!showConfig" class="skill-selector-bar">
+          <div class="skill-active-tag" v-if="activeSkills[activeProvider]" @click="showSkillDropdown = !showSkillDropdown">
+            <span>{{ activeSkills[activeProvider].icon }} {{ activeSkills[activeProvider].name }}</span>
+            <button class="skill-clear-btn" @click.stop="clearActiveSkill(activeProvider)">×</button>
+          </div>
+          <button v-else class="skill-select-btn" @click="showSkillDropdown = !showSkillDropdown">
+            🎭 选择技能
+          </button>
+          <div v-if="showSkillDropdown" class="skill-dropdown">
+            <div v-if="skillsList.length === 0" class="skill-dropdown-empty">
+              暂无技能预设，点击 ⚙️ 创建
+            </div>
+            <button
+              v-for="s in skillsList"
+              :key="s.id"
+              class="skill-dropdown-item"
+              :class="{ active: activeSkills[activeProvider]?.id === s.id }"
+              @click="setActiveSkill(activeProvider, s)"
+            >
+              <span class="skill-dropdown-icon">{{ s.icon }}</span>
+              <span class="skill-dropdown-name">{{ s.name }}</span>
+            </button>
+          </div>
+        </div>
+
         <!-- 配置面板 -->
-        <div v-if="showConfig && authStore.isAdmin" class="chat-config">
+        <div v-if="showConfig" class="chat-config">
           <div class="config-title">
-            <span>AI 服务配置</span>
+            <span>AI 设置</span>
             <button class="config-back" @click="showConfig = false">← 返回</button>
           </div>
 
-          <!-- Codex 配置 -->
+          <!-- 技能管理（所有登录用户） -->
           <div class="config-section">
-            <div class="config-section-title">🟢 Codex (API 直连)</div>
-            <div class="config-field">
-              <label>API 地址</label>
-              <input v-model="codexConfig.base_url" type="text" placeholder="https://ai.qaq.al" />
+            <div class="config-section-title">🎭 技能预设</div>
+            <div class="config-hint">💡 创建自定义角色（系统提示词），对话时选择激活</div>
+
+            <div v-if="showSkillForm" class="skill-form">
+              <div class="config-field">
+                <label>图标 + 名称</label>
+                <div class="skill-name-row">
+                  <input v-model="skillForm.icon" type="text" class="skill-icon-input" maxlength="4" />
+                  <input v-model="skillForm.name" type="text" placeholder="技能名称" class="skill-name-input" />
+                </div>
+              </div>
+              <div class="config-field">
+                <label>系统提示词</label>
+                <textarea v-model="skillForm.system_prompt" placeholder="你是一个 Python 专家，擅长..." rows="4" class="skill-prompt-input"></textarea>
+              </div>
+              <div class="skill-form-actions">
+                <button class="config-save" :disabled="!skillForm.name || !skillForm.system_prompt" @click="saveSkill">
+                  {{ editingSkill ? '✅ 更新' : '➕ 创建' }}
+                </button>
+                <button class="skill-cancel-btn" @click="showSkillForm = false">取消</button>
+              </div>
             </div>
-            <div class="config-field">
-              <label>API Key</label>
-              <input v-model="codexConfig.api_key" type="password" placeholder="sk-..." />
+
+            <div v-else>
+              <div v-if="skillsList.length === 0" class="skill-empty">还没有技能，点击下方按钮创建第一个！</div>
+              <div v-for="s in skillsList" :key="s.id" class="skill-card">
+                <div class="skill-card-info">
+                  <span class="skill-card-icon">{{ s.icon }}</span>
+                  <div>
+                    <div class="skill-card-name">{{ s.name }}</div>
+                    <div class="skill-card-preview">{{ s.system_prompt.slice(0, 60) }}{{ s.system_prompt.length > 60 ? '...' : '' }}</div>
+                  </div>
+                </div>
+                <div class="skill-card-actions">
+                  <button @click="startEditSkill(s)" title="编辑">✏️</button>
+                  <button @click="deleteSkill(s)" title="删除">🗑️</button>
+                </div>
+              </div>
+              <button class="skill-add-btn" @click="startCreateSkill">➕ 新建技能</button>
             </div>
-            <div class="config-field">
-              <label>模型</label>
-              <input v-model="codexConfig.model" type="text" placeholder="gpt-5.4-codex" />
-            </div>
-            <button
-              class="config-save"
-              :disabled="!codexConfig.base_url || !codexConfig.api_key || configSaving"
-              @click="saveCodexConfig"
-            >
-              {{ configSaving ? '保存中...' : '💾 保存 Codex' }}
-            </button>
           </div>
 
-          <div class="config-divider"></div>
+          <!-- 管理员供应商配置 -->
+          <template v-if="authStore.isAdmin">
+            <div class="config-divider"></div>
+            <div style="padding: 0 14px; color: rgba(255,255,255,0.5); font-size: 11px; text-align: center;">—— 以下为管理员配置 ——</div>
 
-          <!-- GLM 配置 -->
-          <div class="config-section">
-            <div class="config-section-title">🔵 GLM (智谱)</div>
-            <div class="config-field">
-              <label>API 地址</label>
-              <input v-model="glmConfig.base_url" type="text" placeholder="https://open.bigmodel.cn/api/paas/v4" />
+            <div class="config-section">
+              <div class="config-section-title">🟢 Codex</div>
+              <div class="config-field"><label>API 地址</label><input v-model="codexConfig.base_url" type="text" placeholder="https://ai.qaq.al" /></div>
+              <div class="config-field"><label>API Key</label><input v-model="codexConfig.api_key" type="password" placeholder="sk-..." /></div>
+              <div class="config-field"><label>模型</label><input v-model="codexConfig.model" type="text" placeholder="gpt-5.4-codex" /></div>
+              <button class="config-save" :disabled="!codexConfig.base_url || !codexConfig.api_key || configSaving" @click="saveCodexConfig">{{ configSaving ? '保存中...' : '💾 保存 Codex' }}</button>
             </div>
-            <div class="config-field">
-              <label>API Key</label>
-              <input v-model="glmConfig.api_key" type="password" placeholder="输入智谱 API Key" />
+            <div class="config-divider"></div>
+            <div class="config-section">
+              <div class="config-section-title">🔵 GLM</div>
+              <div class="config-field"><label>API 地址</label><input v-model="glmConfig.base_url" type="text" placeholder="https://open.bigmodel.cn/api/paas/v4" /></div>
+              <div class="config-field"><label>API Key</label><input v-model="glmConfig.api_key" type="password" placeholder="智谱 API Key" /></div>
+              <div class="config-field"><label>模型</label><input v-model="glmConfig.model" type="text" placeholder="glm-4-flash" /></div>
+              <button class="config-save" :disabled="!glmConfig.base_url || !glmConfig.api_key || configSaving" @click="saveGlmConfig">{{ configSaving ? '保存中...' : '💾 保存 GLM' }}</button>
             </div>
-            <div class="config-field">
-              <label>模型</label>
-              <input v-model="glmConfig.model" type="text" placeholder="glm-4-flash" />
+            <div class="config-divider"></div>
+            <div class="config-section">
+              <div class="config-section-title">🟠 Grok</div>
+              <div class="config-field"><label>API 地址</label><input v-model="grokConfig.base_url" type="text" placeholder="https://api.x.ai" /></div>
+              <div class="config-field"><label>API Key</label><input v-model="grokConfig.api_key" type="password" placeholder="xai-..." /></div>
+              <div class="config-field"><label>模型</label><input v-model="grokConfig.model" type="text" placeholder="grok-3" /></div>
+              <button class="config-save" :disabled="!grokConfig.base_url || !grokConfig.api_key || configSaving" @click="saveGrokConfig">{{ configSaving ? '保存中...' : '💾 保存 Grok' }}</button>
             </div>
-            <button
-              class="config-save"
-              :disabled="!glmConfig.base_url || !glmConfig.api_key || configSaving"
-              @click="saveGlmConfig"
-            >
-              {{ configSaving ? '保存中...' : '💾 保存 GLM' }}
-            </button>
-          </div>
-
-          <div class="config-divider"></div>
-
-          <!-- Grok 配置 -->
-          <div class="config-section">
-            <div class="config-section-title">🟠 Grok (xAI)</div>
-            <div class="config-field">
-              <label>API 地址</label>
-              <input v-model="grokConfig.base_url" type="text" placeholder="https://api.x.ai" />
+            <div class="config-divider"></div>
+            <div class="config-section">
+              <div class="config-section-title">🟣 Claude (CLI)</div>
+              <div class="config-hint">💡 使用本地 Claude CLI，无需 API 地址和密钥</div>
+              <div class="config-field"><label>模型</label><input v-model="claudeConfig.model" type="text" placeholder="claude-sonnet-4-20250514" /></div>
+              <button class="config-save" :disabled="configSaving" @click="saveClaudeConfig">{{ configSaving ? '保存中...' : '💾 保存 Claude' }}</button>
             </div>
-            <div class="config-field">
-              <label>API Key</label>
-              <input v-model="grokConfig.api_key" type="password" placeholder="xai-..." />
-            </div>
-            <div class="config-field">
-              <label>模型</label>
-              <input v-model="grokConfig.model" type="text" placeholder="grok-3" />
-            </div>
-            <button
-              class="config-save"
-              :disabled="!grokConfig.base_url || !grokConfig.api_key || configSaving"
-              @click="saveGrokConfig"
-            >
-              {{ configSaving ? '保存中...' : '💾 保存 Grok' }}
-            </button>
-          </div>
-
-          <div class="config-divider"></div>
-
-          <!-- Claude 配置 -->
-          <div class="config-section">
-            <div class="config-section-title">🟣 Claude (CLI 本地)</div>
-            <div class="config-hint">💡 使用本地 Claude CLI，无需 API 地址和密钥</div>
-            <div class="config-field">
-              <label>模型</label>
-              <input v-model="claudeConfig.model" type="text" placeholder="claude-sonnet-4-20250514" />
-            </div>
-            <button class="config-save" :disabled="configSaving" @click="saveClaudeConfig">
-              {{ configSaving ? '保存中...' : '💾 保存 Claude' }}
-            </button>
-          </div>
+          </template>
         </div>
 
         <!-- 不可用提示 -->
@@ -631,6 +751,14 @@ function renderMarkdown(text) {
       continue
     }
 
+    // 独立图片行 ![alt](url)
+    const imgLine = line.trim().match(/^!\[([^\]]*)\]\(([^)]+)\)$/)
+    if (imgLine) {
+      if (inList) { result.push(listType === 'ul' ? '</ul>' : '</ol>'); inList = false }
+      result.push(`<div class="md-img-wrap"><img src="${imgLine[2]}" alt="${imgLine[1]}" class="md-img" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='block'" /><span class="md-img-error" style="display:none">⚠️ 图片加载失败</span></div>`)
+      continue
+    }
+
     // 标题
     const h3 = line.match(/^### (.+)/)
     if (h3) { if (inList) { result.push(listType === 'ul' ? '</ul>' : '</ol>'); inList = false }; result.push(`<h4 class="md-h3">${applyInline(h3[1])}</h4>`); continue }
@@ -685,6 +813,7 @@ function renderMarkdown(text) {
 
 function applyInline(text) {
   return text
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="md-img-inline" loading="lazy" />')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
 }
@@ -848,6 +977,107 @@ function applyInline(text) {
 }
 .config-save:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* ===== 技能选择器 ===== */
+.skill-selector-bar {
+  padding: 6px 14px; position: relative;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.skill-select-btn {
+  background: rgba(255,255,255,0.06); border: 1px dashed rgba(255,255,255,0.15);
+  border-radius: 16px; padding: 4px 12px; color: var(--text-secondary);
+  font-size: 12px; cursor: pointer; transition: all 0.2s;
+}
+.skill-select-btn:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+.skill-active-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(102, 126, 234, 0.15); border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 16px; padding: 4px 10px; font-size: 12px;
+  color: #a5b4fc; cursor: pointer; transition: all 0.2s;
+}
+.skill-active-tag:hover { background: rgba(102, 126, 234, 0.25); }
+.skill-clear-btn {
+  background: none; border: none; color: rgba(255,255,255,0.4);
+  font-size: 14px; cursor: pointer; line-height: 1; padding: 0 2px;
+}
+.skill-clear-btn:hover { color: #f87171; }
+.skill-dropdown {
+  position: absolute; top: 100%; left: 14px; right: 14px; z-index: 20;
+  background: var(--card-bg); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; padding: 6px; margin-top: 4px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4); max-height: 200px; overflow-y: auto;
+}
+.skill-dropdown-empty {
+  padding: 12px; text-align: center; font-size: 12px;
+  color: var(--text-secondary);
+}
+.skill-dropdown-item {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 8px 10px; border: none; background: transparent;
+  color: var(--text-primary); font-size: 13px; cursor: pointer;
+  border-radius: 8px; transition: background 0.15s;
+}
+.skill-dropdown-item:hover { background: rgba(255,255,255,0.08); }
+.skill-dropdown-item.active { background: rgba(102, 126, 234, 0.2); color: #a5b4fc; }
+.skill-dropdown-icon { font-size: 16px; }
+
+/* ===== 技能管理面板 ===== */
+.skill-form { display: flex; flex-direction: column; gap: 10px; }
+.skill-name-row { display: flex; gap: 8px; }
+.skill-icon-input {
+  width: 44px; text-align: center; font-size: 18px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; padding: 6px; color: var(--text-primary); outline: none;
+}
+.skill-name-input {
+  flex: 1; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; padding: 8px 10px; color: var(--text-primary);
+  font-size: 13px; outline: none;
+}
+.skill-name-input:focus, .skill-icon-input:focus { border-color: rgba(102, 126, 234, 0.5); }
+.skill-prompt-input {
+  width: 100%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; padding: 8px 10px; color: var(--text-primary);
+  font-size: 13px; outline: none; resize: vertical; min-height: 80px;
+  font-family: inherit; line-height: 1.5;
+}
+.skill-prompt-input:focus { border-color: rgba(102, 126, 234, 0.5); }
+.skill-prompt-input::placeholder { color: rgba(255,255,255,0.3); }
+.skill-form-actions { display: flex; gap: 8px; }
+.skill-cancel-btn {
+  flex: 1; padding: 10px; border: 1px solid rgba(255,255,255,0.15); border-radius: 10px;
+  background: transparent; color: var(--text-secondary); font-size: 13px; cursor: pointer;
+}
+.skill-cancel-btn:hover { background: rgba(255,255,255,0.06); }
+.skill-empty {
+  padding: 16px; text-align: center; font-size: 13px; color: var(--text-secondary);
+}
+.skill-card {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06); transition: background 0.15s;
+}
+.skill-card:hover { background: rgba(255,255,255,0.08); }
+.skill-card + .skill-card { margin-top: 6px; }
+.skill-card-info { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+.skill-card-icon { font-size: 22px; flex-shrink: 0; }
+.skill-card-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.skill-card-preview {
+  font-size: 11px; color: var(--text-secondary); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px;
+}
+.skill-card-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.skill-card-actions button {
+  background: none; border: none; cursor: pointer; padding: 4px; font-size: 14px;
+  opacity: 0.5; transition: opacity 0.15s;
+}
+.skill-card-actions button:hover { opacity: 1; }
+.skill-add-btn {
+  width: 100%; margin-top: 8px; padding: 10px; border: 1px dashed rgba(255,255,255,0.15);
+  border-radius: 10px; background: transparent; color: var(--text-secondary);
+  font-size: 13px; cursor: pointer; transition: all 0.2s;
+}
+.skill-add-btn:hover { background: rgba(102, 126, 234, 0.1); color: #a5b4fc; border-color: rgba(102, 126, 234, 0.3); }
+
 /* ===== 消息列表 & 头像 ===== */
 .chat-messages {
   flex: 1; overflow-y: auto; padding: 16px 20px;
@@ -971,6 +1201,26 @@ function applyInline(text) {
 .msg-bubble :deep(.md-hr) {
   border: none; border-top: 1px solid rgba(255,255,255,0.1);
   margin: 14px 0;
+}
+.msg-bubble :deep(.md-img-wrap) {
+  margin: 10px 0; text-align: center;
+}
+.msg-bubble :deep(.md-img) {
+  max-width: 100%; max-height: 360px; border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  cursor: pointer; transition: transform 0.2s;
+}
+.msg-bubble :deep(.md-img:hover) {
+  transform: scale(1.02);
+}
+.msg-bubble :deep(.md-img-inline) {
+  max-width: 100%; max-height: 200px; border-radius: 6px;
+  vertical-align: middle; margin: 2px 4px;
+}
+.msg-bubble :deep(.md-img-error) {
+  font-size: 12px; color: rgba(255, 255, 255, 0.4);
+  padding: 8px;
 }
 .msg-bubble :deep(.md-p) {
   margin: 6px 0;

@@ -201,6 +201,17 @@ def init_tables():
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间'
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表'
             """,
+            "ai_skill_presets": """
+                CREATE TABLE IF NOT EXISTS `ai_skill_presets` (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '技能ID',
+                    username VARCHAR(50) NOT NULL COMMENT '所属用户名',
+                    name VARCHAR(50) NOT NULL COMMENT '技能名称',
+                    icon VARCHAR(10) DEFAULT '🤖' COMMENT '图标emoji',
+                    system_prompt TEXT NOT NULL COMMENT '系统提示词',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                    INDEX idx_username (username)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI技能预设'
+            """,
         }
 
         with conn.cursor() as cursor:
