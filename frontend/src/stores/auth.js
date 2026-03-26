@@ -37,6 +37,12 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout() {
+    // 清空 AI 聊天缓存
+    try {
+      const keys = Object.keys(localStorage).filter(k => k.startsWith('ai_chat_'))
+      keys.forEach(k => localStorage.removeItem(k))
+    } catch { /* ignore */ }
+
     await authApi.logout()
     useMusicStore().reset()
     authenticated.value = false

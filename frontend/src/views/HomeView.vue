@@ -9,7 +9,6 @@ import WeatherCard from '../components/WeatherCard.vue'
 import DanmuBar from '../components/DanmuBar.vue'
 import CapsuleSection from '../components/CapsuleSection.vue'
 import NavSidebar from '../components/NavSidebar.vue'
-import AiChatWidget from '../components/AiChatWidget.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -83,9 +82,6 @@ async function logout() {
   <button class="play-button" :class="{ 'is-playing': musicStore.isPlaying }" @click="musicStore.togglePlay">
     <span>{{ musicStore.isPlaying ? '⏸' : '▶' }}</span>
   </button>
-
-  <!-- AI 聊天 -->
-  <AiChatWidget />
 </template>
 
 <style scoped>

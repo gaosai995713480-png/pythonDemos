@@ -27,6 +27,30 @@ const currentMessages = computed(() =>
   activeProvider.value === 'claude' ? claudeMessages.value : codexMessages.value
 )
 
+// ===== localStorage 持久化 =====
+const MAX_MESSAGES = 50
+
+function chatStorageKey(provider) {
+  const user = authStore.username || 'anonymous'
+  return `ai_chat_${provider}_${user}`
+}
+
+function loadMessages(provider) {
+  try {
+    const raw = localStorage.getItem(chatStorageKey(provider))
+    if (raw) return JSON.parse(raw)
+  } catch { /* 脏数据容错 */ }
+  return []
+}
+
+function saveMessages(provider) {
+  const msgs = provider === 'claude' ? claudeMessages.value : codexMessages.value
+  const toSave = msgs.slice(-MAX_MESSAGES)
+  try {
+    localStorage.setItem(chatStorageKey(provider), JSON.stringify(toSave))
+  } catch { /* 存储满容错 */ }
+}
+
 // 配置面板
 const showConfig = ref(false)
 const configSaving = ref(false)
@@ -98,19 +122,25 @@ function openConfig() {
   showConfig.value = true
 }
 
-onMounted(checkStatus)
+onMounted(() => {
+  checkStatus()
+  initMessages('claude')
+  initMessages('codex')
+})
 
 function toggleChat() {
   isOpen.value = !isOpen.value
-  if (isOpen.value) {
-    initMessages('claude')
-    initMessages('codex')
-  }
+  if (isOpen.value) scrollToBottom()
 }
 
 function initMessages(provider) {
   const msgs = provider === 'claude' ? claudeMessages : codexMessages
-  if (msgs.value.length === 0) {
+  if (msgs.value.length > 0) return // 内存中已有（跨页面跳转回来）
+
+  const saved = loadMessages(provider)
+  if (saved.length > 0) {
+    msgs.value = saved
+  } else {
     const label = provider === 'claude' ? 'Claude' : 'Codex'
     msgs.value.push({
       role: 'assistant',
@@ -217,6 +247,7 @@ async function sendMessage() {
   } finally {
     isLoading.value = false
     abortController = null
+    saveMessages(activeProvider.value)
     scrollToBottom()
   }
 }
