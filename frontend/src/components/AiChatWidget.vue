@@ -343,8 +343,8 @@ async function sendMessage() {
     .slice(0, -1)
     .map(m => ({ role: m.role, content: m.content }))
 
-  const aiMsg = { role: 'assistant', content: '' }
-  msgs.value.push(aiMsg)
+  msgs.value.push({ role: 'assistant', content: '' })
+  const aiMsg = msgs.value[msgs.value.length - 1]  // 获取响应式代理引用
   isLoading.value = true
   abortController = new AbortController()
   scrollToBottom()
@@ -370,35 +370,85 @@ async function sendMessage() {
 
     const reader = res.body.getReader()
     const decoder = new TextDecoder()
-    let buffer = ''
+    let sseBuffer = ''
 
+    // 打字机缓冲区
+    let textBuffer = ''       // SSE 收到但尚未渲染的字符
+    let typewriterDone = false
+    let streamDone = false
+    const CHAR_INTERVAL = 18  // 每个字符的渲染间隔(ms)
+
+    // 启动逐字输出定时器
+    let lastTime = 0
+    function typewriterTick(timestamp) {
+      if (!lastTime) lastTime = timestamp
+      const elapsed = timestamp - lastTime
+
+      if (elapsed >= CHAR_INTERVAL && textBuffer.length > 0) {
+        // 每次取 1~3 个字符（buffer 积压多时加速）
+        const chunkSize = textBuffer.length > 50 ? 3 : textBuffer.length > 20 ? 2 : 1
+        aiMsg.content += textBuffer.slice(0, chunkSize)
+        textBuffer = textBuffer.slice(chunkSize)
+        lastTime = timestamp
+        scrollToBottom()
+      }
+
+      if (!streamDone || textBuffer.length > 0) {
+        requestAnimationFrame(typewriterTick)
+      } else {
+        typewriterDone = true
+      }
+    }
+    requestAnimationFrame(typewriterTick)
+
+    // SSE 读取循环 — 数据写入 buffer 而非直接渲染
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
-      buffer += decoder.decode(value, { stream: true })
+      sseBuffer += decoder.decode(value, { stream: true })
 
-      const lines = buffer.split('\n')
-      buffer = lines.pop()
+      const lines = sseBuffer.split('\n')
+      sseBuffer = lines.pop()
 
       for (const line of lines) {
         if (!line.startsWith('data: ')) continue
         const data = line.slice(6)
         if (data === '[DONE]') break
-        
+
         try {
-          // 后端现在对内容做了 JSON 编码，可以直接解析保留换行符
-          aiMsg.content += JSON.parse(data)
+          textBuffer += JSON.parse(data)
         } catch {
-          // 容错：如果不是合法 JSON，直接追加
-          aiMsg.content += data
+          textBuffer += data
         }
-        scrollToBottom()
       }
+    }
+
+    // SSE 结束，flush 缓冲区剩余内容
+    streamDone = true
+    // 等待打字机输出完毕（最多 5 秒）
+    if (textBuffer.length > 0) {
+      await new Promise(resolve => {
+        const checkFlush = () => {
+          if (typewriterDone || textBuffer.length === 0) {
+            // 确保全部输出
+            if (textBuffer.length > 0) {
+              aiMsg.content += textBuffer
+              textBuffer = ''
+              scrollToBottom()
+            }
+            resolve()
+          } else {
+            setTimeout(checkFlush, 50)
+          }
+        }
+        checkFlush()
+      })
     }
 
     if (!aiMsg.content) aiMsg.content = '抱歉，没有收到回复。'
   } catch (e) {
     if (e.name === 'AbortError') {
+      // 停止生成时，flush 剩余 buffer
       if (!aiMsg.content) aiMsg.content = '（已停止生成）'
     } else {
       aiMsg.content += `\n\n连接失败: ${e.message}`
