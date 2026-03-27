@@ -15,7 +15,7 @@ from .config import settings
 from .database import init_tables
 
 # 路由
-from .routers import auth, danmu, timeline, capsule, mood, wish, map, music, weather, photos, config, jukebox, gallery, users, express, ai, ai_skills
+from .routers import auth, danmu, timeline, capsule, mood, wish, map, music, weather, photos, config, jukebox, gallery, users, express, ai, ai_skills, ai_conversations
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
@@ -53,6 +53,7 @@ app.include_router(users.router)
 app.include_router(express.router)
 app.include_router(ai.router)
 app.include_router(ai_skills.router)
+app.include_router(ai_conversations.router)
 
 
 @app.on_event("startup")

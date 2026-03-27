@@ -43,6 +43,7 @@ class ChatRequest(BaseModel):
     history: list[ChatMessage] = Field(default_factory=list)
     provider: str = Field(default="codex", pattern="^(claude|codex|glm|grok)$")
     skill_id: Optional[int] = Field(default=None)
+    conversation_id: Optional[int] = Field(default=None)
 
 
 # ==================== SSE 生成器 ====================

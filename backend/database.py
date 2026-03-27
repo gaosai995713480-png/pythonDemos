@@ -212,6 +212,27 @@ def init_tables():
                     INDEX idx_username (username)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI技能预设'
             """,
+            "ai_conversations": """
+                CREATE TABLE IF NOT EXISTS `ai_conversations` (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '会话ID',
+                    username VARCHAR(50) NOT NULL COMMENT '所属用户名',
+                    provider VARCHAR(20) NOT NULL COMMENT '供应商: codex/claude/glm/grok',
+                    title VARCHAR(100) NOT NULL DEFAULT '新对话' COMMENT '会话标题',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后活跃',
+                    INDEX idx_user_provider (username, provider, updated_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI对话会话'
+            """,
+            "ai_messages": """
+                CREATE TABLE IF NOT EXISTS `ai_messages` (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '消息ID',
+                    conversation_id BIGINT NOT NULL COMMENT '所属会话ID',
+                    role VARCHAR(20) NOT NULL COMMENT 'user/assistant/system',
+                    content MEDIUMTEXT NOT NULL COMMENT '消息内容',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                    INDEX idx_conv (conversation_id, created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI对话消息'
+            """,
         }
 
         with conn.cursor() as cursor:

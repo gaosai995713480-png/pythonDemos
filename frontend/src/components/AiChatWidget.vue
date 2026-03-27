@@ -274,6 +274,134 @@ async function deleteSkill(skill) {
   } catch { /* ignore */ }
 }
 
+// ===== 对话持久化 =====
+const showHistory = ref(false)
+const conversations = ref([])
+const activeConversationId = ref(null)
+const historySearchQuery = ref('')
+const historyLoading = ref(false)
+
+async function loadConversations() {
+  try {
+    const res = await fetch(`/api/ai/conversations?provider=${activeProvider.value}`)
+    if (res.ok) conversations.value = await res.json()
+  } catch { /* ignore */ }
+}
+
+async function createConversation() {
+  const provider = activeProvider.value
+  const labels = { claude: 'Claude', codex: 'Codex', glm: 'GLM', grok: 'Grok' }
+  try {
+    const res = await fetch('/api/ai/conversations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, title: '新对话' }),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      activeConversationId.value = data.id
+      // 重置消息
+      const msgsMap = { claude: claudeMessages, codex: codexMessages, glm: glmMessages, grok: grokMessages }
+      msgsMap[provider].value = [{
+        role: 'assistant',
+        content: `你好！我是 ${labels[provider]}，有什么可以帮你的吗？ 😊`,
+      }]
+      return data.id
+    }
+  } catch { /* ignore */ }
+  return null
+}
+
+async function openConversation(conv) {
+  historyLoading.value = true
+  try {
+    const res = await fetch(`/api/ai/conversations/${conv.id}/messages`)
+    if (res.ok) {
+      const data = await res.json()
+      const msgsMap = { claude: claudeMessages, codex: codexMessages, glm: glmMessages, grok: grokMessages }
+      if (data.messages.length > 0) {
+        msgsMap[activeProvider.value].value = data.messages.map(m => ({ role: m.role, content: m.content }))
+      } else {
+        const labels = { claude: 'Claude', codex: 'Codex', glm: 'GLM', grok: 'Grok' }
+        msgsMap[activeProvider.value].value = [{
+          role: 'assistant',
+          content: `你好！我是 ${labels[activeProvider.value]}，有什么可以帮你的吗？ 😊`,
+        }]
+      }
+      activeConversationId.value = conv.id
+      showHistory.value = false
+      scrollToBottom()
+    }
+  } catch { /* ignore */ }
+  historyLoading.value = false
+}
+
+async function deleteConversation(conv) {
+  try {
+    await fetch(`/api/ai/conversations/${conv.id}`, { method: 'DELETE' })
+    conversations.value = conversations.value.filter(c => c.id !== conv.id)
+    if (activeConversationId.value === conv.id) {
+      activeConversationId.value = null
+    }
+  } catch { /* ignore */ }
+}
+
+async function searchConversations() {
+  if (!historySearchQuery.value.trim()) {
+    await loadConversations()
+    return
+  }
+  try {
+    const res = await fetch(`/api/ai/conversations/search?q=${encodeURIComponent(historySearchQuery.value)}&provider=${activeProvider.value}`)
+    if (res.ok) conversations.value = await res.json()
+  } catch { /* ignore */ }
+}
+
+async function saveConversationMessages(convId, userText, aiText) {
+  try {
+    const msgs = [{ role: 'user', content: userText }]
+    if (aiText) msgs.push({ role: 'assistant', content: aiText })
+    await fetch(`/api/ai/conversations/${convId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(msgs),
+    })
+    // 如果是第一条消息，用用户文本更新标题
+    const conv = conversations.value.find(c => c.id === convId)
+    if (!conv || conv.title === '新对话') {
+      const title = userText.slice(0, 20) + (userText.length > 20 ? '...' : '')
+      await fetch(`/api/ai/conversations/${convId}/title`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title }),
+      })
+    }
+  } catch { /* ignore */ }
+}
+
+function openHistoryPanel() {
+  showHistory.value = true
+  historySearchQuery.value = ''
+  loadConversations()
+}
+
+function startNewConversation() {
+  createConversation()
+  showHistory.value = false
+}
+
+function formatTime(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  const now = new Date()
+  const m = String(d.getMonth() + 1)
+  const day = String(d.getDate())
+  const h = String(d.getHours()).padStart(2, '0')
+  const min = String(d.getMinutes()).padStart(2, '0')
+  if (d.toDateString() === now.toDateString()) return `${h}:${min}`
+  return `${m}/${day} ${h}:${min}`
+}
+
 onMounted(() => {
   checkStatus()
   initMessages('claude')
@@ -458,6 +586,18 @@ async function sendMessage() {
     abortController = null
     saveMessages(activeProvider.value)
     scrollToBottom()
+
+    // 持久化到数据库
+    const userText = text
+    const aiText = aiMsg.content
+    if (aiText && aiText !== '抱歉，没有收到回复。' && aiText !== '（已停止生成）') {
+      let convId = activeConversationId.value
+      if (!convId) convId = await createConversation()
+      if (convId) {
+        activeConversationId.value = convId
+        await saveConversationMessages(convId, userText, aiText)
+      }
+    }
   }
 }
 
@@ -572,6 +712,7 @@ async function handleBubbleClick(e) {
             </button>
           </div>
 
+          <button class="chat-header-btn" title="对话历史" @click="openHistoryPanel">📋</button>
           <button class="chat-header-btn" title="配置" @click="openConfig">⚙️</button>
           <button class="chat-header-btn" title="清空对话" @click="clearChat">🗑️</button>
           <button class="chat-header-close" @click="isOpen = false">✕</button>
@@ -601,6 +742,40 @@ async function handleBubbleClick(e) {
               <span class="skill-dropdown-name">{{ s.name }}</span>
             </button>
           </div>
+        </div>
+
+        <!-- 历史面板（覆盖层） -->
+        <div v-if="showHistory" class="chat-history-panel">
+          <div class="history-header">
+            <button class="history-back" @click="showHistory = false">← 返回对话</button>
+            <span class="history-title">对话历史</span>
+          </div>
+          <div class="history-search">
+            <input
+              v-model="historySearchQuery"
+              type="text"
+              placeholder="🔍 搜索历史记录..."
+              @input="searchConversations"
+            />
+          </div>
+          <button class="history-new-btn" @click="startNewConversation">＋ 开启新对话</button>
+          <div class="history-list">
+            <div v-if="conversations.length === 0" class="history-empty">暂无对话记录</div>
+            <div
+              v-for="conv in conversations"
+              :key="conv.id"
+              class="history-item"
+              :class="{ active: activeConversationId === conv.id }"
+              @click="openConversation(conv)"
+            >
+              <div class="history-item-info">
+                <div class="history-item-title">{{ conv.title }}</div>
+                <div class="history-item-time">{{ formatTime(conv.updated_at || conv.created_at) }}</div>
+              </div>
+              <button class="history-item-delete" @click.stop="deleteConversation(conv)" title="删除">🗑️</button>
+            </div>
+          </div>
+          <div v-if="historyLoading" class="history-loading">加载中...</div>
         </div>
 
         <!-- 配置面板 -->
@@ -1029,46 +1204,69 @@ function applyInline(text) {
 
 /* ===== 技能选择器 ===== */
 .skill-selector-bar {
-  padding: 6px 14px; position: relative;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding: 8px 16px; position: relative;
+  background: rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 .skill-select-btn {
-  background: rgba(255,255,255,0.06); border: 1px dashed rgba(255,255,255,0.15);
-  border-radius: 16px; padding: 4px 12px; color: var(--text-secondary);
-  font-size: 12px; cursor: pointer; transition: all 0.2s;
+  background: rgba(102, 126, 234, 0.1); 
+  border: 1px solid rgba(102, 126, 234, 0.25);
+  border-radius: 16px; padding: 5px 14px; 
+  color: #a5b4fc; font-weight: 500;
+  font-size: 13px; cursor: pointer; transition: all 0.2s;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05);
 }
-.skill-select-btn:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+.skill-select-btn:hover { 
+  background: rgba(102, 126, 234, 0.2); 
+  border-color: rgba(102, 126, 234, 0.4);
+  color: #c7d2fe;
+}
 .skill-active-tag {
-  display: inline-flex; align-items: center; gap: 6px;
-  background: rgba(102, 126, 234, 0.15); border: 1px solid rgba(102, 126, 234, 0.3);
-  border-radius: 16px; padding: 4px 10px; font-size: 12px;
-  color: #a5b4fc; cursor: pointer; transition: all 0.2s;
+  display: inline-flex; align-items: center; gap: 8px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.25), rgba(118, 75, 162, 0.25));
+  border: 1px solid rgba(102, 126, 234, 0.4);
+  border-radius: 16px; padding: 4px 12px; font-size: 13px; font-weight: 600;
+  color: #c7d2fe; cursor: pointer; transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.1);
 }
-.skill-active-tag:hover { background: rgba(102, 126, 234, 0.25); }
+.skill-active-tag:hover { 
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.35), rgba(118, 75, 162, 0.35)); 
+}
 .skill-clear-btn {
-  background: none; border: none; color: rgba(255,255,255,0.4);
-  font-size: 14px; cursor: pointer; line-height: 1; padding: 0 2px;
+  background: rgba(0,0,0,0.2); border: none; color: rgba(255,255,255,0.6);
+  width: 18px; height: 18px; border-radius: 50%;
+  font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; margin-left: -2px;
 }
-.skill-clear-btn:hover { color: #f87171; }
+.skill-clear-btn:hover { background: #ef4444; color: #fff; }
+
 .skill-dropdown {
-  position: absolute; top: 100%; left: 14px; right: 14px; z-index: 20;
-  background: var(--card-bg); border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 10px; padding: 6px; margin-top: 4px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4); max-height: 200px; overflow-y: auto;
+  position: absolute; top: calc(100% + 4px); left: 14px; right: 14px; z-index: 40;
+  background: rgba(28, 28, 35, 0.95); 
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px; padding: 6px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.5); 
+  max-height: 250px; overflow-y: auto;
 }
 .skill-dropdown-empty {
-  padding: 12px; text-align: center; font-size: 12px;
-  color: var(--text-secondary);
+  padding: 16px; text-align: center; font-size: 13px;
+  color: rgba(255,255,255,0.4);
 }
 .skill-dropdown-item {
-  display: flex; align-items: center; gap: 8px; width: 100%;
-  padding: 8px 10px; border: none; background: transparent;
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 10px 12px; border: none; background: transparent;
   color: var(--text-primary); font-size: 13px; cursor: pointer;
-  border-radius: 8px; transition: background 0.15s;
+  border-radius: 8px; transition: background 0.15s; border: 1px solid transparent;
 }
-.skill-dropdown-item:hover { background: rgba(255,255,255,0.08); }
-.skill-dropdown-item.active { background: rgba(102, 126, 234, 0.2); color: #a5b4fc; }
-.skill-dropdown-icon { font-size: 16px; }
+.skill-dropdown-item:hover { background: rgba(255,255,255,0.06); }
+.skill-dropdown-item.active { 
+  background: rgba(102, 126, 234, 0.15); 
+  color: #a5b4fc; font-weight: 500;
+  border-color: rgba(102, 126, 234, 0.2);
+}
+.skill-dropdown-icon { font-size: 16px; border-radius: 6px; background: rgba(0,0,0,0.2); padding: 4px; }
 
 /* ===== 技能管理面板 ===== */
 .skill-form { display: flex; flex-direction: column; gap: 10px; }
@@ -1128,6 +1326,75 @@ function applyInline(text) {
 }
 .skill-add-btn:hover { background: rgba(102, 126, 234, 0.1); color: #a5b4fc; border-color: rgba(102, 126, 234, 0.3); }
 
+/* ===== 对话历史面板 ===== */
+.chat-history-panel {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 100;
+  background: rgba(20, 20, 35, 0.98); 
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  display: flex; flex-direction: column;
+  border-radius: 20px; overflow: hidden;
+}
+.history-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.history-back {
+  background: none; border: none; color: var(--text-secondary);
+  font-size: 13px; cursor: pointer; padding: 4px 8px; border-radius: 6px;
+}
+.history-back:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+.history-title { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.history-search { padding: 8px 14px; }
+.history-search input {
+  width: 100%; background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+  padding: 8px 12px; color: var(--text-primary); font-size: 13px; outline: none;
+}
+.history-search input:focus { border-color: rgba(102, 126, 234, 0.5); }
+.history-search input::placeholder { color: rgba(255,255,255,0.3); }
+.history-new-btn {
+  margin: 0 14px 8px; padding: 10px; border: 1px dashed rgba(255,255,255,0.2);
+  border-radius: 10px; background: transparent; color: var(--text-primary);
+  font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+}
+.history-new-btn:hover {
+  background: rgba(102, 126, 234, 0.1); border-color: rgba(102, 126, 234, 0.3);
+  color: #a5b4fc;
+}
+.history-list {
+  flex: 1; overflow-y: auto; padding: 0 14px 14px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.history-empty {
+  text-align: center; padding: 30px; color: var(--text-secondary); font-size: 13px;
+}
+.history-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; border-radius: 10px; cursor: pointer;
+  transition: background 0.15s; border: 1px solid transparent;
+}
+.history-item:hover { background: rgba(255,255,255,0.06); }
+.history-item.active {
+  background: rgba(102, 126, 234, 0.12);
+  border-color: rgba(102, 126, 234, 0.25);
+}
+.history-item-info { min-width: 0; flex: 1; }
+.history-item-title {
+  font-size: 14px; font-weight: 600; color: var(--text-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.history-item-time { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+.history-item-delete {
+  background: none; border: none; cursor: pointer; font-size: 14px;
+  opacity: 0; transition: opacity 0.15s; padding: 4px;
+}
+.history-item:hover .history-item-delete { opacity: 0.5; }
+.history-item-delete:hover { opacity: 1 !important; }
+.history-loading {
+  text-align: center; padding: 12px; font-size: 12px; color: var(--text-secondary);
+}
+
 /* ===== 消息列表 & 头像 ===== */
 .chat-messages {
   flex: 1; overflow-y: auto; padding: 16px 20px;
@@ -1160,7 +1427,7 @@ function applyInline(text) {
 .avatar-img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 
 .msg-content-wrapper {
-  display: flex; flex-direction: column; max-width: calc(100% - 48px);
+  display: flex; flex-direction: column; max-width: 85%;
 }
 .msg-name {
   font-size: 12px; color: rgba(255, 255, 255, 0.5);
@@ -1169,23 +1436,28 @@ function applyInline(text) {
 
 .msg-bubble {
   padding: 12px 16px;
-  font-size: 14px; line-height: 1.65; word-break: break-word;
+  font-size: 14px; line-height: 1.65;
   letter-spacing: 0.3px;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word; /* 确保极长无空格字符串强制换行 */
+  white-space: pre-wrap; /* 尊重原文本的换行 */
 }
 .chat-msg.user .msg-bubble {
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #fff;
   border-radius: 18px 4px 18px 18px;
-  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.25);
-  max-width: calc(100% - 48px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 .chat-msg.assistant .msg-bubble {
-  background: rgba(40, 40, 50, 0.6);
-  color: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(28, 28, 35, 0.85);
+  color: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 4px 18px 18px 18px;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
 }
 .msg-cursor {
   display: inline-block; animation: blink 0.8s step-end infinite;
@@ -1196,7 +1468,8 @@ function applyInline(text) {
 /* markdown 元素复用之前你优化的那套 */
 .msg-bubble :deep(.code-block-wrapper) {
   margin: 12px 0; border-radius: 8px; overflow: hidden;
-  background: rgba(10, 10, 15, 0.9);
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
