@@ -233,6 +233,17 @@ def init_tables():
                     INDEX idx_conv (conversation_id, created_at)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI对话消息'
             """,
+            "love_photos": """
+                CREATE TABLE IF NOT EXISTS `love_photos` (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '照片ID',
+                    filename VARCHAR(255) UNIQUE NOT NULL COMMENT '文件名/OSS Key',
+                    oss_url VARCHAR(1000) NOT NULL COMMENT 'OSS 访问地址或相对路径',
+                    description TEXT COMMENT '照片描述或日记',
+                    album_category VARCHAR(100) DEFAULT 'default' COMMENT '所属相册分类',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '上传或创建时间',
+                    INDEX idx_created_at (created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='相册元数据表'
+            """,
         }
 
         with conn.cursor() as cursor:
@@ -278,14 +289,22 @@ def init_tables():
                     ("admin", "201220", "admin"),
                 )
 
-        # 确保默认邀请码
+        # 确保默认邀请码及 OSS 配置项
+        default_configs = [
+            ("INVITE_CODE", "love2023"),
+            ("OSS_ENDPOINT", ""),
+            ("OSS_BUCKET_NAME", ""),
+            ("OSS_ACCESS_KEY_ID", ""),
+            ("OSS_ACCESS_KEY_SECRET", ""),
+        ]
         with conn.cursor() as cursor:
-            cursor.execute("SELECT COUNT(*) FROM love_config WHERE config_key = 'INVITE_CODE'")
-            if cursor.fetchone()[0] == 0:
-                cursor.execute(
-                    "INSERT INTO love_config (config_key, config_value) VALUES (%s, %s)",
-                    ("INVITE_CODE", "love2023"),
-                )
+            for k, v in default_configs:
+                cursor.execute("SELECT COUNT(*) FROM love_config WHERE config_key = %s", (k,))
+                if cursor.fetchone()[0] == 0:
+                    cursor.execute(
+                        "INSERT INTO love_config (config_key, config_value) VALUES (%s, %s)",
+                        (k, v),
+                    )
 
         # 从 .env 迁移 Cookie 到数据库（仅当数据库中无记录时）
         _migrate_env_cookies(conn)

@@ -92,6 +92,28 @@ function onTouchEnd(e) {
   if (Math.abs(dx) > 50) navigate(dx > 0 ? -1 : 1)
 }
 
+// ===== 删除 =====
+const deleting = ref(false)
+async function handleDelete() {
+  const photo = photos.value[currentIndex.value]
+  if (!photo) return
+  if (!confirm(`确定要永久删除这张照片吗？\n${photo.filename}`)) return
+  deleting.value = true
+  try {
+    await photoApi.delete(photo.filename)
+    photos.value.splice(currentIndex.value, 1)
+    if (photos.value.length === 0) {
+      closeLightbox()
+    } else if (currentIndex.value >= photos.value.length) {
+      currentIndex.value = photos.value.length - 1
+    }
+  } catch (e) {
+    actionError.value = e?.message || '删除失败'
+  } finally {
+    deleting.value = false
+  }
+}
+
 // ===== 上传/导入 =====
 const uploadInput = ref(null)
 const importInput = ref(null)
@@ -189,12 +211,16 @@ onBeforeUnmount(() => {
 
     <div class="gallery" v-if="photos.length">
       <div
-        v-for="(src, i) in photos"
-        :key="src"
+        v-for="(photo, i) in photos"
+        :key="photo.id || i"
         class="gallery-item"
         @click="openLightbox(i)"
       >
-        <img :src="src" :alt="`照片 ${i + 1}`" loading="lazy" />
+        <img :src="photo.thumbnail_url || photo.url" :alt="photo.description || `照片 ${i + 1}`" loading="lazy" />
+        <div class="photo-info" v-if="photo.description || photo.created_at">
+          <p class="photo-date">{{ photo.created_at?.split(' ')[0] || '' }}</p>
+          <p class="photo-desc" v-if="photo.description">{{ photo.description }}</p>
+        </div>
       </div>
     </div>
 
@@ -205,15 +231,29 @@ onBeforeUnmount(() => {
       <div class="lightbox" :class="{ 'is-active': lightboxActive }" @click.self="closeLightbox">
         <button class="lightbox-close" @click="closeLightbox">✕</button>
         <button class="lightbox-nav lightbox-prev" @click="navigate(-1)">‹</button>
-        <img
-          v-if="photos.length"
-          :src="photos[currentIndex]"
-          alt="大图"
-          @touchstart="onTouchStart"
-          @touchend="onTouchEnd"
-        />
+        <div class="lightbox-content" v-if="photos.length">
+          <img
+            :key="currentIndex"
+            :src="photos[currentIndex]?.url"
+            :alt="photos[currentIndex]?.description || '大图'"
+            @touchstart="onTouchStart"
+            @touchend="onTouchEnd"
+          />
+          <div class="lightbox-caption" v-if="photos[currentIndex]?.description || photos[currentIndex]?.created_at">
+            <span class="caption-date" v-if="photos[currentIndex]?.created_at">{{ photos[currentIndex].created_at }}</span>
+            <p class="caption-desc" v-if="photos[currentIndex]?.description">{{ photos[currentIndex].description }}</p>
+          </div>
+        </div>
         <button class="lightbox-nav lightbox-next" @click="navigate(1)">›</button>
-        <div class="lightbox-counter">{{ currentIndex + 1 }} / {{ photos.length }}</div>
+        <div class="lightbox-bottom">
+          <div class="lightbox-counter">{{ currentIndex + 1 }} / {{ photos.length }}</div>
+          <button
+            v-if="authStore.isAdmin"
+            class="lightbox-delete"
+            :disabled="deleting"
+            @click.stop="handleDelete"
+          >🗑️ {{ deleting ? '删除中...' : '删除' }}</button>
+        </div>
       </div>
     </Teleport>
   </template>
@@ -369,29 +409,53 @@ onBeforeUnmount(() => {
 
 .gallery {
   padding: 80px 24px 40px;
-  column-count: 4;
-  column-gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
   max-width: 1400px;
   margin: 0 auto;
 }
 
 .gallery-item {
-  break-inside: avoid;
-  margin-bottom: 16px;
   border-radius: 16px;
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.3s, box-shadow 0.3s;
+  background: rgba(25, 25, 40, 0.4);
+  display: flex;
+  flex-direction: column;
 }
 
 .gallery-item:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
 }
 
 .gallery-item img {
   width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
   display: block;
+}
+
+.photo-info {
+  padding: 12px 14px;
+  background: rgba(25, 25, 40, 0.9);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.photo-date {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  margin: 0 0 4px 0;
+  letter-spacing: 0.5px;
+}
+
+.photo-desc {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0;
+  line-height: 1.5;
 }
 
 .empty-state {
@@ -413,10 +477,40 @@ onBeforeUnmount(() => {
 
 .lightbox.is-active { opacity: 1; pointer-events: auto; }
 
-.lightbox img {
-  max-width: 92vw; max-height: 90vh;
+.lightbox-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 92vw;
+  max-height: 90vh;
+}
+
+.lightbox-content img {
+  max-width: 100%;
+  max-height: calc(90vh - 80px); /* 留出底部文字的空间 */
   border-radius: 12px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  object-fit: contain;
+}
+
+.lightbox-caption {
+  margin-top: 16px;
+  text-align: center;
+  max-width: 800px;
+}
+
+.caption-date {
+  display: block;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 6px;
+}
+
+.caption-desc {
+  font-size: 15px;
+  color: #fff;
+  margin: 0;
+  line-height: 1.6;
 }
 
 .lightbox-close {
@@ -443,13 +537,29 @@ onBeforeUnmount(() => {
 .lightbox-prev { left: 20px; }
 .lightbox-next { right: 20px; }
 
+.lightbox-bottom {
+  position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 16px;
+}
+
 .lightbox-counter {
-  position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
   padding: 6px 16px; border-radius: 20px;
   background: rgba(0, 0, 0, 0.5); font-size: 13px; color: rgba(255, 255, 255, 0.8);
 }
 
-@media (max-width: 1100px) { .gallery { column-count: 3; } }
+.lightbox-delete {
+  padding: 6px 16px; border-radius: 20px;
+  background: rgba(220, 50, 50, 0.7); border: none;
+  color: #fff; font-size: 13px; cursor: pointer;
+  transition: all 0.2s; white-space: nowrap;
+}
+
+.lightbox-delete:hover:not(:disabled) { background: rgba(220, 50, 50, 0.9); }
+.lightbox-delete:disabled { opacity: 0.5; cursor: not-allowed; }
+
+@media (max-width: 1100px) { .gallery { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 768px) { .gallery { grid-template-columns: repeat(2, 1fr); padding-top: 70px; gap: 16px; } }
+@media (max-width: 480px) { .gallery { grid-template-columns: repeat(1, 1fr); gap: 12px; padding: 60px 16px 30px; } }
 /* ===== 上传/导入按钮 ===== */
 .gallery-action-btn {
   padding: 6px 14px;

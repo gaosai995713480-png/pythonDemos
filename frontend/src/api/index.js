@@ -194,6 +194,7 @@ export const photoApi = {
     })
     return handlePhotoResponse(res)
   },
+  delete: (filename) => del(`/photos/${encodeURIComponent(filename)}`),
 }
 
 export const galleryApi = {
