@@ -298,6 +298,8 @@ def init_tables():
             ("OSS_ACCESS_KEY_SECRET", ""),
             ("CLAUDE_BASE_URL", ""),
             ("CLAUDE_API_KEY", ""),
+            ("AGENT_SHOW_TOOL_PROCESS", "true"),
+            ("AGENT_MAX_TOOL_ROUNDS", "5"),
         ]
         with conn.cursor() as cursor:
             for k, v in default_configs:

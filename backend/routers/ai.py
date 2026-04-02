@@ -53,18 +53,32 @@ class ChatRequest(BaseModel):
 import json
 
 async def _sse_generator(provider_name: str, messages: list[dict]):
-    """将 Provider 的流式输出包装为 SSE 格式"""
+    """将 Provider 的流式输出包装为 SSE 格式，Codex/Claude 走 Agent Loop"""
     try:
         provider = get_provider(provider_name)
         if not provider.is_available():
-            labels = {"claude": "Claude CLI", "codex": "Codex API", "glm": "GLM API", "grok": "Grok API"}
+            labels = {"claude": "Claude API", "codex": "Codex API", "glm": "GLM API", "grok": "Grok API"}
             label = labels.get(provider_name, provider_name)
             error_msg = f"[错误] {label} 未配置，请管理员在设置中配置"
             yield f"data: {json.dumps(error_msg)}\n\n"
             return
 
-        async for chunk in provider.stream_chat(messages):
-            yield f"data: {json.dumps(chunk)}\n\n"
+        # Codex / Claude 走 Agent Loop（支持工具调用）
+        if provider_name in ("codex", "claude"):
+            from ..services.agent_loop import codex_agent_loop, claude_agent_loop
+            if provider_name == "codex":
+                cfg = get_codex_config()
+                gen = codex_agent_loop(cfg["base_url"], cfg["api_key"], cfg["model"], messages)
+            else:
+                cfg = get_claude_config()
+                gen = claude_agent_loop(cfg["base_url"], cfg["api_key"], cfg["model"], messages)
+
+            async for chunk in gen:
+                yield f"data: {chunk}\n\n"
+        else:
+            # GLM / Grok 走纯对话模式
+            async for chunk in provider.stream_chat(messages):
+                yield f"data: {json.dumps(chunk)}\n\n"
 
         yield "data: [DONE]\n\n"
 
@@ -280,4 +294,33 @@ def update_grok_config(body: dict, _=Depends(require_role("admin"))):
             if value:
                 set_config(config_key, value)
                 updated += 1
+    return {"ok": True, "updated": updated}
+
+
+# ==================== Agent 配置 ====================
+
+@router.get("/config/agent")
+def agent_config(_=Depends(require_role("admin"))):
+    show_process = get_config("AGENT_SHOW_TOOL_PROCESS")
+    max_rounds = get_config("AGENT_MAX_TOOL_ROUNDS")
+    return {
+        "show_tool_process": show_process != "false",  # 默认 true
+        "max_tool_rounds": int(max_rounds) if max_rounds else 5,
+    }
+
+
+@router.post("/config/agent")
+def update_agent_config(body: dict, _=Depends(require_role("admin"))):
+    updated = 0
+    if "show_tool_process" in body:
+        val = "true" if body["show_tool_process"] else "false"
+        set_config("AGENT_SHOW_TOOL_PROCESS", val)
+        updated += 1
+    if "max_tool_rounds" in body:
+        try:
+            rounds = max(1, min(10, int(body["max_tool_rounds"])))
+            set_config("AGENT_MAX_TOOL_ROUNDS", str(rounds))
+            updated += 1
+        except (ValueError, TypeError):
+            pass
     return {"ok": True, "updated": updated}

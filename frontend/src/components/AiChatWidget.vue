@@ -66,6 +66,7 @@ const claudeConfig = ref({ base_url: 'https://api.anthropic.com', api_key: '', m
 const codexConfig = ref({ base_url: '', api_key: '', model: 'gpt-5.4-codex' })
 const glmConfig = ref({ base_url: 'https://open.bigmodel.cn/api/paas/v4', api_key: '', model: 'glm-4-flash' })
 const grokConfig = ref({ base_url: 'https://api.x.ai', api_key: '', model: 'grok-3' })
+const agentConfig = ref({ show_tool_process: true, max_tool_rounds: 5 })
 
 // 检查供应商状态
 async function checkStatus() {
@@ -110,6 +111,15 @@ async function loadConfig() {
       grokConfig.value.base_url = d.base_url || ''
       grokConfig.value.model = d.model || ''
     }
+    // Agent 配置
+    try {
+      const aRes = await fetch('/api/ai/config/agent')
+      if (aRes.ok) {
+        const d = await aRes.json()
+        agentConfig.value.show_tool_process = d.show_tool_process ?? true
+        agentConfig.value.max_tool_rounds = d.max_tool_rounds ?? 5
+      }
+    } catch { /* ignore */ }
   } catch { /* ignore */ }
 }
 
@@ -165,6 +175,19 @@ async function saveGrokConfig() {
       body: JSON.stringify(grokConfig.value),
     })
     await checkStatus()
+  } catch { /* ignore */ }
+  configSaving.value = false
+}
+
+// 保存 Agent 配置
+async function saveAgentConfig() {
+  configSaving.value = true
+  try {
+    await fetch('/api/ai/config/agent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(agentConfig.value),
+    })
   } catch { /* ignore */ }
   configSaving.value = false
 }
@@ -545,7 +568,22 @@ async function sendMessage() {
         if (data === '[DONE]') break
 
         try {
-          textBuffer += JSON.parse(data)
+          const parsed = JSON.parse(data)
+          // Agent 工具调用事件
+          if (parsed && typeof parsed === 'object' && parsed.type === 'tool_call') {
+            textBuffer += `\n\n🔧 调用工具: **${parsed.name}**(${JSON.stringify(parsed.args || {})})\n`
+          } else if (parsed && typeof parsed === 'object' && parsed.type === 'tool_result') {
+            let resultText = parsed.result
+            try { resultText = typeof resultText === 'string' ? resultText : JSON.stringify(resultText) } catch {}
+            if (resultText && resultText.length > 200) resultText = resultText.slice(0, 200) + '...'
+            textBuffer += `✅ 结果: ${resultText}\n\n`
+          } else if (parsed && typeof parsed === 'object' && parsed.type === 'error') {
+            textBuffer += `\n[错误] ${parsed.content}\n`
+          } else if (typeof parsed === 'string') {
+            textBuffer += parsed
+          } else {
+            textBuffer += data
+          }
         } catch {
           textBuffer += data
         }
@@ -865,6 +903,23 @@ async function handleBubbleClick(e) {
               <div class="config-field"><label>API Key</label><input v-model="claudeConfig.api_key" type="password" placeholder="sk-ant-..." /></div>
               <div class="config-field"><label>模型</label><input v-model="claudeConfig.model" type="text" placeholder="claude-sonnet-4-20250514" /></div>
               <button class="config-save" :disabled="!claudeConfig.base_url || !claudeConfig.api_key || configSaving" @click="saveClaudeConfig">{{ configSaving ? '保存中...' : '💾 保存 Claude' }}</button>
+            </div>
+
+            <div class="config-divider"></div>
+            <div class="config-section">
+              <div class="config-section-title">🤖 Agent 设置</div>
+              <div class="config-field">
+                <label>显示工具调用过程</label>
+                <label class="toggle-switch">
+                  <input type="checkbox" v-model="agentConfig.show_tool_process" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="config-field">
+                <label>最大工具调用轮数</label>
+                <input v-model.number="agentConfig.max_tool_rounds" type="number" min="1" max="10" style="width: 60px" />
+              </div>
+              <button class="config-save" :disabled="configSaving" @click="saveAgentConfig">{{ configSaving ? '保存中...' : '💾 保存 Agent' }}</button>
             </div>
           </template>
         </div>
@@ -1636,4 +1691,34 @@ function applyInline(text) {
   .ai-fab { right: 16px; bottom: 80px; width: 48px; height: 48px; font-size: 20px; }
   .ai-chat-panel { right: 0; bottom: 0; width: 100vw; height: 100vh; border-radius: 0 !important; z-index: 200; }
 }
+
+/* ===== Toggle Switch ===== */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  cursor: pointer;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.15);
+  border-radius: 22px;
+  transition: 0.3s;
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 16px; height: 16px;
+  left: 3px; bottom: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: 0.3s;
+}
+.toggle-switch input:checked + .toggle-slider { background: #a78bfa; }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+
 </style>
+
