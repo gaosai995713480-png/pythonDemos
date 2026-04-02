@@ -14,6 +14,8 @@ from ..services.ai_chat import (
     get_codex_config,
     get_glm_config,
     get_grok_config,
+    CLAUDE_BASE_URL_KEY,
+    CLAUDE_API_KEY_KEY,
     CLAUDE_MODEL_KEY,
     CODEX_BASE_URL_KEY,
     CODEX_API_KEY_KEY,
@@ -83,10 +85,12 @@ def ai_status():
     codex_cfg = get_codex_config()
     glm_cfg = get_glm_config()
     grok_cfg = get_grok_config()
+    claude_cfg = get_claude_config()
     return {
         "claude": {
             "available": claude_provider.is_available(),
-            "model": get_claude_config()["model"],
+            "model": claude_cfg["model"],
+            "base_url": claude_cfg["base_url"],
         },
         "codex": {
             "available": codex_provider.is_available(),
@@ -148,15 +152,32 @@ async def ai_chat(req: ChatRequest, request: Request, _=Depends(require_auth)):
 @router.get("/config/claude")
 def claude_config(_=Depends(require_role("admin"))):
     cfg = get_claude_config()
-    return {"model": cfg["model"]}
+    api_key = cfg["api_key"]
+    masked = ""
+    if api_key:
+        masked = api_key[:8] + "****" + api_key[-4:] if len(api_key) > 16 else "****"
+    return {
+        "base_url": cfg["base_url"],
+        "api_key_masked": masked,
+        "api_key_configured": bool(api_key),
+        "model": cfg["model"],
+    }
 
 
 @router.post("/config/claude")
 def update_claude_config(body: dict, _=Depends(require_role("admin"))):
     updated = 0
-    if "model" in body and body["model"]:
-        set_config(CLAUDE_MODEL_KEY, str(body["model"]).strip())
-        updated += 1
+    key_map = {
+        "base_url": CLAUDE_BASE_URL_KEY,
+        "api_key": CLAUDE_API_KEY_KEY,
+        "model": CLAUDE_MODEL_KEY,
+    }
+    for field, config_key in key_map.items():
+        if field in body:
+            value = str(body[field]).strip()
+            if value:
+                set_config(config_key, value)
+                updated += 1
     return {"ok": True, "updated": updated}
 
 

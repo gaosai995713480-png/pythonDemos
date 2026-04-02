@@ -296,6 +296,8 @@ def init_tables():
             ("OSS_BUCKET_NAME", ""),
             ("OSS_ACCESS_KEY_ID", ""),
             ("OSS_ACCESS_KEY_SECRET", ""),
+            ("CLAUDE_BASE_URL", ""),
+            ("CLAUDE_API_KEY", ""),
         ]
         with conn.cursor() as cursor:
             for k, v in default_configs:

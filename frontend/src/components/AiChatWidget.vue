@@ -62,7 +62,7 @@ function saveMessages(provider) {
 // 配置面板
 const showConfig = ref(false)
 const configSaving = ref(false)
-const claudeConfig = ref({ model: 'claude-sonnet-4-20250514' })
+const claudeConfig = ref({ base_url: 'https://api.anthropic.com', api_key: '', model: 'claude-sonnet-4-20250514' })
 const codexConfig = ref({ base_url: '', api_key: '', model: 'gpt-5.4-codex' })
 const glmConfig = ref({ base_url: 'https://open.bigmodel.cn/api/paas/v4', api_key: '', model: 'glm-4-flash' })
 const grokConfig = ref({ base_url: 'https://api.x.ai', api_key: '', model: 'grok-3' })
@@ -92,6 +92,7 @@ async function loadConfig() {
     ])
     if (cRes.ok) {
       const d = await cRes.json()
+      claudeConfig.value.base_url = d.base_url || ''
       claudeConfig.value.model = d.model || ''
     }
     if (xRes.ok) {
@@ -859,17 +860,18 @@ async function handleBubbleClick(e) {
             </div>
             <div class="config-divider"></div>
             <div class="config-section">
-              <div class="config-section-title">🟣 Claude (CLI)</div>
-              <div class="config-hint">💡 使用本地 Claude CLI，无需 API 地址和密钥</div>
+              <div class="config-section-title">🟣 Claude</div>
+              <div class="config-field"><label>API 地址</label><input v-model="claudeConfig.base_url" type="text" placeholder="https://api.anthropic.com" /></div>
+              <div class="config-field"><label>API Key</label><input v-model="claudeConfig.api_key" type="password" placeholder="sk-ant-..." /></div>
               <div class="config-field"><label>模型</label><input v-model="claudeConfig.model" type="text" placeholder="claude-sonnet-4-20250514" /></div>
-              <button class="config-save" :disabled="configSaving" @click="saveClaudeConfig">{{ configSaving ? '保存中...' : '💾 保存 Claude' }}</button>
+              <button class="config-save" :disabled="!claudeConfig.base_url || !claudeConfig.api_key || configSaving" @click="saveClaudeConfig">{{ configSaving ? '保存中...' : '💾 保存 Claude' }}</button>
             </div>
           </template>
         </div>
 
         <!-- 不可用提示 -->
         <div v-else-if="!providerStatus[activeProvider]?.available" class="chat-unavailable">
-          <p>⚠️ {{ { claude: 'Claude CLI', codex: 'Codex API', glm: 'GLM API', grok: 'Grok API' }[activeProvider] }} 未配置</p>
+          <p>⚠️ {{ { claude: 'Claude API', codex: 'Codex API', glm: 'GLM API', grok: 'Grok API' }[activeProvider] }} 未配置</p>
           <p v-if="authStore.isAdmin" class="chat-unavailable-hint">点击 ⚙️ 进行配置</p>
           <p v-else class="chat-unavailable-hint">请联系管理员配置</p>
         </div>

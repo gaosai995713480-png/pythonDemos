@@ -1,17 +1,12 @@
 """
 AI 聊天服务 — 多供应商独立架构
-Claude: 通过本地 Claude CLI subprocess 调用
+Claude: 通过 httpx 调用 Anthropic Messages API
 Codex: 通过 httpx 调用 OpenAI Responses API
 GLM: 通过 httpx 调用智谱 Chat Completions API
 Grok: 通过 httpx 调用 xAI Chat Completions API
 """
-import asyncio
 import json
 import logging
-import shutil
-import subprocess
-import sys
-import threading
 from abc import ABC, abstractmethod
 from typing import AsyncGenerator
 
@@ -25,12 +20,16 @@ _TIMEOUT = 120
 
 # ==================== Claude 配置 ====================
 
+CLAUDE_BASE_URL_KEY = "CLAUDE_BASE_URL"
+CLAUDE_API_KEY_KEY = "CLAUDE_API_KEY"
 CLAUDE_MODEL_KEY = "CLAUDE_MODEL"
 _CLAUDE_DEFAULT_MODEL = "claude-sonnet-4-20250514"
 
 
 def get_claude_config() -> dict:
     return {
+        "base_url": get_config(CLAUDE_BASE_URL_KEY) or "https://api.anthropic.com",
+        "api_key": get_config(CLAUDE_API_KEY_KEY) or "",
         "model": get_config(CLAUDE_MODEL_KEY) or _CLAUDE_DEFAULT_MODEL,
     }
 
@@ -97,87 +96,76 @@ class AiProvider(ABC):
     ) -> AsyncGenerator[str, None]: ...
 
 
-# ==================== Claude CLI 实现 ====================
+# ==================== Claude API 实现 ====================
 
-class ClaudeCliProvider(AiProvider):
-    """通过本地 Claude CLI 调用（subprocess）"""
+class ClaudeApiProvider(AiProvider):
+    """Claude — Anthropic Messages API (stream)"""
 
-    def __init__(self, model: str):
+    def __init__(self, base_url: str, api_key: str, model: str):
+        self.base_url = base_url.rstrip("/")
+        self.api_key = api_key
         self.model = model
 
     def is_available(self) -> bool:
-        return shutil.which("claude") is not None
+        return bool(self.base_url and self.api_key)
 
     async def stream_chat(
         self, messages: list[dict]
     ) -> AsyncGenerator[str, None]:
-        prompt = self._build_prompt(messages)
+        url = f"{self.base_url}/v1/messages"
+        headers = {
+            "x-api-key": self.api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        }
 
-        claude_path = shutil.which("claude") or "claude"
-        cmd_parts = [claude_path, "-p", "--no-session-persistence"]
-        if self.model:
-            cmd_parts.extend(["--model", self.model])
-
-        queue: asyncio.Queue[str | None] = asyncio.Queue()
-        loop = asyncio.get_event_loop()
-
-        def _run_cli():
-            try:
-                proc = subprocess.Popen(
-                    cmd_parts,
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    shell=(sys.platform == "win32"),
-                )
-                proc.stdin.write(prompt.encode("utf-8"))
-                proc.stdin.close()
-
-                while True:
-                    chunk = proc.stdout.read(64)
-                    if not chunk:
-                        break
-                    text = chunk.decode("utf-8", errors="replace")
-                    loop.call_soon_threadsafe(queue.put_nowait, text)
-
-                proc.wait()
-                if proc.returncode != 0:
-                    err = proc.stderr.read().decode("utf-8", errors="replace")[:200]
-                    if err:
-                        logger.warning("Claude CLI stderr: %s", err)
-            except FileNotFoundError:
-                loop.call_soon_threadsafe(
-                    queue.put_nowait, "[错误] 未找到 claude 命令"
-                )
-            except Exception as e:
-                logger.error("Claude CLI 异常: %s", e, exc_info=True)
-                loop.call_soon_threadsafe(queue.put_nowait, f"[错误] {e}")
-            finally:
-                loop.call_soon_threadsafe(queue.put_nowait, None)
-
-        thread = threading.Thread(target=_run_cli, daemon=True)
-        thread.start()
-
-        try:
-            while True:
-                chunk = await asyncio.wait_for(queue.get(), timeout=_TIMEOUT)
-                if chunk is None:
-                    break
-                yield chunk
-        except asyncio.TimeoutError:
-            yield "\n[错误] Claude CLI 响应超时"
-
-    @staticmethod
-    def _build_prompt(messages: list[dict]) -> str:
-        parts = []
+        # 构建 Anthropic Messages API 格式
+        system_text = ""
+        chat_messages = []
         for msg in messages:
             role = msg.get("role", "user")
             content = msg.get("content", "")
-            if role == "user":
-                parts.append(f"Human: {content}")
-            elif role == "assistant":
-                parts.append(f"Assistant: {content}")
-        return "\n\n".join(parts)
+            if role == "system":
+                system_text = content
+            else:
+                chat_messages.append({"role": role, "content": content})
+
+        body = {
+            "model": self.model,
+            "max_tokens": 4096,
+            "stream": True,
+            "messages": chat_messages,
+        }
+        if system_text:
+            body["system"] = system_text
+
+        async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
+            async with client.stream(
+                "POST", url, headers=headers, json=body
+            ) as resp:
+                if resp.status_code != 200:
+                    error_body = await resp.aread()
+                    logger.error("Claude API 错误 [%s]: %s", resp.status_code, error_body[:500])
+                    yield f"[错误] API 返回 {resp.status_code}"
+                    return
+
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    data_str = line[6:]
+                    if data_str.strip() == "[DONE]":
+                        break
+                    try:
+                        event = json.loads(data_str)
+                        etype = event.get("type", "")
+                        if etype == "content_block_delta":
+                            delta = event.get("delta", {})
+                            if delta.get("type") == "text_delta":
+                                text = delta.get("text", "")
+                                if text:
+                                    yield text
+                    except json.JSONDecodeError:
+                        continue
 
 
 # ==================== Codex 实现 (OpenAI Responses API) ====================
@@ -381,10 +369,14 @@ class GrokProvider(AiProvider):
 
 # ==================== 工厂方法 ====================
 
-def get_claude_provider() -> ClaudeCliProvider:
+def get_claude_provider() -> ClaudeApiProvider:
     """获取 Claude 供应商实例"""
     cfg = get_claude_config()
-    return ClaudeCliProvider(model=cfg["model"])
+    return ClaudeApiProvider(
+        base_url=cfg["base_url"],
+        api_key=cfg["api_key"],
+        model=cfg["model"],
+    )
 
 
 def get_codex_provider() -> CodexProvider:
