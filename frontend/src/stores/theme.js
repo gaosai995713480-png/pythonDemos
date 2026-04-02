@@ -92,6 +92,8 @@ export const useThemeStore = defineStore('theme', () => {
         const t = JSON.parse(saved)
         if (t.name) currentName.value = t.name
         if (t.vars) applyVars(t.vars)
+      } else {
+        applyTheme(currentName.value)
       }
     } catch (e) { /* ignore */ }
   }
