@@ -3,12 +3,48 @@ import { ref, computed } from 'vue'
 
 const THEMES = [
   {
-    name: '春樱', emoji: '🌸', effect: 'hearts',
-    color: 'linear-gradient(135deg, #ee7752, #e73c7e)',
+    name: '春', emoji: '🌸', effect: 'petals',
+    color: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
     vars: {
       '--primary': '#ff6b9d', '--secondary': '#c44569', '--accent': '#ffc048',
-      '--bg-grad-1': '#ee7752', '--bg-grad-2': '#e73c7e',
-      '--bg-grad-3': '#23a6d5', '--bg-grad-4': '#23d5ab',
+      '--bg-grad-1': '#a8edea', '--bg-grad-2': '#fed6e3',
+      '--bg-grad-3': '#ff9a9e', '--bg-grad-4': '#fecfef',
+    }
+  },
+  {
+    name: '夏', emoji: '☀️', effect: 'fireflies',
+    color: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)',
+    vars: {
+      '--primary': '#00b09b', '--secondary': '#96c93d', '--accent': '#fde68a',
+      '--bg-grad-1': '#0f2027', '--bg-grad-2': '#203a43',
+      '--bg-grad-3': '#2c5364', '--bg-grad-4': '#141e30',
+    }
+  },
+  {
+    name: '流星', emoji: '🌠', effect: 'meteors',
+    color: 'linear-gradient(135deg, #000000 0%, #151525 100%)',
+    vars: {
+      '--primary': '#a78bfa', '--secondary': '#38bdf8', '--accent': '#fde047',
+      '--bg-grad-1': '#000000', '--bg-grad-2': '#151525',
+      '--bg-grad-3': '#201633', '--bg-grad-4': '#090810',
+    }
+  },
+  {
+    name: '秋', emoji: '🍂', effect: 'leaves',
+    color: 'linear-gradient(135deg, #d4a574, #8b5e3c)',
+    vars: {
+      '--primary': '#d4a574', '--secondary': '#8b5e3c', '--accent': '#fbbf24',
+      '--bg-grad-1': '#8b5e3c', '--bg-grad-2': '#d4a574',
+      '--bg-grad-3': '#5c3317', '--bg-grad-4': '#a0522d',
+    }
+  },
+  {
+    name: '冬', emoji: '❄️', effect: 'snow',
+    color: 'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)',
+    vars: {
+      '--primary': '#8ec5fc', '--secondary': '#475569', '--accent': '#e2e8f0',
+      '--bg-grad-1': '#e0c3fc', '--bg-grad-2': '#8ec5fc',
+      '--bg-grad-3': '#536976', '--bg-grad-4': '#292e49',
     }
   },
   {
@@ -21,60 +57,6 @@ const THEMES = [
     }
   },
   {
-    name: '海边', emoji: '🌊', effect: 'hearts',
-    color: 'linear-gradient(135deg, #1cb5e0, #000851)',
-    vars: {
-      '--primary': '#38bdf8', '--secondary': '#0284c7', '--accent': '#fbbf24',
-      '--bg-grad-1': '#1cb5e0', '--bg-grad-2': '#000851',
-      '--bg-grad-3': '#0ea5e9', '--bg-grad-4': '#0369a1',
-    }
-  },
-  {
-    name: '雪夜', emoji: '❄️', effect: 'hearts',
-    color: 'linear-gradient(135deg, #e6dada, #274046)',
-    vars: {
-      '--primary': '#94a3b8', '--secondary': '#475569', '--accent': '#e2e8f0',
-      '--bg-grad-1': '#e6dada', '--bg-grad-2': '#274046',
-      '--bg-grad-3': '#536976', '--bg-grad-4': '#292e49',
-    }
-  },
-  {
-    name: '森林', emoji: '🌿', effect: 'leaves',
-    color: 'linear-gradient(135deg, #134e5e, #71b280)',
-    vars: {
-      '--primary': '#71b280', '--secondary': '#2d6a4f', '--accent': '#a7f3d0',
-      '--bg-grad-1': '#134e5e', '--bg-grad-2': '#71b280',
-      '--bg-grad-3': '#2d5016', '--bg-grad-4': '#1a472a',
-    }
-  },
-  {
-    name: '日落', emoji: '🌅', effect: 'hearts',
-    color: 'linear-gradient(135deg, #f12711, #f5af19)',
-    vars: {
-      '--primary': '#f59e0b', '--secondary': '#dc2626', '--accent': '#fde68a',
-      '--bg-grad-1': '#f12711', '--bg-grad-2': '#f5af19',
-      '--bg-grad-3': '#c33764', '--bg-grad-4': '#1d2671',
-    }
-  },
-  {
-    name: '薰衣草', emoji: '💜', effect: 'hearts',
-    color: 'linear-gradient(135deg, #c471f5, #fa71cd)',
-    vars: {
-      '--primary': '#c084fc', '--secondary': '#a855f7', '--accent': '#f0abfc',
-      '--bg-grad-1': '#c471f5', '--bg-grad-2': '#fa71cd',
-      '--bg-grad-3': '#e8b4f8', '--bg-grad-4': '#ad5389',
-    }
-  },
-  {
-    name: '焦糖', emoji: '🍂', effect: 'hearts',
-    color: 'linear-gradient(135deg, #8b5e3c, #d4a574)',
-    vars: {
-      '--primary': '#d4a574', '--secondary': '#8b5e3c', '--accent': '#fbbf24',
-      '--bg-grad-1': '#8b5e3c', '--bg-grad-2': '#d4a574',
-      '--bg-grad-3': '#5c3317', '--bg-grad-4': '#a0522d',
-    }
-  },
-  {
     name: '极光', emoji: '🌌', effect: 'aurora',
     color: 'linear-gradient(135deg, #0b3d0b, #1a0533)',
     vars: {
@@ -83,10 +65,19 @@ const THEMES = [
       '--bg-grad-3': '#004d40', '--bg-grad-4': '#0d1b2a',
     }
   },
+  {
+    name: '海月', emoji: '🌊', effect: 'hearts',
+    color: 'linear-gradient(135deg, #1cb5e0, #000851)',
+    vars: {
+      '--primary': '#38bdf8', '--secondary': '#0284c7', '--accent': '#fbbf24',
+      '--bg-grad-1': '#1cb5e0', '--bg-grad-2': '#000851',
+      '--bg-grad-3': '#0ea5e9', '--bg-grad-4': '#0369a1',
+    }
+  },
 ]
 
 export const useThemeStore = defineStore('theme', () => {
-  const currentName = ref('春樱')
+  const currentName = ref('流星')
   const themes = THEMES
 
   const currentEffect = computed(() => {
