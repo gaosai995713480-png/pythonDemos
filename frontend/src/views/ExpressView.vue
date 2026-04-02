@@ -4,7 +4,9 @@ import { useRouter } from 'vue-router'
 import TopBar from '../components/TopBar.vue'
 import { expressApi } from '../api'
 import { useAuthStore } from '../stores/auth'
+import { useContextStore } from '../stores/context'
 const authStore = useAuthStore()
+const contextStore = useContextStore()
 
 const router = useRouter()
 
@@ -107,6 +109,8 @@ async function queryExpress() {
       errorMsg.value = data.message || '查询失败'
     } else if (data.message === 'ok' || data.status === '200') {
       result.value = data
+      const companyName = companies.value.find(c => c.code === selectedCom.value)?.name || selectedCom.value
+      contextStore.setPageState(`正在查询物流【${companyName}】单号: ${num}，当前状态: ${getState(data.state).text}`)
       // 查询成功后尝试渲染地图
       await nextTick()
       initMapRoute(data.data || [])

@@ -109,4 +109,26 @@ router.beforeEach(async (to) => {
   return true
 })
 
+// 全局后置守卫：更新核心系统黑板中的“当前所在视图”信息
+router.afterEach((to) => {
+  import('../stores/context').then(({ useContextStore }) => {
+    const contextStore = useContextStore()
+    const pageMap = {
+      Home: "首页",
+      Gallery: "相册",
+      Music: "音乐盒",
+      Timeline: "时光轴",
+      Letter: "告白信",
+      Mood: "心情打卡",
+      Wishes: "星空心愿",
+      Map: "足迹地图",
+      Jukebox: "点歌台",
+      Express: "快递查询",
+      Users: "用户管理"
+    }
+    contextStore.pageName = pageMap[to.name] || (to.name || '')
+    contextStore.setPageState('')
+  })
+})
+
 export default router

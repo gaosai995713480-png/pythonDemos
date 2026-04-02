@@ -4,8 +4,10 @@ import { useRouter } from 'vue-router'
 import TopBar from '../components/TopBar.vue'
 import { photoApi, galleryApi } from '../api'
 import { useAuthStore } from '../stores/auth'
+import { useContextStore } from '../stores/context'
 
 const authStore = useAuthStore()
+const contextStore = useContextStore()
 
 const router = useRouter()
 const photos = ref([])
@@ -45,10 +47,22 @@ function onLockKeydown(e) {
 }
 
 // ===== 画廊 =====
+function updateGalleryContext() {
+  if (lightboxActive.value) {
+    const photo = photos.value[currentIndex.value]
+    if (photo) {
+      contextStore.setPageState(`正在大图预览相片，上传时间: ${photo.created_at || '未知'}`)
+    }
+  } else {
+    contextStore.setPageState(`正在浏览相册列表，共 ${photos.value.length} 张照片`)
+  }
+}
+
 async function loadPhotos() {
   try {
     photos.value = await photoApi.list()
     actionError.value = ''
+    updateGalleryContext()
   } catch (e) {
     photos.value = []
     const message = e?.message || '照片加载失败'
@@ -66,15 +80,18 @@ function openLightbox(index) {
   currentIndex.value = index
   lightboxActive.value = true
   document.body.style.overflow = 'hidden'
+  updateGalleryContext()
 }
 
 function closeLightbox() {
   lightboxActive.value = false
   document.body.style.overflow = ''
+  updateGalleryContext()
 }
 
 function navigate(dir) {
   currentIndex.value = (currentIndex.value + dir + photos.value.length) % photos.value.length
+  updateGalleryContext()
 }
 
 function onKeydown(e) {

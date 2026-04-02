@@ -1,8 +1,10 @@
 <script setup>
 import { ref, reactive, nextTick, onMounted, computed } from 'vue'
 import { useAuthStore } from '../stores/auth'
+import { useContextStore } from '../stores/context'
 
 const authStore = useAuthStore()
+const contextStore = useContextStore()
 
 const isOpen = ref(false)
 const isLoading = ref(false)
@@ -532,6 +534,7 @@ async function sendMessage() {
         history,
         provider: activeProvider.value,
         skill_id: activeSkills[activeProvider.value]?.id || null,
+        client_context: contextStore.getFormattedContext(),
       }),
       signal: abortController.signal,
     })

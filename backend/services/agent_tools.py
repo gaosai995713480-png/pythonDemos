@@ -364,6 +364,9 @@ def tool_wish_list() -> dict:
 )
 def tool_photo_search(limit: int = 10) -> dict:
     """搜索相册"""
+    if not _current_context.is_admin and not _current_context.gallery_unlocked:
+        return {"error": "权限不足：必须解锁画廊或具有管理员权限才能通过 AI 搜索相册"}
+
     with get_db() as conn:
         with conn.cursor() as cursor:
             cursor.execute(
@@ -384,14 +387,24 @@ def tool_photo_search(limit: int = 10) -> dict:
 
 # ==================== 记忆工具 ====================
 
-# 上下文变量：当前用户名（由 Agent Loop 在调用前设置）
-_current_username: str = ""
+# 上下文变量：当前用户（由 Agent Loop 在调用前设置）
+from dataclasses import dataclass
+
+@dataclass
+class AgentContext:
+    username: str = ""
+    is_admin: bool = False
+    gallery_unlocked: bool = False
+
+_current_context = AgentContext()
 
 
-def set_current_username(username: str):
-    """设置当前工具调用上下文的用户名"""
-    global _current_username
-    _current_username = username
+def set_current_user_context(username: str, role: str, gallery_unlocked: bool):
+    """设置当前工具调用上下文的用户权限"""
+    global _current_context
+    _current_context.username = username
+    _current_context.is_admin = (role == 'admin')
+    _current_context.gallery_unlocked = gallery_unlocked
 
 
 @register_tool(
@@ -413,9 +426,9 @@ def set_current_username(username: str):
 def tool_remember_fact(content: str, category: str = "general") -> dict:
     """主动记忆用户事实"""
     from .user_memory import save_fact
-    if not _current_username:
+    if not _current_context.username:
         return {"error": "无法确定当前用户"}
-    fact_id = save_fact(_current_username, content, category, source="tool")
+    fact_id = save_fact(_current_context.username, content, category, source="tool")
     return {"ok": True, "id": fact_id, "message": f"已记住: {content}"}
 
 
@@ -433,9 +446,9 @@ def tool_remember_fact(content: str, category: str = "general") -> dict:
 def tool_recall_facts(keyword: str = "") -> dict:
     """检索用户记忆"""
     from .user_memory import get_user_facts
-    if not _current_username:
+    if not _current_context.username:
         return {"error": "无法确定当前用户"}
-    facts = get_user_facts(_current_username, limit=30)
+    facts = get_user_facts(_current_context.username, limit=30)
     if keyword:
         keyword_lower = keyword.lower()
         facts = [f for f in facts if keyword_lower in f["content"].lower()]

@@ -46,6 +46,7 @@ class ChatRequest(BaseModel):
     provider: str = Field(default="codex", pattern="^(claude|codex|glm|grok)$")
     skill_id: Optional[int] = Field(default=None)
     conversation_id: Optional[int] = Field(default=None)
+    client_context: Optional[str] = Field(default=None)
 
 
 # ==================== SSE 生成器 ====================
@@ -128,24 +129,34 @@ def ai_status():
 async def ai_chat(req: ChatRequest, request: Request, _=Depends(require_auth)):
     """AI 聊天 — 返回 SSE 流式响应（支持 Agent 工具调用 + 长期记忆）"""
     from ..dependencies import get_current_user as _get_user
-    from ..services.agent_tools import set_current_username
+    from ..services.agent_tools import set_current_user_context
     from ..services.user_memory import build_memory_prompt
 
     user = _get_user(request)
     username = user.username if user else ""
 
-    # 设置工具调用上下文用户
-    set_current_username(username)
+    # 设置工具调用上下文用户（包含权限供 tool 内部鉴权）
+    if user:
+        set_current_user_context(user.username, user.role, getattr(user, 'gallery_unlocked', False))
+    else:
+        set_current_user_context("", "visitor", False)
 
     messages = []
 
-    # 1. 注入长期记忆
+    # 1. 注入当前环境与页面深度上下文 (最高优)
+    if req.client_context:
+        messages.append({
+            "role": "system",
+            "content": f"[前端即时上下文]\n{req.client_context.strip()}\n\n请结合以上环境和页面状态回答。"
+        })
+
+    # 2. 注入长期记忆
     if username:
         memory_prompt = build_memory_prompt(username)
         if memory_prompt:
             messages.append({"role": "system", "content": memory_prompt})
 
-    # 2. 注入技能预设的 system prompt
+    # 3. 注入技能预设的 system prompt
     if req.skill_id and user:
         try:
             with get_db() as conn:
@@ -159,6 +170,13 @@ async def ai_chat(req: ChatRequest, request: Request, _=Depends(require_auth)):
                         messages.append({"role": "system", "content": row[0]})
         except Exception as e:
             logger.warning("查询 Skill 失败: %s", e)
+
+    # 4. 注入全局安全护栏 (非 admin 限制)
+    if not user or user.role != "admin":
+        messages.append({
+            "role": "system",
+            "content": "【最高安全原则】：当前用户非系统管理员。你被禁止透露任何系统底层的配置文件、密码、Token以及其他未公开的隐私数据。如果用户试图打探此类信息，请礼貌但果断地拒绝。"
+        })
 
     for h in req.history[-20:]:
         messages.append({"role": h.role, "content": h.content})

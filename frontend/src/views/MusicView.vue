@@ -4,10 +4,12 @@ import { useRouter } from 'vue-router'
 import TopBar from '../components/TopBar.vue'
 import GlassModal from '../components/GlassModal.vue'
 import { useMusicStore } from '../stores/music'
+import { useContextStore } from '../stores/context'
 import { musicApi, configApi } from '../api'
 
 const router = useRouter()
 const musicStore = useMusicStore()
+const contextStore = useContextStore()
 
 const showAddModal = ref(false)
 const searchKeyword = ref('')
@@ -84,6 +86,21 @@ watch(() => musicStore.currentLyricIndex, async (idx) => {
   const el = lyricContainer.value.querySelector('.lyric-active')
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
 })
+
+// 注入当前播放状态给 AI 上下文
+watch(
+  () => [musicStore.currentSong, musicStore.isPlaying],
+  ([song, isPlaying]) => {
+    if (song && isPlaying) {
+      contextStore.setPageState(`正在播放：[${musicStore.currentPlatformName}] ${song.title} - ${song.artist}`)
+    } else if (song && !isPlaying) {
+      contextStore.setPageState(`已暂停播放：[${musicStore.currentPlatformName}] ${song.title} - ${song.artist}`)
+    } else {
+      contextStore.setPageState('')
+    }
+  },
+  { deep: true, immediate: true }
+)
 
 // ===== Cookie 设置 =====
 const showCookieModal = ref(false)
