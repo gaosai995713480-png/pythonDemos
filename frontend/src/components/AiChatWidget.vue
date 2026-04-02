@@ -195,7 +195,29 @@ async function saveAgentConfig() {
 function openConfig() {
   loadConfig()
   loadSkills()
+  loadMemory()
   showConfig.value = true
+}
+
+// ===== 长期记忆 =====
+const memoryList = ref([])
+
+async function loadMemory() {
+  try {
+    const res = await fetch('/api/ai/memory')
+    if (res.ok) {
+      const d = await res.json()
+      memoryList.value = d.facts || []
+    }
+  } catch { /* ignore */ }
+}
+
+async function deleteMemory(m) {
+  if (!confirm(`确定删除这条记忆？\n\n${m.content}`)) return
+  try {
+    await fetch(`/api/ai/memory?id=${m.id}`, { method: 'DELETE' })
+    memoryList.value = memoryList.value.filter(f => f.id !== m.id)
+  } catch { /* ignore */ }
 }
 
 // ===== 技能预设 =====
@@ -865,6 +887,20 @@ async function handleBubbleClick(e) {
                 </div>
               </div>
               <button class="skill-add-btn" @click="startCreateSkill">➕ 新建技能</button>
+            </div>
+          </div>
+
+          <!-- 长期记忆管理 -->
+          <div class="config-divider"></div>
+          <div class="config-section">
+            <div class="config-section-title">🧠 AI 记忆</div>
+            <div v-if="memoryList.length === 0" class="skill-empty">AI 还没有记住任何信息</div>
+            <div v-for="m in memoryList" :key="m.id" class="memory-card">
+              <div class="memory-card-info">
+                <span class="memory-card-icon">{{ { general: '📝', date: '📅', preference: '❤️', person: '👤' }[m.category] || '📝' }}</span>
+                <div class="memory-card-content">{{ m.content }}</div>
+              </div>
+              <button class="memory-delete-btn" @click="deleteMemory(m)" title="删除">🗑️</button>
             </div>
           </div>
 
@@ -1677,6 +1713,26 @@ function applyInline(text) {
 }
 .chat-unavailable p:first-child { font-size: 18px; color: #a78bfa; }
 .chat-unavailable-hint { font-size: 13px; opacity: 0.8; }
+
+/* ===== 记忆卡片 ===== */
+.memory-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.memory-card-info { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.memory-card-icon { font-size: 16px; flex-shrink: 0; }
+.memory-card-content { color: rgba(255,255,255,0.85); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.memory-delete-btn {
+  background: none; border: none; cursor: pointer; font-size: 14px; opacity: 0.4;
+  padding: 2px 4px; flex-shrink: 0;
+}
+.memory-delete-btn:hover { opacity: 1; }
 
 /* ===== 动画 ===== */
 .chat-slide-enter-active { animation: chat-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }

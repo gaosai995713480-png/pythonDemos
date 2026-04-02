@@ -380,3 +380,67 @@ def tool_photo_search(limit: int = 10) -> dict:
             for r in rows
         ],
     }
+
+
+# ==================== 记忆工具 ====================
+
+# 上下文变量：当前用户名（由 Agent Loop 在调用前设置）
+_current_username: str = ""
+
+
+def set_current_username(username: str):
+    """设置当前工具调用上下文的用户名"""
+    global _current_username
+    _current_username = username
+
+
+@register_tool(
+    name="remember_fact",
+    description="记住关于用户的重要信息。当用户提到个人偏好、重要日期、人物关系等值得长期记忆的信息时，主动调用此工具保存。",
+    parameters={
+        "content": {
+            "type": "string",
+            "description": "要记住的事实内容，例如 '女朋友生日是3月15日'、'喜欢吃火锅'、'住在杭州'",
+        },
+        "category": {
+            "type": "string",
+            "enum": ["general", "date", "preference", "person"],
+            "description": "事实分类: general(一般), date(日期), preference(偏好), person(人物)",
+        },
+    },
+    required=["content"],
+)
+def tool_remember_fact(content: str, category: str = "general") -> dict:
+    """主动记忆用户事实"""
+    from .user_memory import save_fact
+    if not _current_username:
+        return {"error": "无法确定当前用户"}
+    fact_id = save_fact(_current_username, content, category, source="tool")
+    return {"ok": True, "id": fact_id, "message": f"已记住: {content}"}
+
+
+@register_tool(
+    name="recall_facts",
+    description="回忆关于用户的已知信息。当需要了解用户的个人信息、偏好或历史记录时调用。",
+    parameters={
+        "keyword": {
+            "type": "string",
+            "description": "搜索关键词（可选），用于筛选相关记忆",
+        },
+    },
+    required=[],
+)
+def tool_recall_facts(keyword: str = "") -> dict:
+    """检索用户记忆"""
+    from .user_memory import get_user_facts
+    if not _current_username:
+        return {"error": "无法确定当前用户"}
+    facts = get_user_facts(_current_username, limit=30)
+    if keyword:
+        keyword_lower = keyword.lower()
+        facts = [f for f in facts if keyword_lower in f["content"].lower()]
+    return {
+        "total": len(facts),
+        "facts": [{"content": f["content"], "category": f["category"]} for f in facts],
+    }
+

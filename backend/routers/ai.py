@@ -126,33 +126,71 @@ def ai_status():
 
 @router.post("/chat")
 async def ai_chat(req: ChatRequest, request: Request, _=Depends(require_auth)):
-    """AI 聊天 — 返回 SSE 流式响应"""
+    """AI 聊天 — 返回 SSE 流式响应（支持 Agent 工具调用 + 长期记忆）"""
+    from ..dependencies import get_current_user as _get_user
+    from ..services.agent_tools import set_current_username
+    from ..services.user_memory import build_memory_prompt
+
+    user = _get_user(request)
+    username = user.username if user else ""
+
+    # 设置工具调用上下文用户
+    set_current_username(username)
+
     messages = []
 
-    # 注入技能预设的 system prompt
-    if req.skill_id:
-        from ..dependencies import get_current_user as _get_user
-        user = _get_user(request)
-        if user:
-            try:
-                with get_db() as conn:
-                    with conn.cursor() as cur:
-                        cur.execute(
-                            "SELECT system_prompt FROM ai_skill_presets WHERE id = %s AND username = %s",
-                            (req.skill_id, user.username),
-                        )
-                        row = cur.fetchone()
-                        if row and row[0]:
-                            messages.append({"role": "system", "content": row[0]})
-            except Exception as e:
-                logger.warning("查询 Skill 失败: %s", e)
+    # 1. 注入长期记忆
+    if username:
+        memory_prompt = build_memory_prompt(username)
+        if memory_prompt:
+            messages.append({"role": "system", "content": memory_prompt})
+
+    # 2. 注入技能预设的 system prompt
+    if req.skill_id and user:
+        try:
+            with get_db() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT system_prompt FROM ai_skill_presets WHERE id = %s AND username = %s",
+                        (req.skill_id, user.username),
+                    )
+                    row = cur.fetchone()
+                    if row and row[0]:
+                        messages.append({"role": "system", "content": row[0]})
+        except Exception as e:
+            logger.warning("查询 Skill 失败: %s", e)
 
     for h in req.history[-20:]:
         messages.append({"role": h.role, "content": h.content})
     messages.append({"role": "user", "content": req.message})
 
+    # 包装 SSE 生成器，在流结束后异步触发事实提取
+    async def _sse_with_extraction():
+        ai_response_text = ""
+        async for chunk in _sse_generator(req.provider, messages):
+            # 收集 AI 回复文本用于后续提取
+            if chunk.startswith("data: ") and chunk.strip() != "data: [DONE]":
+                try:
+                    data_str = chunk[6:].strip()
+                    parsed = json.loads(data_str)
+                    if isinstance(parsed, str):
+                        ai_response_text += parsed
+                except Exception:
+                    pass
+            yield chunk
+
+        # 流结束后异步提取事实
+        if username and ai_response_text and req.provider in ("codex", "claude"):
+            import asyncio
+            from ..services.user_memory import extract_facts_from_conversation
+            asyncio.create_task(
+                extract_facts_from_conversation(
+                    username, req.message, ai_response_text, req.provider
+                )
+            )
+
     return StreamingResponse(
-        _sse_generator(req.provider, messages),
+        _sse_with_extraction(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -324,3 +362,28 @@ def update_agent_config(body: dict, _=Depends(require_role("admin"))):
         except (ValueError, TypeError):
             pass
     return {"ok": True, "updated": updated}
+
+
+# ==================== 用户记忆管理 ====================
+
+@router.get("/memory")
+def list_memory(request: Request, _=Depends(require_auth)):
+    """获取当前用户的长期记忆列表"""
+    from ..dependencies import get_current_user as _get_user
+    from ..services.user_memory import get_user_facts
+    user = _get_user(request)
+    if not user:
+        return {"facts": []}
+    return {"facts": get_user_facts(user.username, limit=100)}
+
+
+@router.delete("/memory")
+def delete_memory(id: int, request: Request, _=Depends(require_auth)):
+    """删除一条记忆"""
+    from ..dependencies import get_current_user as _get_user
+    from ..services.user_memory import delete_fact
+    user = _get_user(request)
+    if not user:
+        return {"error": "未登录"}
+    ok = delete_fact(user.username, id)
+    return {"ok": ok}

@@ -244,6 +244,17 @@ def init_tables():
                     INDEX idx_created_at (created_at)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='相册元数据表'
             """,
+            "user_facts": """
+                CREATE TABLE IF NOT EXISTS `user_facts` (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '事实ID',
+                    username VARCHAR(50) NOT NULL COMMENT '所属用户',
+                    fact_content TEXT NOT NULL COMMENT '事实内容',
+                    category VARCHAR(50) DEFAULT 'general' COMMENT '分类: general/date/preference/person',
+                    source VARCHAR(20) DEFAULT 'auto' COMMENT '来源: auto(异步提取)/tool(AI主动)/manual',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                    INDEX idx_user (username, created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户长期记忆事实表'
+            """,
         }
 
         with conn.cursor() as cursor:
