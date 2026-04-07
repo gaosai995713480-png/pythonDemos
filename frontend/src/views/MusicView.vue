@@ -164,9 +164,18 @@ onMounted(() => musicStore.loadSongs())
         <div class="song-platform">{{ musicStore.currentPlatformName }}</div>
       </div>
       <div class="controls">
-        <button class="ctrl-btn" @click="musicStore.prev">⏮</button>
-        <button class="ctrl-btn play-btn" @click="musicStore.togglePlay">{{ musicStore.isPlaying ? '⏸' : '▶' }}</button>
-        <button class="ctrl-btn" @click="musicStore.next">⏭</button>
+        <button class="ctrl-btn" @click="musicStore.prev" title="上一曲">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+        </button>
+        <button class="ctrl-btn play-btn" @click="musicStore.togglePlay">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path v-if="musicStore.isPlaying" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+            <path v-else d="M8 5v14l11-7z"/>
+          </svg>
+        </button>
+        <button class="ctrl-btn" @click="musicStore.next" title="下一曲">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </button>
       </div>
       <div class="progress-wrap" @click="onProgressClick">
         <div class="progress-bar" :style="{ width: (musicStore.duration ? (musicStore.currentTime / musicStore.duration * 100) : 0) + '%' }"></div>
@@ -291,10 +300,29 @@ onMounted(() => musicStore.loadSongs())
 .song-artist { font-size: 14px; color: var(--text-secondary); }
 .song-platform { font-size: 12px; color: var(--accent); margin-top: 4px; }
 
-.controls { display: flex; justify-content: center; gap: 20px; margin: 20px 0; }
-.ctrl-btn { width: 44px; height: 44px; border-radius: 50%; border: none; background: rgba(255, 255, 255, 0.1); color: #fff; font-size: 18px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
-.ctrl-btn:hover { background: rgba(255, 255, 255, 0.2); transform: scale(1.1); }
-.play-btn { width: 56px; height: 56px; background: linear-gradient(135deg, var(--primary), var(--secondary)); font-size: 22px; box-shadow: 0 4px 16px rgba(255, 107, 157, 0.3); }
+.controls { display: flex; justify-content: center; align-items: center; gap: 16px; margin: 24px 0; }
+.ctrl-btn {
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #fff; cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex; align-items: center; justify-content: center;
+}
+.ctrl-btn svg { width: 20px; height: 20px; }
+.ctrl-btn:hover { background: rgba(255, 255, 255, 0.18); border-color: rgba(255,255,255,0.35); transform: scale(1.1); }
+.ctrl-btn:active { transform: scale(0.96); }
+.play-btn {
+  width: 64px; height: 64px;
+  background: linear-gradient(135deg, var(--primary), #c44569);
+  border: none;
+  box-shadow: 0 6px 24px rgba(255, 107, 157, 0.5);
+}
+.play-btn svg { width: 26px; height: 26px; }
+.play-btn:hover { transform: scale(1.12); box-shadow: 0 8px 32px rgba(255, 107, 157, 0.7); }
+.play-btn:active { transform: scale(0.96); }
 
 .progress-wrap { width: 100%; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); cursor: pointer; margin: 8px 0; }
 .progress-bar { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width 0.1s; }
