@@ -79,10 +79,20 @@ function onProgressClick(e) {
   musicStore.seekTo(pct)
 }
 
-// 自动滚动歌词（仅在歌词容器内滚动，不影响页面）
-watch(() => musicStore.currentLyricIndex, async (idx) => {
-  if (idx < 0 || !lyricContainer.value) return
-  await nextTick()
+const isUserInteracting = ref(false)
+let interactTimeout = null
+
+function onUserInteract() {
+  isUserInteracting.value = true
+  if (interactTimeout) clearTimeout(interactTimeout)
+  interactTimeout = setTimeout(() => {
+    isUserInteracting.value = false
+    scrollToActiveLyric()
+  }, 3000)
+}
+
+function scrollToActiveLyric() {
+  if (!lyricContainer.value) return
   const el = lyricContainer.value.querySelector('.lyric-active')
   if (!el) return
   const container = lyricContainer.value
@@ -91,6 +101,15 @@ watch(() => musicStore.currentLyricIndex, async (idx) => {
   // 当前高亮行相对容器顶部的偏移 + 当前滚动位置 - 居中修正
   const targetScrollTop = container.scrollTop + elRect.top - containerRect.top - container.clientHeight / 2 + el.clientHeight / 2
   container.scrollTo({ top: targetScrollTop, behavior: 'smooth' })
+}
+
+// 自动滚动歌词（仅在歌词容器内滚动，不影响页面）
+watch(() => musicStore.currentLyricIndex, async (idx) => {
+  if (idx < 0) return
+  await nextTick()
+  if (!isUserInteracting.value) {
+    scrollToActiveLyric()
+  }
 })
 
 // 注入当前播放状态给 AI 上下文
@@ -188,7 +207,9 @@ onMounted(() => musicStore.loadSongs())
     </div>
 
     <!-- Lyrics -->
-    <div class="lyrics-card" v-if="musicStore.lyricLines.length" ref="lyricContainer">
+    <div class="lyrics-card" v-if="musicStore.lyricLines.length" ref="lyricContainer"
+         @wheel="onUserInteract" @touchmove="onUserInteract" @mousedown="onUserInteract"
+    >
       <p
         v-for="(line, i) in musicStore.lyricLines"
         :key="i"
@@ -335,6 +356,23 @@ onMounted(() => musicStore.loadSongs())
   border: 1px solid var(--glass-border); border-radius: 20px;
   padding: 24px; margin-bottom: 24px; max-height: 300px; overflow-y: auto;
   text-align: center;
+}
+
+/* 定制歌词滚动条：霓虹流光悬浮式 */
+.lyrics-card::-webkit-scrollbar {
+  width: 8px;
+}
+.lyrics-card::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+}
+.lyrics-card::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--primary), var(--accent));
+  border-radius: 8px;
+  box-shadow: 0 0 8px rgba(255, 107, 157, 0.5);
+}
+.lyrics-card::-webkit-scrollbar-thumb:hover {
+  filter: brightness(1.15);
 }
 
 .lyric-line { padding: 8px; font-size: 14px; color: rgba(255, 255, 255, 0.4); transition: all 0.3s; }
