@@ -79,12 +79,18 @@ function onProgressClick(e) {
   musicStore.seekTo(pct)
 }
 
-// 自动滚动歌词
+// 自动滚动歌词（仅在歌词容器内滚动，不影响页面）
 watch(() => musicStore.currentLyricIndex, async (idx) => {
   if (idx < 0 || !lyricContainer.value) return
   await nextTick()
   const el = lyricContainer.value.querySelector('.lyric-active')
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  if (!el) return
+  const container = lyricContainer.value
+  const containerRect = container.getBoundingClientRect()
+  const elRect = el.getBoundingClientRect()
+  // 当前高亮行相对容器顶部的偏移 + 当前滚动位置 - 居中修正
+  const targetScrollTop = container.scrollTop + elRect.top - containerRect.top - container.clientHeight / 2 + el.clientHeight / 2
+  container.scrollTo({ top: targetScrollTop, behavior: 'smooth' })
 })
 
 // 注入当前播放状态给 AI 上下文
