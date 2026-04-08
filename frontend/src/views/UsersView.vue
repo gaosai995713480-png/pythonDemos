@@ -85,6 +85,7 @@ onMounted(() => {
               <th>角色</th>
               <th>状态</th>
               <th>注册时间</th>
+              <th>最后登录</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -98,6 +99,10 @@ onMounted(() => {
                 {{ u.disabled ? '已禁用' : '正常' }}
               </td>
               <td class="time-col">{{ u.created_at }}</td>
+              <td class="time-col">
+                <span v-if="u.last_login_at">{{ u.last_login_at }}</span>
+                <span v-else class="admin-hint">从未登录</span>
+              </td>
               <td>
                 <button
                   v-if="u.role !== 'admin'"

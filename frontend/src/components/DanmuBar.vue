@@ -13,11 +13,12 @@ const danmuInput = ref('')
 const danmuList = ref([])
 const MAX_LEN = 50
 const settingsOpen = ref(false)
+const danmuEnabled = ref(true)
 const danmuPanelOpen = ref(false)
 const danmuSpeed = ref(12)
 const danmuDensity = ref(8)
-let danmuTimers = []
 let danmuMainTimer = null
+let danmuIndex = 0
 
 async function loadDanmu() {
   try { danmuList.value = await danmuApi.list(50) } catch { /* API layer handles toast */ }
@@ -48,7 +49,7 @@ async function handlePanelLike(item, event) {
   await handleLike(item, btn)
 }
 
-function spawnDanmu(item, delay = 0, fresh = false) {
+function spawnDanmu(item, fresh = false) {
   const layer = document.getElementById('danmu-layer')
   if (!layer) return
   const el = document.createElement('div')
@@ -57,7 +58,6 @@ function spawnDanmu(item, delay = 0, fresh = false) {
   if (isEmoji) el.classList.add('is-emoji')
   el.style.top = (Math.random() * 70 + 5) + '%'
   el.style.setProperty('--duration', danmuSpeed.value + 's')
-  el.style.setProperty('--delay', delay + 's')
   el.innerHTML = `<span>${item.text}</span><span class="danmu-like" data-id="${item.id}">❤️ ${item.likes || 0}</span>`
   el.querySelector('.danmu-like').addEventListener('click', async (ev) => {
     ev.stopPropagation()
@@ -71,23 +71,41 @@ function spawnDanmu(item, delay = 0, fresh = false) {
     el.style.animationPlayState = ''
   }, { passive: true })
   layer.appendChild(el)
-  const timer = setTimeout(() => el.remove(), (danmuSpeed.value + delay) * 1000 + 500)
-  danmuTimers.push(timer)
+  // 弹幕飘完后自动回收 DOM，无需全局清空
+  setTimeout(() => el.remove(), danmuSpeed.value * 1000 + 500)
 }
 
-function launchAllDanmu() {
-  clearDanmuTimers()
-  const items = danmuList.value.slice(0, danmuDensity.value * 5)
-  items.forEach((item, i) => {
-    spawnDanmu(item, i * (danmuSpeed.value / danmuDensity.value))
-  })
+/** 启动连续流式弹幕引擎 */
+function startStream() {
+  stopStream()
+  if (!danmuEnabled.value) return
+  if (!danmuList.value.length) return
+  // 每隔 (speed / density) 秒发射一条，形成均匀的弹幕流
+  const intervalMs = (danmuSpeed.value / danmuDensity.value) * 1000
+  danmuMainTimer = setInterval(() => {
+    if (!danmuList.value.length || !danmuEnabled.value) return
+    const item = danmuList.value[danmuIndex % danmuList.value.length]
+    danmuIndex++
+    spawnDanmu(item)
+  }, intervalMs)
 }
 
-function clearDanmuTimers() {
-  danmuTimers.forEach(t => clearTimeout(t))
-  danmuTimers = []
-  const layer = document.getElementById('danmu-layer')
-  if (layer) layer.innerHTML = ''
+function stopStream() {
+  if (danmuMainTimer) {
+    clearInterval(danmuMainTimer)
+    danmuMainTimer = null
+  }
+}
+
+function toggleDanmu(val) {
+  danmuEnabled.value = val
+  if (val) {
+    startStream()
+  } else {
+    stopStream()
+    const layer = document.getElementById('danmu-layer')
+    if (layer) layer.innerHTML = ''
+  }
 }
 
 async function sendDanmu() {
@@ -96,22 +114,22 @@ async function sendDanmu() {
   try {
     const res = await danmuApi.send(text)
     danmuInput.value = ''
-    if (res.ok) spawnDanmu({ text, id: res.id, likes: 0 }, 0, true)
+    if (res.ok) spawnDanmu({ text, id: res.id, likes: 0 }, true)
     loadDanmu()
   } catch { /* API layer handles toast */ }
 }
 
 function cleanup() {
-  clearDanmuTimers()
-  if (danmuMainTimer) clearInterval(danmuMainTimer)
+  stopStream()
+  const layer = document.getElementById('danmu-layer')
+  if (layer) layer.innerHTML = ''
 }
 
 defineExpose({ cleanup })
 
-onMounted(() => {
-  loadDanmu()
-  setTimeout(launchAllDanmu, 1500)
-  danmuMainTimer = setInterval(launchAllDanmu, danmuSpeed.value * 1000 + 2000)
+onMounted(async () => {
+  await loadDanmu()
+  startStream()
 })
 
 onUnmounted(() => {
@@ -161,6 +179,14 @@ onUnmounted(() => {
   <div class="danmu-settings" :class="{ 'is-visible': settingsOpen }">
     <h3>弹幕设置</h3>
     <div class="danmu-settings-row">
+      <span>开关</span>
+      <label class="danmu-switch">
+        <input type="checkbox" :checked="danmuEnabled" @change="toggleDanmu($event.target.checked)" />
+        <span class="danmu-switch-slider"></span>
+      </label>
+      <output>{{ danmuEnabled ? '开' : '关' }}</output>
+    </div>
+    <div class="danmu-settings-row">
       <span>速度</span>
       <input type="range" v-model.number="danmuSpeed" min="6" max="24" />
       <output>{{ danmuSpeed }}s</output>
@@ -186,9 +212,7 @@ onUnmounted(() => {
   border: 1px solid var(--glass-border); color: var(--text-primary);
   font-size: 15px; white-space: nowrap;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-  animation: danmu-move linear forwards;
-  animation-duration: var(--duration, 12s);
-  animation-delay: var(--delay, 0s);
+  animation: danmu-move var(--duration, 12s) linear forwards;
   display: inline-flex; align-items: center; gap: 10px;
   pointer-events: auto; cursor: pointer;
 }
@@ -275,6 +299,28 @@ onUnmounted(() => {
   -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
   background: linear-gradient(135deg, var(--primary), var(--secondary));
   box-shadow: 0 2px 6px rgba(255, 107, 157, 0.4); cursor: pointer;
+}
+
+/* Toggle Switch */
+.danmu-switch {
+  position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0;
+}
+.danmu-switch input { opacity: 0; width: 0; height: 0; }
+.danmu-switch-slider {
+  position: absolute; inset: 0; cursor: pointer; border-radius: 24px;
+  background: rgba(255, 255, 255, 0.12); transition: all 0.3s;
+}
+.danmu-switch-slider::before {
+  content: ''; position: absolute; left: 3px; top: 3px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.6); transition: all 0.3s;
+}
+.danmu-switch input:checked + .danmu-switch-slider {
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  box-shadow: 0 0 10px rgba(255, 107, 157, 0.4);
+}
+.danmu-switch input:checked + .danmu-switch-slider::before {
+  transform: translateX(20px); background: #fff;
 }
 
 /* Danmu Panel */

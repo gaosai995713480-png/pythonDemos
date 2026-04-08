@@ -13,7 +13,7 @@ def list_users(_=Depends(require_role("admin"))):
     with get_db() as conn:
         with conn.cursor() as cursor:
             cursor.execute(
-                f"SELECT id, username, role, disabled, created_at FROM `{settings.users_table}` ORDER BY id"
+                f"SELECT id, username, role, disabled, created_at, last_login_at FROM `{settings.users_table}` ORDER BY id"
             )
             rows = cursor.fetchall()
     return [
@@ -23,6 +23,7 @@ def list_users(_=Depends(require_role("admin"))):
             "role": r[2],
             "disabled": bool(r[3]),
             "created_at": str(r[4]),
+            "last_login_at": str(r[5]) if r[5] else None,
         }
         for r in rows
     ]

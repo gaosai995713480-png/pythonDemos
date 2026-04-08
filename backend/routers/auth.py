@@ -57,6 +57,16 @@ def auth_login(request: Request, body: dict = {}):
         )
 
     token = create_session(UserInfo(username=username, role=row[1]))
+    
+    # 记录最后登录时间
+    with get_db() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"UPDATE `{settings.users_table}` SET last_login_at = CURRENT_TIMESTAMP WHERE id = %s",
+                (row[0],)
+            )
+        conn.commit()
+
     resp = Response(
         content=json.dumps({"ok": True, "username": username, "role": row[1]}),
         media_type="application/json",
@@ -114,6 +124,11 @@ def auth_register(request: Request, body: dict = {}):
             cursor.execute(
                 f"INSERT INTO `{settings.users_table}` (username, password, role) VALUES (%s, %s, 'visitor')",
                 (username, password),
+            )
+            # 注册算做首次登录
+            cursor.execute(
+                f"UPDATE `{settings.users_table}` SET last_login_at = CURRENT_TIMESTAMP WHERE username = %s",
+                (username,)
             )
         conn.commit()
 

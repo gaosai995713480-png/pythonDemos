@@ -198,7 +198,8 @@ def init_tables():
                     password VARCHAR(255) NOT NULL COMMENT '登录密码',
                     role VARCHAR(20) NOT NULL DEFAULT 'visitor' COMMENT '角色：admin=管理员, visitor=访客',
                     disabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否禁用：0=正常, 1=禁用',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间'
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
+                    last_login_at TIMESTAMP NULL DEFAULT NULL COMMENT '最后登录时间'
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表'
             """,
             "ai_skill_presets": """
@@ -278,7 +279,12 @@ def init_tables():
         except Exception:
             pass
 
-
+        # 确保 users 表有 last_login_at 列
+        if not _has_column(conn, settings.users_table, "last_login_at"):
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    f"ALTER TABLE `{settings.users_table}` ADD COLUMN last_login_at TIMESTAMP NULL DEFAULT NULL COMMENT '最后登录时间'"
+                )
 
         # 确保画廊默认密码
         with conn.cursor() as cursor:
