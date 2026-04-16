@@ -729,7 +729,10 @@ async function handleBubbleClick(e) {
   <Teleport to="body">
     <!-- 悬浮气泡 -->
     <button class="ai-fab" :class="{ 'is-open': isOpen }" @click="toggleChat">
-      <span class="ai-fab-icon">{{ isOpen ? '✕' : '🤖' }}</span>
+      <span class="ai-fab-icon">
+        <template v-if="isOpen">✕</template>
+        <img v-else src="/ai-icon.png" alt="AI" class="ai-icon-img" />
+      </span>
       <span v-if="!isOpen" class="ai-fab-pulse"></span>
     </button>
 
@@ -1163,7 +1166,8 @@ function applyInline(text) {
 }
 .ai-fab:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 10px 32px rgba(102, 126, 234, 0.6); }
 .ai-fab.is-open { background: rgba(255,255,255,0.15); box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
-.ai-fab-icon { position: relative; z-index: 1; transition: transform 0.3s; }
+.ai-fab-icon { position: relative; z-index: 1; transition: transform 0.3s; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; border-radius: 50%; overflow: hidden; }
+.ai-icon-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .ai-fab.is-open .ai-fab-icon { transform: rotate(90deg); }
 .ai-fab-pulse {
   position: absolute; inset: -4px; border-radius: 50%;
