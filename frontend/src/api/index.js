@@ -166,6 +166,8 @@ export const mapApi = {
   create: (data) => post('/api/map', data),
   update: (data) => put('/api/map', data),
   remove: (id) => del(`/api/map?id=${id}`),
+  upload: (file, fileName) => uploadFile('/api/map/upload', file, fileName),
+  cleanupUploads: (names) => post('/api/map/upload/cleanup', { names }),
 }
 
 export const musicApi = {
@@ -237,4 +239,3 @@ export const aiApi = {
   getConfig: () => get('/api/ai/config'),
   updateConfig: (data) => post('/api/ai/config', data),
 }
-

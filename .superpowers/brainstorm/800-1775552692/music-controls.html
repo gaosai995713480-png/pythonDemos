@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>音乐控制按钮风格对比</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0f0f1a;
+    color: #fff;
+    font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    padding: 32px 20px;
+    min-height: 100vh;
+  }
+  h2 { text-align: center; font-size: 20px; margin-bottom: 8px; color: #fff; }
+  .subtitle { text-align: center; font-size: 13px; color: rgba(255,255,255,0.45); margin-bottom: 36px; }
+
+  .cards {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  .card {
+    border-radius: 20px;
+    border: 2px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    padding: 28px 24px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s, transform 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .card:hover { border-color: rgba(180,100,255,0.4); background: rgba(180,100,255,0.06); transform: translateY(-2px); }
+  .card.selected { border-color: #b464ff; background: rgba(180,100,255,0.12); }
+  .card.selected::before {
+    content: '✓ 已选择';
+    position: absolute; top: 14px; right: 16px;
+    font-size: 11px; color: #b464ff; font-weight: 600;
+  }
+
+  .card-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 6px;
+  }
+  .card h3 { font-size: 15px; font-weight: 700; margin-bottom: 4px; color: #fff; }
+  .card p { font-size: 12px; color: rgba(255,255,255,0.45); margin-bottom: 20px; line-height: 1.6; }
+
+  /* ===== 演示区域公共 ===== */
+  .demo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 0 4px;
+  }
+
+  /* ===== 方案 A：玻璃态扁平圆形 ===== */
+  .style-a .controls {
+    display: flex; align-items: center; gap: 16px;
+  }
+  .style-a .ctrl {
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(10px);
+    color: #fff; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .style-a .ctrl:hover { background: rgba(255,255,255,0.18); transform: scale(1.08); }
+  .style-a .play {
+    width: 60px; height: 60px; font-size: 22px;
+    background: linear-gradient(135deg, #ff6b9d, #c44569);
+    border: none;
+    box-shadow: 0 6px 24px rgba(255,107,157,0.45);
+  }
+  .style-a .play:hover { transform: scale(1.12); box-shadow: 0 8px 32px rgba(255,107,157,0.6); }
+
+  /* ===== 方案 B：现代音乐播放器风（Spotify 风格）===== */
+  .style-b .controls {
+    display: flex; align-items: center; gap: 20px;
+  }
+  .style-b .ctrl {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: none; background: transparent;
+    color: rgba(255,255,255,0.55); font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .style-b .ctrl:hover { color: #fff; transform: scale(1.15); }
+  .style-b .play {
+    width: 52px; height: 52px;
+    background: #fff;
+    border-radius: 50%;
+    color: #0f0f1a;
+    font-size: 20px;
+    box-shadow: 0 4px 20px rgba(255,255,255,0.25);
+  }
+  .style-b .play:hover { transform: scale(1.1); background: #f0f0f0; }
+  .style-b .svg-icon { width: 20px; height: 20px; fill: currentColor; }
+  .style-b .play .svg-icon { width: 22px; height: 22px; fill: #0f0f1a; }
+
+  /* ===== 方案 C：胶囊/暗夜风格 ===== */
+  .style-c .controls {
+    display: flex; align-items: center; gap: 0;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 50px;
+    padding: 6px 10px;
+  }
+  .style-c .ctrl {
+    width: 42px; height: 42px; border-radius: 50%;
+    border: none; background: transparent;
+    color: rgba(255,255,255,0.65); font-size: 15px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .style-c .ctrl:hover { color: #fff; background: rgba(255,255,255,0.08); }
+  .style-c .play {
+    width: 52px; height: 52px;
+    background: linear-gradient(135deg, #7c3aed, #b464ff);
+    color: #fff; font-size: 20px;
+    border-radius: 50%;
+    box-shadow: 0 4px 16px rgba(124,58,237,0.5);
+    margin: 0 4px;
+  }
+  .style-c .play:hover { transform: scale(1.08); box-shadow: 0 6px 24px rgba(124,58,237,0.7); }
+
+  .confirm-wrap {
+    text-align: center;
+    margin-top: 36px;
+  }
+  .confirm-btn {
+    padding: 12px 36px; border-radius: 50px;
+    background: linear-gradient(135deg, #7c3aed, #b464ff);
+    border: none; color: #fff; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s;
+    box-shadow: 0 4px 16px rgba(124,58,237,0.4);
+  }
+  .confirm-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(124,58,237,0.6); }
+</style>
+</head>
+<body>
+<h2>🎵 音乐控制按钮风格</h2>
+<p class="subtitle">点击选择你喜欢的方案，然后点击「确认」</p>
+
+<div class="cards">
+
+  <!-- 方案 A -->
+  <div class="card" id="card-a" onclick="select('a')">
+    <div class="card-label">方案 A</div>
+    <h3>玻璃态圆形</h3>
+    <p>上下曲按钮为磨砂玻璃圆形，播放键用粉红渐变高亮，有呼吸感光效</p>
+    <div class="demo style-a">
+      <div class="controls">
+        <div class="ctrl">⏮</div>
+        <div class="ctrl play">▶</div>
+        <div class="ctrl">⏭</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 方案 B -->
+  <div class="card" id="card-b" onclick="select('b')">
+    <div class="card-label">方案 B</div>
+    <h3>Spotify 简约风</h3>
+    <p>上下曲为透明背景图标按钮，播放键为纯白圆形，简洁、极简、专注</p>
+    <div class="demo style-b">
+      <div class="controls">
+        <div class="ctrl">
+          <svg class="svg-icon" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+        </div>
+        <div class="ctrl play">
+          <svg class="svg-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+        <div class="ctrl">
+          <svg class="svg-icon" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zm2-8.14 5.02 3.14L8 18.14V9.86zM16 6h2v12h-2z"/></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 方案 C -->
+  <div class="card" id="card-c" onclick="select('c')">
+    <div class="card-label">方案 C</div>
+    <h3>胶囊一体式</h3>
+    <p>三个按钮封装在一个半透明胶囊容器内，播放键为紫色渐变，整体感更强</p>
+    <div class="demo style-c">
+      <div class="controls">
+        <div class="ctrl">⏮</div>
+        <div class="ctrl play">▶</div>
+        <div class="ctrl">⏭</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="confirm-wrap">
+  <button class="confirm-btn" onclick="confirm()">✓ 确认选择</button>
+</div>
+
+<script>
+let selected = null;
+function select(id) {
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('card-' + id).classList.add('selected');
+  selected = id;
+}
+function confirm() {
+  if (!selected) { alert('请先选择一个方案'); return; }
+  // 记录选择到 events
+  try {
+    const labels = { a: '方案A - 玻璃态圆形', b: '方案B - Spotify简约风', c: '方案C - 胶囊一体式' };
+    fetch('/__event', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ type: 'click', choice: selected, text: labels[selected], timestamp: Date.now() })
+    });
+  } catch(e) {}
+  alert('已选择 ' + selected.toUpperCase() + ' 方案，请在终端告诉我！');
+}
+</script>
+</body>
+</html>

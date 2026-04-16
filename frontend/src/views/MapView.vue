@@ -5,6 +5,12 @@ import TopBar from '../components/TopBar.vue'
 import GlassModal from '../components/GlassModal.vue'
 import { mapApi } from '../api'
 import { useAuthStore } from '../stores/auth'
+import {
+  createMapPhotoDrafts,
+  createPendingPhotoDrafts,
+  resolveMapPhotoDraftUrls,
+  revokeLocalPhotoDrafts,
+} from './mapPhotoDraft'
 const authStore = useAuthStore()
 
 const router = useRouter()
@@ -12,11 +18,24 @@ const markers = ref([])
 const selectedMarker = ref(null)
 const showDetail = ref(false)
 const showForm = ref(false)
-const form = ref({ name: '', note: '', date: '', photo: '', lat: 0, lng: 0 })
+const form = ref(createEmptyForm())
+const uploading = ref(false)
+const carouselIndex = ref(0)
 let editingId = null
 let map = null
 let mapMarkers = []
 let polyline = null
+
+function createEmptyForm() {
+  return {
+    name: '',
+    note: '',
+    date: new Date().toISOString().split('T')[0],
+    photos: [],
+    lat: 0,
+    lng: 0,
+  }
+}
 
 // 地图初始化（需要等高德 SDK 加载完毕）
 function initMap() {
@@ -46,39 +65,94 @@ function onMapClick(e) {
 }
 
 function openForm(name, lat, lng, data) {
+  revokeLocalPhotoDrafts(form.value.photos)
   editingId = data ? data.id : null
   form.value = {
     name: data ? data.title : (name || ''),
     note: data ? (data.note || '') : '',
     date: data ? (data.visit_date || '') : new Date().toISOString().split('T')[0],
-    photo: data ? (data.photo_url || '') : '',
+    photos: createMapPhotoDrafts(data),
     lat, lng,
   }
   showForm.value = true
 }
 
+function closeForm() {
+  revokeLocalPhotoDrafts(form.value.photos)
+  form.value = createEmptyForm()
+  editingId = null
+  showForm.value = false
+}
+
+function handleFormVisibleChange(value) {
+  if (value) {
+    showForm.value = true
+    return
+  }
+  if (uploading.value) return
+  closeForm()
+}
+
+function handleFileSelect(e) {
+  if (uploading.value) return
+  const files = e.target.files
+  if (!files || !files.length) return
+  const drafts = createPendingPhotoDrafts(files)
+  form.value.photos.push(...drafts)
+  e.target.value = ''
+}
+
+function removePhoto(index) {
+  if (uploading.value) return
+  const [removed] = form.value.photos.splice(index, 1)
+  revokeLocalPhotoDrafts(removed ? [removed] : [])
+}
+
 async function saveForm() {
   if (!form.value.name) { alert('请输入地点名称'); return }
-  const body = {
-    title: form.value.name, note: form.value.note,
-    visit_date: form.value.date, photo_url: form.value.photo,
-    lat: form.value.lat, lng: form.value.lng,
-  }
+  let uploadedNames = []
+  uploading.value = true
   try {
+    const resolved = await resolveMapPhotoDraftUrls(
+      form.value.photos,
+      mapApi.upload,
+      mapApi.cleanupUploads,
+    )
+    uploadedNames = resolved.uploadedNames
+    const body = {
+      title: form.value.name,
+      note: form.value.note,
+      visit_date: form.value.date,
+      photos: resolved.urls,
+      lat: form.value.lat,
+      lng: form.value.lng,
+    }
     if (editingId) {
       body.id = editingId
       await mapApi.update(body)
     } else {
       await mapApi.create(body)
     }
-    showForm.value = false
     showDetail.value = false
+    closeForm()
     loadMarkers()
-  } catch { alert('保存失败') }
+  } catch {
+    if (uploadedNames.length) {
+      try {
+        await mapApi.cleanupUploads(uploadedNames)
+      } catch {
+        // 清理失败时保留原始保存错误提示
+      }
+    }
+    alert('保存失败')
+  } finally {
+    uploading.value = false
+  }
 }
 
 function openDetail(data) {
   selectedMarker.value = data
+  carouselIndex.value = 0
   showDetail.value = true
 }
 
@@ -203,6 +277,18 @@ onMounted(async () => {
   initMap()
   initSearch()
 })
+
+onUnmounted(() => {
+  revokeLocalPhotoDrafts(form.value.photos)
+  if (searchTimer) clearTimeout(searchTimer)
+  clearMapMarkers()
+  if (map) {
+    map.off('click', onMapClick)
+    if (typeof map.destroy === 'function') {
+      map.destroy()
+    }
+  }
+})
 </script>
 
 <template>
@@ -238,7 +324,19 @@ onMounted(async () => {
   <div class="detail-backdrop" :class="{ 'is-visible': showDetail }" @click="showDetail = false"></div>
   <div class="detail-card" :class="{ 'is-visible': showDetail }" v-if="selectedMarker">
     <div class="detail-handle"></div>
-    <img v-if="selectedMarker.photo_url" class="detail-photo" :src="selectedMarker.photo_url" alt="" />
+    <!-- 照片轮播 -->
+    <div v-if="selectedMarker.photos && selectedMarker.photos.length" class="detail-carousel">
+      <div class="carousel-track" :style="{ transform: `translateX(-${carouselIndex * 100}%)` }">
+        <img v-for="(url, i) in selectedMarker.photos" :key="i" :src="url" alt="" class="detail-photo" />
+      </div>
+      <div v-if="selectedMarker.photos.length > 1" class="carousel-nav">
+        <button class="carousel-btn" @click="carouselIndex = Math.max(0, carouselIndex - 1)" :disabled="carouselIndex === 0">‹</button>
+        <span class="carousel-counter">{{ carouselIndex + 1 }} / {{ selectedMarker.photos.length }}</span>
+        <button class="carousel-btn" @click="carouselIndex = Math.min(selectedMarker.photos.length - 1, carouselIndex + 1)" :disabled="carouselIndex === selectedMarker.photos.length - 1">›</button>
+      </div>
+    </div>
+    <!-- 兼容旧数据 -->
+    <img v-else-if="selectedMarker.photo_url" class="detail-photo" :src="selectedMarker.photo_url" alt="" />
     <div class="detail-title">{{ selectedMarker.title }}</div>
     <div class="detail-date">{{ selectedMarker.visit_date ? `📅 ${selectedMarker.visit_date}` : '' }}</div>
     <div class="detail-note">{{ selectedMarker.note || '暂无备注' }}</div>
@@ -249,7 +347,11 @@ onMounted(async () => {
   </div>
 
   <!-- Form Modal -->
-  <GlassModal v-model="showForm" :title="editingId ? '✏️ 编辑足迹' : '📍 添加足迹'">
+  <GlassModal
+    :model-value="showForm"
+    :title="editingId ? '✏️ 编辑足迹' : '📍 添加足迹'"
+    @update:model-value="handleFormVisibleChange"
+  >
     <div class="form-group">
       <label>地点名称 *</label>
       <input v-model="form.name" placeholder="如：黄鹤楼" maxlength="100" />
@@ -263,12 +365,25 @@ onMounted(async () => {
       <input type="date" v-model="form.date" />
     </div>
     <div class="form-group">
-      <label>照片URL（可选）</label>
-      <input v-model="form.photo" placeholder="https://..." />
+      <label>照片（可选，支持多张）</label>
+      <div class="photo-upload-area">
+        <div class="photo-thumbs">
+          <div v-for="(photo, i) in form.photos" :key="`${photo.url}-${i}`" class="photo-thumb-item">
+            <img :src="photo.url" alt="" />
+            <button class="photo-remove-btn" @click="removePhoto(i)" :disabled="uploading">✕</button>
+          </div>
+          <label class="photo-add-btn">
+            <span>＋</span>
+            <input type="file" accept="image/*" multiple @change="handleFileSelect" :disabled="uploading" />
+          </label>
+        </div>
+      </div>
     </div>
     <div class="form-btns">
-      <button class="btn-cancel" @click="showForm = false">取消</button>
-      <button class="btn-primary" @click="saveForm">保存</button>
+      <button class="btn-cancel" @click="closeForm" :disabled="uploading">取消</button>
+      <button class="btn-primary" @click="saveForm" :disabled="uploading">
+        {{ uploading ? '保存中...' : '保存' }}
+      </button>
     </div>
   </GlassModal>
 </template>
@@ -368,4 +483,47 @@ onMounted(async () => {
     font-size: 12px;
   }
 }
+
+/* 照片上传区 */
+.photo-upload-area { margin-top: 4px; }
+.photo-thumbs { display: flex; flex-wrap: wrap; gap: 8px; }
+.photo-thumb-item {
+  position: relative; width: 72px; height: 72px; border-radius: 10px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.photo-thumb-item img { width: 100%; height: 100%; object-fit: cover; }
+.photo-remove-btn {
+  position: absolute; top: 2px; right: 2px; width: 20px; height: 20px;
+  border-radius: 50%; border: none; background: rgba(0,0,0,0.6); color: #fff;
+  font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.photo-remove-btn:hover { background: #ef4444; }
+.photo-add-btn {
+  width: 72px; height: 72px; border-radius: 10px; border: 2px dashed rgba(255,255,255,0.2);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  color: rgba(255,255,255,0.4); font-size: 24px; transition: all 0.2s;
+}
+.photo-add-btn:hover { border-color: var(--primary); color: var(--primary); }
+.photo-add-btn input { display: none; }
+
+/* 照片轮播 */
+.detail-carousel { position: relative; overflow: hidden; border-radius: 16px; margin-bottom: 16px; background: rgba(0,0,0,0.3); }
+.carousel-track { display: flex; transition: transform 0.3s ease; }
+.carousel-track .detail-photo {
+  min-width: 100%; height: 320px; object-fit: contain; flex-shrink: 0;
+  background: rgba(0,0,0,0.2);
+}
+.carousel-nav {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  padding: 8px 0;
+}
+.carousel-btn {
+  width: 32px; height: 32px; border-radius: 50%; border: none;
+  background: rgba(255,255,255,0.1); color: #fff; font-size: 18px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s;
+}
+.carousel-btn:hover:not(:disabled) { background: rgba(255,255,255,0.2); }
+.carousel-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.carousel-counter { font-size: 13px; color: var(--text-secondary); }
 </style>

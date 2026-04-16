@@ -29,6 +29,7 @@ class Settings:
     mood_table: str = os.getenv("TABLE_MOOD", "love_mood")
     wish_table: str = os.getenv("TABLE_WISH", "love_wish")
     map_table: str = os.getenv("TABLE_MAP", "love_map")
+    map_photos_table: str = os.getenv("TABLE_MAP_PHOTOS", "love_map_photos")
     music_table: str = os.getenv("TABLE_MUSIC", "love_music")
     song_request_table: str = os.getenv("TABLE_SONG_REQUEST", "love_song_requests")
 

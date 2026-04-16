@@ -142,6 +142,16 @@ def init_tables():
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='恋爱地图'
             """,
+            settings.map_photos_table: f"""
+                CREATE TABLE IF NOT EXISTS `{settings.map_photos_table}` (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '照片ID',
+                    marker_id BIGINT NOT NULL COMMENT '关联 love_map.id',
+                    photo_url VARCHAR(500) NOT NULL COMMENT 'OSS完整URL',
+                    sort_order INT DEFAULT 0 COMMENT '排序',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                    INDEX idx_marker_id (marker_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='足迹照片'
+            """,
             settings.music_table: f"""
                 CREATE TABLE IF NOT EXISTS `{settings.music_table}` (
                     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '歌曲ID',

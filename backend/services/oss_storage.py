@@ -69,10 +69,11 @@ def get_oss_domain() -> str:
     return _oss_cache["domain"]
 
 
-def upload_to_oss(safe_name: str, file_data: bytes) -> bool:
+def upload_to_oss(safe_name: str, file_data: bytes, prefix: str = "photos") -> bool:
     """上传文件到 OSS
 
     返回 True 表示上传成功，False 表示未配置或上传失败
+    prefix: OSS 对象前缀，默认 "photos"，地图模块使用 "map"
     """
     bucket = get_oss_bucket()
     if not bucket:
@@ -80,11 +81,26 @@ def upload_to_oss(safe_name: str, file_data: bytes) -> bool:
         return False
 
     try:
-        object_key = f"photos/{safe_name}"
+        object_key = f"{prefix}/{safe_name}"
         bucket.put_object(object_key, file_data)
         return True
     except Exception as e:
         logger.error(f"OSS put_object failed: {e}")
+        return False
+
+
+def delete_from_oss(object_key: str) -> bool:
+    """删除 OSS 对象"""
+    bucket = get_oss_bucket()
+    if not bucket:
+        logger.warning("OSS not configured, cannot delete file.")
+        return False
+
+    try:
+        bucket.delete_object(object_key)
+        return True
+    except Exception as e:
+        logger.error(f"OSS delete_object failed: {e}")
         return False
 
 

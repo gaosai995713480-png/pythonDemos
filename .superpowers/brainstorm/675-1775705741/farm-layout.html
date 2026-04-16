@@ -1,0 +1,29 @@
+<h2>我们希望打造什么风格的农场？</h2>
+<p class="subtitle">不同的视角会影响我们后续的开发技术栈和工作量，请选一个最符合您期望的：</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>经典上帝视角（如 QQ 农场）</h3>
+      <p>方正的 2D 网格，点击地块即可播种、浇水。开发速度快，非常适合作为嵌入式小游戏。</p>
+      <div style="margin-top: 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 10px; background: rgba(0,0,0,0.1); border-radius: 8px;">
+         <div style="aspect-ratio: 1; background: #8B5A2B; border-radius: 4px; border: 1px dashed rgba(255,255,255,0.3);">🌱</div>
+         <div style="aspect-ratio: 1; background: #8B5A2B; border-radius: 4px; border: 1px dashed rgba(255,255,255,0.3);">🌻</div>
+         <div style="aspect-ratio: 1; background: #8B5A2B; border-radius: 4px; border: 1px dashed rgba(255,255,255,0.3);"></div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>等距斜视角（2.5D，如 星露谷物语）</h3>
+      <p>视觉效果立体，沉浸感更强，但资源准备和坐标转换的开发成本会稍微高一些。</p>
+      <div style="margin-top: 10px; display: flex; flex-direction: column; align-items: center; padding: 10px; background: rgba(0,0,0,0.1); border-radius: 8px;">
+         <div style="width: 60%; height: 30px; background: #8B5A2B; transform: skewX(-45deg); border: 1px solid rgba(255,255,255,0.3); display: flex; justify-content: center; align-items: center;">🌲</div>
+         <div style="width: 60%; height: 30px; background: #8B5A2B; transform: skewX(-45deg); border: 1px solid rgba(255,255,255,0.3); display: flex; justify-content: center; align-items: center;">🌾</div>
+      </div>
+    </div>
+  </div>
+</div>

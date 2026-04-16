@@ -4,6 +4,7 @@
 import os
 import sys
 import shutil
+from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
 
@@ -20,6 +21,7 @@ from backend.dependencies import (
     create_session,
 )
 from backend.routers import gallery as gallery_router
+from backend.routers import photos as photos_router
 
 
 client = TestClient(app)
@@ -32,11 +34,34 @@ def login_as(role: str = "visitor") -> str:
     return token
 
 
-def first_photo_name() -> str:
-    for item in settings.photos_dir.iterdir():
-        if item.is_file():
-            return item.name
-    raise AssertionError("docs/photos 中没有可用测试图片")
+class FakePhotoCursor:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def execute(self, sql, params=None):
+        return None
+
+    def fetchall(self):
+        return self.rows
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+
+class FakePhotoConnection:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def cursor(self):
+        return FakePhotoCursor(self.rows)
+
+
+@contextmanager
+def fake_get_db(rows=None):
+    yield FakePhotoConnection(rows or [])
 
 
 def setup_function():
@@ -58,6 +83,14 @@ def isolated_base_dir(monkeypatch) -> Path:
     return base_dir
 
 
+def isolate_photo_runtime(monkeypatch) -> Path:
+    base_dir = isolated_base_dir(monkeypatch)
+    monkeypatch.setattr(photos_router, "get_db", lambda: fake_get_db([]))
+    monkeypatch.setattr(photos_router, "get_oss_bucket", lambda: None)
+    monkeypatch.setattr(photos_router, "get_oss_domain", lambda: "")
+    return base_dir
+
+
 def test_photos_json_requires_authentication():
     response = client.get("/photos.json")
 
@@ -65,7 +98,7 @@ def test_photos_json_requires_authentication():
 
 
 def test_photos_json_requires_gallery_unlock(monkeypatch):
-    isolated_base_dir(monkeypatch)
+    isolate_photo_runtime(monkeypatch)
     photos_dir = settings.photos_dir
     photos_dir.mkdir(parents=True, exist_ok=True)
     (photos_dir / "sample.jpg").write_bytes(b"fake-image")
@@ -81,20 +114,31 @@ def test_photos_json_requires_gallery_unlock(monkeypatch):
     assert verify_response.status_code == 200
     assert verify_response.json() == {"ok": True}
     assert unlocked_response.status_code == 200
-    assert unlocked_response.json() == ["photos/sample.jpg"]
+    assert unlocked_response.json() == [
+        {
+            "id": 0,
+            "filename": "sample.jpg",
+            "url": "photos/sample.jpg",
+            "description": "",
+            "created_at": "",
+        }
+    ]
 
 
-def test_photo_file_requires_gallery_unlock():
+def test_photo_file_requires_gallery_unlock(monkeypatch):
+    isolate_photo_runtime(monkeypatch)
+    photos_dir = settings.photos_dir
+    photos_dir.mkdir(parents=True, exist_ok=True)
+    (photos_dir / "sample.jpg").write_bytes(b"fake-image")
     login_as("visitor")
-    photo_name = first_photo_name()
 
-    response = client.get(f"/photos/{photo_name}")
+    response = client.get("/photos/sample.jpg")
 
     assert response.status_code == 403
 
 
 def test_upload_invalid_extension_returns_400(monkeypatch):
-    isolated_base_dir(monkeypatch)
+    isolate_photo_runtime(monkeypatch)
     login_as("admin")
 
     response = client.post(
@@ -104,11 +148,11 @@ def test_upload_invalid_extension_returns_400(monkeypatch):
     )
 
     assert response.status_code == 400
-    assert response.json()["error"] == "only image files are allowed"
+    assert response.json()["error"] == "invalid file name"
 
 
 def test_import_invalid_zip_returns_400(monkeypatch):
-    isolated_base_dir(monkeypatch)
+    isolate_photo_runtime(monkeypatch)
     login_as("admin")
 
     response = client.post("/photos/import", content=b"not-a-zip")
@@ -118,7 +162,7 @@ def test_import_invalid_zip_returns_400(monkeypatch):
 
 
 def test_verify_gallery_unlock_grants_access(monkeypatch):
-    isolated_base_dir(monkeypatch)
+    isolate_photo_runtime(monkeypatch)
     photos_dir = settings.photos_dir
     photos_dir.mkdir(parents=True, exist_ok=True)
     (photos_dir / "sample.jpg").write_bytes(b"fake-image")
@@ -132,4 +176,12 @@ def test_verify_gallery_unlock_grants_access(monkeypatch):
     assert verify_response.status_code == 200
     assert verify_response.json() == {"ok": True}
     assert list_response.status_code == 200
-    assert list_response.json() == ["photos/sample.jpg"]
+    assert list_response.json() == [
+        {
+            "id": 0,
+            "filename": "sample.jpg",
+            "url": "photos/sample.jpg",
+            "description": "",
+            "created_at": "",
+        }
+    ]

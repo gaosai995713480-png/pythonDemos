@@ -24,6 +24,12 @@ vi.mock('../stores/auth.js', () => ({
   }),
 }))
 
+vi.mock('../stores/context', () => ({
+  useContextStore: () => ({
+    setPageState: vi.fn(),
+  }),
+}))
+
 vi.mock('vue-router', () => ({
   useRouter: () => ({
     push: mockPush,
@@ -40,10 +46,12 @@ describe('ExpressView', () => {
     vi.clearAllMocks()
     vi.useRealTimers()
     localStorage.clear()
-    mockCompanies.mockResolvedValue([
-      { code: 'shunfeng', name: '顺丰速运' },
-      { code: 'zhongtong', name: '中通快递' },
-    ])
+    mockCompanies.mockResolvedValue({
+      companies: [
+        { code: 'shunfeng', name: '顺丰速运' },
+        { code: 'zhongtong', name: '中通快递' },
+      ],
+    })
     mockDetect.mockResolvedValue({ auto: [] })
     mockQuery.mockResolvedValue({ status: '200', message: 'ok', data: [] })
     mockGetConfig.mockResolvedValue({ customer_configured: false, key_configured: false })

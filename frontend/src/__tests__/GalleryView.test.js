@@ -24,6 +24,12 @@ vi.mock('../stores/auth.js', () => ({
   }),
 }))
 
+vi.mock('../stores/context', () => ({
+  useContextStore: () => ({
+    setPageState: vi.fn(),
+  }),
+}))
+
 vi.mock('vue-router', () => ({
   useRouter: () => ({
     push: mockPush,
@@ -37,7 +43,15 @@ describe('GalleryView', () => {
     vi.clearAllMocks()
     sessionStorage.clear()
     sessionStorage.setItem('gallery_unlocked', '1')
-    mockList.mockResolvedValue(['/photos/sample.jpg'])
+    mockList.mockResolvedValue([
+      {
+        id: 1,
+        filename: 'sample.jpg',
+        url: '/photos/sample.jpg',
+        description: '',
+        created_at: '2026-04-16 21:00:00',
+      },
+    ])
     mockUpload.mockRejectedValue(new Error('上传失败'))
     mockImportZip.mockResolvedValue({ ok: true })
     mockVerify.mockResolvedValue({ ok: true })
