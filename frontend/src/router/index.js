@@ -65,6 +65,11 @@ const routes = [
     component: () => import('../views/ExpressView.vue'),
   },
   {
+    path: '/cookbook',
+    name: 'Cookbook',
+    component: () => import('../views/CookbookView.vue'),
+  },
+  {
     path: '/users',
     name: 'Users',
     component: () => import('../views/UsersView.vue'),
@@ -124,6 +129,7 @@ router.afterEach((to) => {
       Map: "足迹地图",
       Jukebox: "点歌台",
       Express: "快递查询",
+      Cookbook: "我们的小厨房",
       Users: "用户管理"
     }
     contextStore.pageName = pageMap[to.name] || (to.name || '')

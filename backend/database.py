@@ -266,6 +266,127 @@ def init_tables():
                     INDEX idx_user (username, created_at)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户长期记忆事实表'
             """,
+            "love_recipes": """
+                CREATE TABLE IF NOT EXISTS `love_recipes` (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '菜谱ID',
+                    source VARCHAR(30) NOT NULL DEFAULT 'howtocook' COMMENT '来源：howtocook/custom',
+                    source_repo VARCHAR(255) DEFAULT '' COMMENT '来源仓库URL',
+                    source_commit VARCHAR(80) DEFAULT '' COMMENT '来源commit',
+                    source_path VARCHAR(500) NOT NULL COMMENT '来源文件路径',
+                    source_hash CHAR(64) NOT NULL COMMENT '源文件内容SHA256',
+                    title VARCHAR(120) NOT NULL COMMENT '菜名',
+                    category VARCHAR(80) DEFAULT '' COMMENT '分类',
+                    description VARCHAR(500) DEFAULT '' COMMENT '简介',
+                    raw_markdown MEDIUMTEXT NOT NULL COMMENT '原始Markdown',
+                    ingredients_json JSON NULL COMMENT '结构化材料',
+                    steps_json JSON NULL COMMENT '结构化步骤',
+                    tips TEXT NULL COMMENT '小贴士',
+                    difficulty VARCHAR(20) DEFAULT 'unknown' COMMENT '难度',
+                    cook_time_minutes INT DEFAULT NULL COMMENT '预计耗时分钟',
+                    servings INT DEFAULT NULL COMMENT '份量',
+                    tags_json JSON NULL COMMENT '标签',
+                    is_enabled TINYINT NOT NULL DEFAULT 1 COMMENT '是否启用',
+                    is_archived TINYINT NOT NULL DEFAULT 0 COMMENT '是否归档',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                    UNIQUE KEY uniq_recipe_source_path (source, source_path),
+                    KEY idx_recipe_category (category),
+                    KEY idx_recipe_enabled (is_enabled),
+                    KEY idx_recipe_source_hash (source_hash)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='做菜食谱表'
+            """,
+            "love_recipe_import_batches": """
+                CREATE TABLE IF NOT EXISTS `love_recipe_import_batches` (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '导入批次ID',
+                    source VARCHAR(30) NOT NULL DEFAULT 'howtocook' COMMENT '来源',
+                    source_repo VARCHAR(255) NOT NULL COMMENT '来源仓库URL',
+                    source_commit VARCHAR(80) DEFAULT '' COMMENT '来源commit',
+                    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '开始时间',
+                    finished_at TIMESTAMP NULL DEFAULT NULL COMMENT '结束时间',
+                    status VARCHAR(20) NOT NULL DEFAULT 'running' COMMENT '状态',
+                    total_files INT NOT NULL DEFAULT 0 COMMENT '总文件数',
+                    created_count INT NOT NULL DEFAULT 0 COMMENT '新增数量',
+                    updated_count INT NOT NULL DEFAULT 0 COMMENT '更新数量',
+                    skipped_count INT NOT NULL DEFAULT 0 COMMENT '跳过数量',
+                    failed_count INT NOT NULL DEFAULT 0 COMMENT '失败数量',
+                    error_message TEXT NULL COMMENT '批次错误信息',
+                    created_by VARCHAR(50) DEFAULT 'system' COMMENT '触发人'
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='食谱导入批次表'
+            """,
+            "love_recipe_import_errors": """
+                CREATE TABLE IF NOT EXISTS `love_recipe_import_errors` (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '导入错误ID',
+                    batch_id BIGINT NOT NULL COMMENT '导入批次ID',
+                    source_path VARCHAR(500) NOT NULL COMMENT '来源文件路径',
+                    error_type VARCHAR(80) NOT NULL COMMENT '错误类型',
+                    error_message TEXT NOT NULL COMMENT '错误信息',
+                    raw_excerpt TEXT NULL COMMENT '原文片段',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                    KEY idx_import_error_batch (batch_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='食谱导入错误表'
+            """,
+            "love_recipe_user_states": """
+                CREATE TABLE IF NOT EXISTS `love_recipe_user_states` (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '状态ID',
+                    recipe_id BIGINT NOT NULL COMMENT '菜谱ID',
+                    username VARCHAR(50) NOT NULL COMMENT '用户名',
+                    is_favorite TINYINT NOT NULL DEFAULT 0 COMMENT '是否收藏',
+                    want_to_cook TINYINT NOT NULL DEFAULT 0 COMMENT '是否想做',
+                    cooked_count INT NOT NULL DEFAULT 0 COMMENT '做过次数',
+                    last_cooked_at DATE NULL COMMENT '最近做过日期',
+                    rating TINYINT NULL COMMENT '用户评分1-5',
+                    note VARCHAR(500) DEFAULT '' COMMENT '用户备注',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                    UNIQUE KEY uniq_recipe_user_state (recipe_id, username),
+                    KEY idx_recipe_user_username (username),
+                    KEY idx_recipe_user_flags (is_favorite, want_to_cook)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户食谱状态表'
+            """,
+            "love_cooking_records": """
+                CREATE TABLE IF NOT EXISTS `love_cooking_records` (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '做饭记录ID',
+                    recipe_id BIGINT NOT NULL COMMENT '菜谱ID',
+                    username VARCHAR(50) NOT NULL COMMENT '记录用户',
+                    cooked_date DATE NOT NULL COMMENT '做饭日期',
+                    rating TINYINT NULL COMMENT '评分1-5',
+                    mood VARCHAR(30) DEFAULT '' COMMENT '心情',
+                    photo_url VARCHAR(500) DEFAULT '' COMMENT '成品照片URL',
+                    note TEXT NULL COMMENT '做饭备注',
+                    next_time_improvement TEXT NULL COMMENT '下次改进',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                    KEY idx_cooking_records_recipe (recipe_id),
+                    KEY idx_cooking_records_user_date (username, cooked_date)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='做饭记录表'
+            """,
+            "love_cooking_menus": """
+                CREATE TABLE IF NOT EXISTS `love_cooking_menus` (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '菜单ID',
+                    title VARCHAR(120) NOT NULL COMMENT '菜单标题',
+                    menu_date DATE NULL COMMENT '菜单日期',
+                    description VARCHAR(500) DEFAULT '' COMMENT '菜单描述',
+                    status VARCHAR(20) NOT NULL DEFAULT 'planned' COMMENT 'planned/done/cancelled',
+                    created_by VARCHAR(50) NOT NULL COMMENT '创建人',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                    KEY idx_cooking_menus_user_date (created_by, menu_date),
+                    KEY idx_cooking_menus_status (status)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='做饭菜单表'
+            """,
+            "love_cooking_menu_items": """
+                CREATE TABLE IF NOT EXISTS `love_cooking_menu_items` (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '菜单明细ID',
+                    menu_id BIGINT NOT NULL COMMENT '菜单ID',
+                    recipe_id BIGINT NOT NULL COMMENT '菜谱ID',
+                    sort_order INT NOT NULL DEFAULT 0 COMMENT '排序',
+                    note VARCHAR(300) DEFAULT '' COMMENT '备注',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                    UNIQUE KEY uniq_menu_recipe (menu_id, recipe_id),
+                    KEY idx_menu_items_menu (menu_id),
+                    KEY idx_menu_items_recipe (recipe_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='做饭菜单明细表'
+            """,
         }
 
         with conn.cursor() as cursor:

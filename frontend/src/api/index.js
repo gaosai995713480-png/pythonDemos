@@ -234,6 +234,35 @@ export const expressApi = {
   updateConfig: (data) => post('/api/express/config', data),
 }
 
+function toQuery(params = {}) {
+  const search = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return
+    search.set(key, String(value))
+  })
+  const query = search.toString()
+  return query ? `?${query}` : ''
+}
+
+export const recipeApi = {
+  list: (params = {}) => get(`/api/recipes${toQuery(params)}`),
+  categories: () => get('/api/recipes/categories'),
+  detail: (id) => get(`/api/recipes/${id}`),
+  random: (params = {}) => get(`/api/recipes/random${toQuery(params)}`),
+  updateState: (id, data) => post(`/api/recipes/${id}/state`, data),
+  addRecord: (id, data) => post(`/api/recipes/${id}/records`, data),
+  records: (id) => get(`/api/recipes/${id}/records`),
+}
+
+export const cookingApi = {
+  records: () => get('/api/cooking/records'),
+  menus: () => get('/api/cooking/menus'),
+  createMenu: (data) => post('/api/cooking/menus', data),
+  addMenuItem: (menuId, data) => post(`/api/cooking/menus/${menuId}/items`, data),
+  completeMenu: (menuId) => post(`/api/cooking/menus/${menuId}/complete`, {}),
+  removeMenuItem: (menuId, itemId) => del(`/api/cooking/menus/${menuId}/items/${itemId}`),
+}
+
 export const aiApi = {
   status: () => get('/api/ai/status'),
   getConfig: () => get('/api/ai/config'),
