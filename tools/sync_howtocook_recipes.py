@@ -6,63 +6,22 @@ r"""同步 HowToCook 上游快照到本项目数据库。
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from backend.services.recipe_bootstrap import load_howtocook_recipes  # noqa: E402
 from backend.services.recipe_importer import RecipeImportService  # noqa: E402
-from backend.services.recipe_parser import DEFAULT_SOURCE_REPO, parse_recipe_markdown  # noqa: E402
-
-
-def iter_markdown_files(source_dir: Path, limit: int | None = None):
-    dishes_dir = source_dir / "dishes"
-    if not dishes_dir.exists():
-        raise FileNotFoundError(f"HowToCook dishes 目录不存在: {dishes_dir}")
-
-    count = 0
-    for root, _, files in os.walk(dishes_dir):
-        for file_name in files:
-            if not file_name.lower().endswith(".md"):
-                continue
-            path = Path(root) / file_name
-            yield path
-            count += 1
-            if limit and count >= limit:
-                return
 
 
 def load_recipes(source_dir: Path, source_commit: str, limit: int | None = None):
-    recipes = []
-    load_errors = []
-    for path in iter_markdown_files(source_dir, limit=limit):
-        source_path = path.relative_to(source_dir).as_posix()
-        markdown = ""
-        try:
-            markdown = path.read_text(encoding="utf-8")
-            recipes.append(
-                parse_recipe_markdown(
-                    markdown,
-                    source_path=source_path,
-                    source_repo=DEFAULT_SOURCE_REPO,
-                    source_commit=source_commit,
-                )
-            )
-        except Exception as exc:  # noqa: BLE001 - 单文件失败需要进入批次错误表
-            print(
-                f"HowToCook load error: path={source_path}, type={type(exc).__name__}, error={exc}",
-                file=sys.stderr,
-            )
-            load_errors.append(
-                {
-                    "source_path": source_path,
-                    "error_type": type(exc).__name__,
-                    "error_message": str(exc),
-                    "raw_excerpt": markdown[:1000],
-                }
-            )
+    recipes, load_errors, _ = load_howtocook_recipes(
+        source_dir,
+        source_commit,
+        limit=limit,
+    )
     return recipes, load_errors
 
 

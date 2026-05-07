@@ -13,6 +13,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 from .config import settings
 from .database import init_tables
+from .services.recipe_bootstrap import ensure_howtocook_recipes_seeded
 
 # 路由
 from .routers import auth, danmu, timeline, capsule, mood, wish, map, music, weather, photos, config, jukebox, gallery, users, express, ai, ai_skills, ai_conversations, recipes
@@ -63,6 +64,24 @@ def startup():
     try:
         init_tables()
         logger.info("数据库初始化完成")
+        seed_result = ensure_howtocook_recipes_seeded(created_by="startup")
+        if seed_result.status == "seeded" and seed_result.import_result:
+            logger.info(
+                "HowToCook 菜谱自动导入完成: total=%s created=%s updated=%s skipped=%s failed=%s",
+                seed_result.import_result.total_files,
+                seed_result.import_result.created_count,
+                seed_result.import_result.updated_count,
+                seed_result.import_result.skipped_count,
+                seed_result.import_result.failed_count,
+            )
+        elif seed_result.status == "already_seeded":
+            logger.info("HowToCook 菜谱已存在: count=%s", seed_result.existing_count)
+        else:
+            logger.warning(
+                "HowToCook 菜谱自动导入跳过: status=%s error=%s",
+                seed_result.status,
+                seed_result.error_message,
+            )
     except Exception as e:
         logger.warning("数据库初始化失败（部分功能可能不可用）: %s", e)
 

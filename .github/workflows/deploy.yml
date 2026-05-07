@@ -37,6 +37,7 @@ jobs:
           git clean -fd docs/assets
           git pull origin master
           /srv/love/.venv/bin/pip install -r requirements.txt
+          /srv/love/.venv/bin/python tools/ensure_howtocook_recipes.py
           cd /srv/love/frontend && npm install && npm run build
           cd /srv/love
           sudo systemctl restart love
