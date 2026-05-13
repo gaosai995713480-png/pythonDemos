@@ -17,11 +17,31 @@ const danmuEnabled = ref(true)
 const danmuPanelOpen = ref(false)
 const danmuSpeed = ref(12)
 const danmuDensity = ref(8)
+const RESUME_WARMUP_MS = 4000
+const RESUME_WARMUP_FACTOR = 1.8
 let danmuMainTimer = null
+let resumeWarmupTimer = null
 let danmuIndex = 0
 
 async function loadDanmu() {
   try { danmuList.value = await danmuApi.list(50) } catch { /* API layer handles toast */ }
+}
+
+function clearDanmuLayer() {
+  const layer = document.getElementById('danmu-layer')
+  if (layer) layer.innerHTML = ''
+}
+
+function streamIntervalMs(warmup = false) {
+  const baseMs = (danmuSpeed.value / danmuDensity.value) * 1000
+  return warmup ? Math.round(baseMs * RESUME_WARMUP_FACTOR) : baseMs
+}
+
+function clearResumeWarmupTimer() {
+  if (resumeWarmupTimer) {
+    clearTimeout(resumeWarmupTimer)
+    resumeWarmupTimer = null
+  }
 }
 
 async function handleLike(item, likeEl) {
@@ -76,18 +96,25 @@ function spawnDanmu(item, fresh = false) {
 }
 
 /** 启动连续流式弹幕引擎 */
-function startStream() {
+function startStream({ warmup = false } = {}) {
   stopStream()
   if (!danmuEnabled.value) return
   if (!danmuList.value.length) return
+  if (document.hidden) return
   // 每隔 (speed / density) 秒发射一条，形成均匀的弹幕流
-  const intervalMs = (danmuSpeed.value / danmuDensity.value) * 1000
+  const intervalMs = streamIntervalMs(warmup)
   danmuMainTimer = setInterval(() => {
     if (!danmuList.value.length || !danmuEnabled.value) return
     const item = danmuList.value[danmuIndex % danmuList.value.length]
     danmuIndex++
     spawnDanmu(item)
   }, intervalMs)
+  if (warmup) {
+    resumeWarmupTimer = setTimeout(() => {
+      resumeWarmupTimer = null
+      if (!document.hidden && danmuEnabled.value) startStream()
+    }, RESUME_WARMUP_MS)
+  }
 }
 
 function stopStream() {
@@ -95,16 +122,27 @@ function stopStream() {
     clearInterval(danmuMainTimer)
     danmuMainTimer = null
   }
+  clearResumeWarmupTimer()
+}
+
+function handleVisibilityChange() {
+  if (document.hidden) {
+    stopStream()
+    clearDanmuLayer()
+    return
+  }
+  if (danmuEnabled.value) {
+    startStream({ warmup: true })
+  }
 }
 
 function toggleDanmu(val) {
   danmuEnabled.value = val
   if (val) {
-    startStream()
+    if (!document.hidden) startStream()
   } else {
     stopStream()
-    const layer = document.getElementById('danmu-layer')
-    if (layer) layer.innerHTML = ''
+    clearDanmuLayer()
   }
 }
 
@@ -129,10 +167,12 @@ defineExpose({ cleanup })
 
 onMounted(async () => {
   await loadDanmu()
-  startStream()
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  if (!document.hidden) startStream()
 })
 
 onUnmounted(() => {
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
   cleanup()
 })
 </script>

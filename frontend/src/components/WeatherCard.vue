@@ -11,6 +11,7 @@ const DEFAULT_ADCODE = '420100' // 武汉
 const weatherData = ref(null)
 const forecastData = ref([])
 const weatherCity = ref(localStorage.getItem('weather_adcode') || '')
+const isCollapsed = ref(false)
 const showCitySearch = ref(false)
 const citySearchQuery = ref('')
 const citySearchResults = ref([])
@@ -146,10 +147,20 @@ function goToBreadcrumb(index) {
 }
 
 function toggleCityPanel() {
+  if (isCollapsed.value) {
+    isCollapsed.value = false
+  }
   showCitySearch.value = !showCitySearch.value
   if (showCitySearch.value && districtList.value.length === 0) {
     breadcrumb.value = []
     loadDistricts('中国')
+  }
+}
+
+function toggleWeatherCard() {
+  isCollapsed.value = !isCollapsed.value
+  if (isCollapsed.value) {
+    showCitySearch.value = false
   }
 }
 
@@ -199,61 +210,73 @@ onUnmounted(() => {
     </div>
     <!-- 正常展示 -->
     <template v-else-if="weatherData">
-      <div class="weather-city" @click.stop="toggleCityPanel()">
-        📍 {{ weatherData.city || '未知' }}
-        <span class="city-search-icon">▾</span>
+      <div class="weather-header">
+        <div class="weather-city" @click.stop="toggleCityPanel()">
+          📍 {{ weatherData.city || '未知' }}
+          <span class="city-search-icon">▾</span>
+        </div>
+        <button class="weather-toggle-btn" type="button" @click.stop="toggleWeatherCard()">
+          {{ isCollapsed ? '展开' : '收起' }}
+        </button>
       </div>
-      <!-- 城市选择面板 -->
-      <div class="city-search-dropdown" :class="{ 'is-active': showCitySearch }" v-if="showCitySearch" @click.stop>
-        <div class="city-panel-handle"></div>
-        <input
-          v-model="citySearchQuery"
-          @input="onCitySearch(citySearchQuery)"
-          placeholder="搜索省/市/区/县..."
-          class="city-search-input"
-        />
-        <ul class="city-search-results" v-if="citySearchQuery && citySearchResults.length">
-          <li v-for="d in citySearchResults" :key="d.adcode" @click="selectCity(d)">
-            <span>{{ d.name }}</span>
-            <span class="city-level">{{ levelLabel(d.level) }}</span>
-          </li>
-        </ul>
-        <template v-if="!citySearchQuery">
-          <div class="city-breadcrumb">
-            <span @click="goToBreadcrumb(-1)" class="crumb">全国</span>
-            <template v-for="(b, i) in breadcrumb" :key="i">
-              <span class="crumb-sep">›</span>
-              <span @click="goToBreadcrumb(i)" class="crumb">{{ b.name }}</span>
-            </template>
-          </div>
-          <ul class="city-search-results" v-if="districtList.length">
-            <li v-for="d in districtList" :key="d.adcode" @click="drillDown(d)">
-              <span>{{ d.name }}</span>
-              <span class="city-level">{{ levelLabel(d.level) }} ›</span>
-            </li>
-          </ul>
-          <div v-else-if="districtLoading" class="city-loading">加载中...</div>
-        </template>
-      </div>
-      <!-- 主体天气 -->
-      <div class="weather-main">
+      <div v-if="isCollapsed" class="weather-compact">
         <span class="weather-emoji">{{ weatherIcon(weatherData.weather) }}</span>
         <span class="weather-temp">{{ weatherData.temperature || '--' }}°</span>
+        <span class="weather-desc">{{ weatherData.weather || '' }}</span>
       </div>
-      <div class="weather-desc">{{ weatherData.weather || '' }}</div>
-      <div class="weather-detail" v-if="weatherData.winddirection">
-        <span>💨 {{ weatherData.winddirection }}风 {{ weatherData.windpower }}级</span>
-        <span v-if="weatherData.humidity">💧 {{ weatherData.humidity }}%</span>
-      </div>
-      <div class="weather-update" v-if="weatherData.reporttime">
-        更新: {{ weatherData.reporttime?.slice(5) }}
-      </div>
-      <!-- 3日预报 -->
-      <div class="weather-forecast" v-if="forecastData?.length">
-        <div v-for="f in forecastData.slice(0, 3)" :key="f.date" class="forecast-day">
-          <div class="forecast-date">{{ formatForecastDate(f.date) }}</div>
-          <div class="forecast-icon">{{ weatherIcon(f.dayweather) }}</div>
-          <div class="forecast-temp">{{ f.nighttemp }}°~{{ f.daytemp }}°</div>
+      <div v-else class="weather-body">
+        <!-- 城市选择面板 -->
+        <div class="city-search-dropdown" :class="{ 'is-active': showCitySearch }" v-if="showCitySearch" @click.stop>
+          <div class="city-panel-handle"></div>
+          <input
+            v-model="citySearchQuery"
+            @input="onCitySearch(citySearchQuery)"
+            placeholder="搜索省/市/区/县..."
+            class="city-search-input"
+          />
+          <ul class="city-search-results" v-if="citySearchQuery && citySearchResults.length">
+            <li v-for="d in citySearchResults" :key="d.adcode" @click="selectCity(d)">
+              <span>{{ d.name }}</span>
+              <span class="city-level">{{ levelLabel(d.level) }}</span>
+            </li>
+          </ul>
+          <template v-if="!citySearchQuery">
+            <div class="city-breadcrumb">
+              <span @click="goToBreadcrumb(-1)" class="crumb">全国</span>
+              <template v-for="(b, i) in breadcrumb" :key="i">
+                <span class="crumb-sep">›</span>
+                <span @click="goToBreadcrumb(i)" class="crumb">{{ b.name }}</span>
+              </template>
+            </div>
+            <ul class="city-search-results" v-if="districtList.length">
+              <li v-for="d in districtList" :key="d.adcode" @click="drillDown(d)">
+                <span>{{ d.name }}</span>
+                <span class="city-level">{{ levelLabel(d.level) }} ›</span>
+              </li>
+            </ul>
+            <div v-else-if="districtLoading" class="city-loading">加载中...</div>
+          </template>
+        </div>
+        <!-- 主体天气 -->
+        <div class="weather-main">
+          <span class="weather-emoji">{{ weatherIcon(weatherData.weather) }}</span>
+          <span class="weather-temp">{{ weatherData.temperature || '--' }}°</span>
+        </div>
+        <div class="weather-desc">{{ weatherData.weather || '' }}</div>
+        <div class="weather-detail" v-if="weatherData.winddirection">
+          <span>💨 {{ weatherData.winddirection }}风 {{ weatherData.windpower }}级</span>
+          <span v-if="weatherData.humidity">💧 {{ weatherData.humidity }}%</span>
+        </div>
+        <div class="weather-update" v-if="weatherData.reporttime">
+          更新: {{ weatherData.reporttime?.slice(5) }}
+        </div>
+        <!-- 3日预报 -->
+        <div class="weather-forecast" v-if="forecastData?.length">
+          <div v-for="f in forecastData.slice(0, 3)" :key="f.date" class="forecast-day">
+            <div class="forecast-date">{{ formatForecastDate(f.date) }}</div>
+            <div class="forecast-icon">{{ weatherIcon(f.dayweather) }}</div>
+            <div class="forecast-temp">{{ f.nighttemp }}°~{{ f.daytemp }}°</div>
+          </div>
         </div>
       </div>
     </template>
@@ -270,6 +293,9 @@ onUnmounted(() => {
   border: 1px solid var(--glass-border);
   text-align: left; min-width: 140px; max-width: 220px;
 }
+.weather-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
 .weather-city {
   font-size: 13px; color: var(--text-secondary); cursor: pointer;
   display: flex; align-items: center; gap: 4px;
@@ -277,6 +303,22 @@ onUnmounted(() => {
 }
 .weather-city:hover { color: var(--text-primary); }
 .city-search-icon { font-size: 10px; opacity: 0.6; transition: transform 0.2s; }
+.weather-toggle-btn {
+  padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--glass-border); background: rgba(255,255,255,0.1);
+  color: var(--text-primary); font-size: 12px; cursor: pointer;
+  white-space: nowrap; transition: background 0.2s;
+}
+.weather-toggle-btn:hover { background: rgba(255,255,255,0.2); }
+.weather-compact {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 10px; font-size: 13px; color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+.weather-body { margin-top: 8px; }
+.weather-compact .weather-emoji { font-size: 18px; }
+.weather-compact .weather-temp { font-size: 18px; font-weight: 600; }
+.weather-compact .weather-desc { font-size: 12px; }
 .weather-temp { font-size: 32px; font-weight: 700; }
 .weather-desc { font-size: 13px; color: var(--text-secondary); }
 .weather-status {
@@ -353,6 +395,9 @@ onUnmounted(() => {
     margin: 0 auto 16px; text-align: center;
     max-width: 100%;
     display: flex; flex-direction: column; align-items: center;
+  }
+  .weather-header {
+    width: 100%;
   }
   .weather-main { justify-content: center; }
   .weather-detail { justify-content: center; }
