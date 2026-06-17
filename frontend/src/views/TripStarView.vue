@@ -1,8 +1,9 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import TopBar from '../components/TopBar.vue'
 import { tripstarApi } from '../api'
+import { clearRememberedTripStarTask, getRememberedTripStarTask, rememberTripStarTask } from '../utils/tripstarResume'
 
 const router = useRouter()
 
@@ -58,6 +59,7 @@ async function submitPlan() {
     if (!result?.task_id) {
       throw new Error(result?.detail || result?.error || result?.message || 'TripStar 未返回任务 ID')
     }
+    rememberTripStarTask(result.task_id)
     router.push(`/tripstar/result/${result.task_id}`)
   } catch (error) {
     errorMsg.value = error?.message || '提交旅行规划失败，请稍后重试'
@@ -65,6 +67,21 @@ async function submitPlan() {
     submitting.value = false
   }
 }
+
+async function resumeLatestTaskIfNeeded() {
+  const rememberedTaskId = getRememberedTripStarTask()
+  if (!rememberedTaskId) return
+  try {
+    await tripstarApi.getStatus(rememberedTaskId)
+    router.replace(`/tripstar/result/${rememberedTaskId}`)
+  } catch {
+    clearRememberedTripStarTask()
+  }
+}
+
+onMounted(() => {
+  resumeLatestTaskIfNeeded()
+})
 </script>
 
 <template>

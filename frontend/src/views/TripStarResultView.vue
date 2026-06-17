@@ -5,6 +5,7 @@ import TopBar from '../components/TopBar.vue'
 import TripStarMapPanel from '../components/tripstar/TripStarMapPanel.vue'
 import TripStarXhsPanel from '../components/tripstar/TripStarXhsPanel.vue'
 import { tripstarApi } from '../api'
+import { clearRememberedTripStarTask } from '../utils/tripstarResume'
 
 const route = useRoute()
 const router = useRouter()
@@ -71,6 +72,12 @@ function startPolling() {
 }
 
 function retry() {
+  clearRememberedTripStarTask()
+  router.push('/tripstar')
+}
+
+function goBackToPlanner() {
+  clearRememberedTripStarTask()
   router.push('/tripstar')
 }
 
@@ -88,7 +95,7 @@ onUnmounted(() => {
 
 <template>
   <main class="tripstar-result-page">
-    <TopBar title="旅行星辰" subtitle="规划结果" />
+    <TopBar title="旅行星辰" subtitle="规划结果" @back="goBackToPlanner" />
 
     <section class="status-card glass">
       <div class="status-header">

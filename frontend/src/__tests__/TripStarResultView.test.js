@@ -101,4 +101,42 @@ describe('TripStarResultView', () => {
 
     expect(mockGetStatus).toHaveBeenCalledTimes(2)
   })
+
+  it('点击结果页返回时清理最近任务标记，避免主动返回后又被自动恢复', async () => {
+    sessionStorage.setItem('tripstar.latestTaskId', 'task-001')
+    sessionStorage.setItem('tripstar.latestTaskExpireAt', String(Date.now() + 60_000))
+    mockGetStatus.mockResolvedValueOnce({
+      task_id: 'task-001',
+      status: 'completed',
+      progress: 100,
+      message: '旅行计划生成成功',
+      result: {
+        success: true,
+        data: {
+          city: '西安',
+          travel_days: 1,
+          overview: '西安一日游',
+          days: [],
+          budget: { items: [] },
+        },
+      },
+    })
+
+    const { default: TripStarResultView } = await import('../views/TripStarResultView.vue')
+    const wrapper = mount(TripStarResultView, {
+      global: {
+        stubs: {
+          TopBar: {
+            template: '<button id="topbar-back" @click="$emit(\'back\')">返回</button>',
+          },
+        },
+      },
+    })
+
+    await flushPromises()
+    await wrapper.find('#topbar-back').trigger('click')
+
+    expect(sessionStorage.getItem('tripstar.latestTaskId')).toBeNull()
+    expect(mockPush).toHaveBeenCalledWith('/tripstar')
+  })
 })
