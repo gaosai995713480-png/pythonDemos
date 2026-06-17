@@ -17,10 +17,14 @@ from .services.recipe_bootstrap import ensure_howtocook_recipes_seeded
 
 # 路由
 from .routers import auth, danmu, timeline, capsule, mood, wish, map, music, weather, photos, config, jukebox, gallery, users, express, ai, ai_skills, ai_conversations, recipes
+from .tripstar import router as tripstar_router
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
 )
+# httpx 的 INFO 日志会输出完整请求 URL；地图/LLM 请求 URL 可能携带 key，
+# 因此默认抬高到 WARNING，避免控制台泄露第三方密钥。
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Love Page", docs_url="/docs/api")
@@ -56,6 +60,7 @@ app.include_router(ai.router)
 app.include_router(ai_skills.router)
 app.include_router(ai_conversations.router)
 app.include_router(recipes.router)
+app.include_router(tripstar_router.router)
 
 
 @app.on_event("startup")

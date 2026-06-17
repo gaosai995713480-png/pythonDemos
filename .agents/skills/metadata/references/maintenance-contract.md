@@ -1,0 +1,61 @@
+# Metadata Maintenance Contract
+
+## 五层边界
+
+| 层级 | 作用 | 是否用户维护 |
+| --- | --- | --- |
+| sources | 原始材料、迁移输入、connector 发现素材、审计证据 | 否，归档保留 |
+| dictionaries | 公共指标、公共维度、公共术语、同义词和词表 | 是，由 LLM 维护 |
+| mappings | source 字段到标准语义的映射和口径覆盖 | 是，由 LLM 维护 |
+| datasets | 真实可分析数据源的字段、指标、粒度、限制和引用 | 是，由 LLM 维护 |
+| audit | 元数据维护日志和变更报告 | 否，由 `metadata record-change` 生成 |
+| index | 从 YAML 生成的轻量检索记录 | 否，自动生成 |
+| context pack | 给分析规划读取的最小上下文 | 否，按需生成 |
+| registry.db | 运行时 source 与执行配置 | 否，由 `metadata sync-registry` / connector runtime 流程维护 |
+| OSI | 对外交换语义模型 | 否，按需导出 |
+
+## 维护规则
+
+- 业务口径只写入 dictionaries/mappings/datasets YAML，不写入 index。
+- index 只能由 YAML 生成，不能人工维护。
+- context pack 只能用于本轮分析，不作为持久真源。
+- `registry.db` 不接受手工 YAML 覆盖；只接受 `metadata sync-registry` 对已校验 dataset YAML 的受控 upsert。
+- OSI 只用于交换，不参与本地需求理解链路。
+- `needs_review=true` 或 `review_required=true` 的定义必须被标记为推断口径。
+- 公共指标、公共维度、公共术语不放入 `metadata/datasets/`。
+- 用户提供的原始文件先进入 `metadata/sources/`，其他 YAML 再引用项目内路径作为证据。
+- 每次修改 dictionaries/mappings/datasets YAML 后，必须运行 `metadata record-change`，记录修改原因、涉及文件、dataset 和证据路径。
+- `metadata/audit/metadata_changes.jsonl` 是机器可读变更日志，`metadata/audit/metadata_relations.jsonl` 是 `business_definition.ref` 到 dictionary/mapping/source/audit evidence 的关联记录，`metadata/audit/metadata_change_report.md` 是人工审阅报告。
+- `metadata/audit/*` 只用于追溯和维护，不进入分析 context，不作为业务定义真源。
+
+## 原独立 skills 的合并关系
+
+| 原 skill | 收敛后入口 |
+| --- | --- |
+| metadata-init | `metadata init` |
+| metadata-validate | `metadata validate` |
+| metadata-index | `metadata index` |
+| metadata-search | `metadata search` |
+| metadata-context | `metadata context` |
+| metadata-inventory | `metadata inventory` |
+
+这些能力仍然存在，但不再作为独立用户 skill 暴露。
+
+## 当前阶段移出的能力
+
+`registry-compile` 不作为独立能力暴露；YAML 到 `registry.db` 的唯一主路径是 `metadata sync-registry`。
+
+`semantic-context-read` 不作为当前阶段能力暴露，因为本地分析统一使用 `metadata context`，避免出现两套 context pack。
+
+`osi-export` 不作为独立用户 skill 暴露；OSI 导出并入 `metadata export-osi`，只作为交换导出能力保留，不进入需求理解、数据初始化或分析主路径。
+
+## Review 规则
+
+| 状态 | 分析中如何使用 |
+| --- | --- |
+| `needs_review=false` 且证据充分 | 可以作为确认口径候选 |
+| `needs_review=true` | 只能作为推断口径 |
+| 缺少证据 | 不能作为确定口径 |
+| 低置信度但未标 review | 先修 YAML，再分析 |
+
+报告和验证必须写明推断口径，不能把 review 状态藏在技术附录里。

@@ -448,6 +448,19 @@ def init_tables():
             ("CLAUDE_API_KEY", ""),
             ("AGENT_SHOW_TOOL_PROCESS", "true"),
             ("AGENT_MAX_TOOL_ROUNDS", "5"),
+            ("TRIPSTAR_ENABLED", "true"),
+            ("TRIPSTAR_MOCK_MODE", "true"),
+            ("TRIPSTAR_LLM_MODEL_ID", ""),
+            ("TRIPSTAR_LLM_API_KEY", ""),
+            ("TRIPSTAR_LLM_BASE_URL", ""),
+            ("TRIPSTAR_LLM_TIMEOUT", "600"),
+            ("TRIPSTAR_AMAP_WEB_KEY", ""),
+            ("TRIPSTAR_ENABLE_XHS", "false"),
+            ("TRIPSTAR_XHS_COOKIE", ""),
+            ("TRIPSTAR_GOOGLE_MAPS_API_KEY", ""),
+            ("TRIPSTAR_GOOGLE_MAPS_PROXY", ""),
+            ("VITE_TRIPSTAR_AMAP_WEB_JS_KEY", ""),
+            ("VITE_TRIPSTAR_AMAP_SECURITY_JS_CODE", ""),
         ]
         with conn.cursor() as cursor:
             for k, v in default_configs:
@@ -522,6 +535,19 @@ def get_all_cookies() -> dict:
                     "SELECT config_key, config_value FROM love_config WHERE config_key LIKE 'METING_%'"
                 )
                 return {r[0]: r[1] for r in cursor.fetchall() if r[1]}
+    except Exception:
+        return {}
+
+
+def get_all_configs() -> dict:
+    """读取 love_config 中所有配置。"""
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT config_key, config_value FROM love_config ORDER BY config_key"
+                )
+                return {r[0]: r[1] or "" for r in cursor.fetchall()}
     except Exception:
         return {}
 

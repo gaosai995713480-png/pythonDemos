@@ -70,6 +70,16 @@ const routes = [
     component: () => import('../views/CookbookView.vue'),
   },
   {
+    path: '/tripstar',
+    name: 'TripStar',
+    component: () => import('../views/TripStarView.vue'),
+  },
+  {
+    path: '/tripstar/result/:taskId',
+    name: 'TripStarResult',
+    component: () => import('../views/TripStarResultView.vue'),
+  },
+  {
     path: '/users',
     name: 'Users',
     component: () => import('../views/UsersView.vue'),
@@ -130,6 +140,8 @@ router.afterEach((to) => {
       Jukebox: "点歌台",
       Express: "快递查询",
       Cookbook: "我们的小厨房",
+      TripStar: "旅行星辰",
+      TripStarResult: "旅行星辰结果",
       Users: "用户管理"
     }
     contextStore.pageName = pageMap[to.name] || (to.name || '')

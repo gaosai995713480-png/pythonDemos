@@ -41,6 +41,7 @@ const groups = [
     items: [
       { to: '/express', icon: '📦', label: '快递查询', desc: '查看物流轨迹' },
       { to: '/cookbook', icon: '🍳', label: '我们的小厨房', desc: '一起决定今天吃什么' },
+      { to: '/tripstar', icon: '🌌', label: '旅行星辰', desc: 'AI 生成旅行计划' },
     ],
   },
 ]

@@ -25,18 +25,22 @@ async function request(url, options = {}) {
       // 尝试读取后端返回的具体错误信息
       const data = await res.clone().json().catch(() => ({}))
       const msg = data.error || data.detail || ''
+      const message = msg || `请求失败 (${res.status})`
       if (res.status === 403) {
         const { error } = useToast()
         error(msg || '权限不足')
       } else {
         // 400/409/500 等：优先展示后端返回的具体原因
         const { error } = useToast()
-        error(msg || `请求失败 (${res.status})`)
+        error(message)
       }
+      const apiError = new Error(message)
+      apiError.isApiError = true
+      throw apiError
     }
     return res
   } catch (e) {
-    if (e.message !== 'unauthorized') {
+    if (e.message !== 'unauthorized' && !e.isApiError) {
       const { error } = useToast()
       error('网络错误，请检查连接')
     }
@@ -214,6 +218,8 @@ export const weatherApi = {
 export const configApi = {
   getCookies: () => get('/api/config/cookies'),
   updateCookies: (data) => post('/api/config/cookies', data),
+  listKeys: () => get('/api/config/keys'),
+  saveKey: (data) => post('/api/config/keys', data),
 }
 
 export const jukeboxApi = {
@@ -232,6 +238,19 @@ export const expressApi = {
   companies: () => get('/api/express/companies'),
   getConfig: () => get('/api/express/config'),
   updateConfig: (data) => post('/api/express/config', data),
+}
+
+export const tripstarApi = {
+  health: () => get('/api/tripstar/health'),
+  createPlan: (data) => post('/api/tripstar/plan', data),
+  getStatus: (taskId) => get(`/api/tripstar/status/${encodeURIComponent(taskId)}`),
+  history: (limit = 10) => get(`/api/tripstar/history?limit=${limit}`),
+  getMapConfig: () => get('/api/tripstar/map/config'),
+  geocode: ({ city, keyword }) => get(`/api/tripstar/map/geocode${toQuery({ city, keyword })}`),
+  searchPoi: ({ city, keyword, limit = 10 }) => get(`/api/tripstar/map/poi${toQuery({ city, keyword, limit })}`),
+  planRoute: (data) => post('/api/tripstar/map/route', data),
+  getXhsStatus: () => get('/api/tripstar/xhs/status'),
+  searchXhs: ({ city, keyword = '', limit = 6 }) => get(`/api/tripstar/xhs/search${toQuery({ city, keyword, limit })}`),
 }
 
 function toQuery(params = {}) {

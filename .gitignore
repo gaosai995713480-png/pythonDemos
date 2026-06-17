@@ -13,3 +13,6 @@ node_modules/
 # Vite 构建产物（由服务器 npm run build 生成，不提交）
 docs/assets/
 docs/index.html
+
+# TripStar 运行时任务快照
+data/tripstar/tasks/

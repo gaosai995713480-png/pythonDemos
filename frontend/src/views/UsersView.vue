@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import TopBar from '../components/TopBar.vue'
-import { usersApi } from '../api'
+import { configApi, usersApi } from '../api'
 import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
@@ -12,6 +12,14 @@ const inviteCode = ref('')
 const newCode = ref('')
 const loading = ref(false)
 const showCodeEdit = ref(false)
+const configKeys = ref([])
+const showConfigAdd = ref(false)
+const configLoading = ref(false)
+const configError = ref('')
+const newConfig = ref({
+  key: '',
+  value: '',
+})
 
 async function loadUsers() {
   try {
@@ -25,6 +33,13 @@ async function loadInviteCode() {
     inviteCode.value = data.code || ''
     newCode.value = inviteCode.value
   } catch { /* handled */ }
+}
+
+async function loadConfigKeys() {
+  try {
+    const data = await configApi.listKeys()
+    configKeys.value = data.items || []
+  } catch { /* handled by api layer */ }
 }
 
 async function toggleUser(userId) {
@@ -45,6 +60,27 @@ async function saveInviteCode() {
   }
 }
 
+async function saveConfigKey() {
+  const key = newConfig.value.key.trim().toUpperCase()
+  if (!key) {
+    configError.value = '请输入配置键'
+    return
+  }
+  configError.value = ''
+  configLoading.value = true
+  try {
+    await configApi.saveKey({
+      key,
+      value: newConfig.value.value,
+    })
+    newConfig.value = { key: '', value: '' }
+    showConfigAdd.value = false
+    await loadConfigKeys()
+  } finally {
+    configLoading.value = false
+  }
+}
+
 onMounted(() => {
   if (!authStore.isAdmin) {
     router.replace('/')
@@ -52,6 +88,7 @@ onMounted(() => {
   }
   loadUsers()
   loadInviteCode()
+  loadConfigKeys()
 })
 </script>
 
@@ -70,6 +107,71 @@ onMounted(() => {
         <input v-model="newCode" class="invite-input" placeholder="输入新邀请码" />
         <button class="btn-small btn-primary" @click="saveInviteCode" :disabled="loading">保存</button>
         <button class="btn-small" @click="showCodeEdit = false">取消</button>
+      </div>
+    </section>
+
+    <!-- 系统配置管理 -->
+    <section class="config-section glass-card">
+      <div class="section-title-row">
+        <h3>🧩 系统配置</h3>
+        <button
+          class="btn-small btn-primary"
+          data-test="add-config-key"
+          @click="showConfigAdd = !showConfigAdd"
+        >
+          {{ showConfigAdd ? '收起' : '添加 Key' }}
+        </button>
+      </div>
+
+      <div v-if="showConfigAdd" class="config-add-panel">
+        <input
+          v-model="newConfig.key"
+          class="invite-input config-key-input"
+          data-test="config-key-input"
+          placeholder="例如 TRIPSTAR_AMAP_WEB_KEY"
+        />
+        <input
+          v-model="newConfig.value"
+          class="invite-input config-value-input"
+          data-test="config-value-input"
+          placeholder="输入配置值，保存后不回显明文"
+        />
+        <button
+          class="btn-small btn-primary"
+          data-test="save-config-key"
+          :disabled="configLoading"
+          @click="saveConfigKey"
+        >
+          保存 Key
+        </button>
+        <p v-if="configError" class="config-error">{{ configError }}</p>
+      </div>
+
+      <div class="config-table-wrap">
+        <table class="user-table config-table">
+          <thead>
+            <tr>
+              <th>Key</th>
+              <th>说明</th>
+              <th>状态</th>
+              <th>脱敏值</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in configKeys" :key="item.key">
+              <td><code class="config-key">{{ item.key }}</code></td>
+              <td>{{ item.label }}</td>
+              <td>
+                <span class="status-dot" :class="item.has_value ? 'on' : 'off'"></span>
+                {{ item.has_value ? '已配置' : '未配置' }}
+              </td>
+              <td class="time-col">{{ item.masked_value || '—' }}</td>
+            </tr>
+            <tr v-if="configKeys.length === 0">
+              <td colspan="4" class="empty-config">暂无配置项</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
@@ -150,7 +252,62 @@ onMounted(() => {
   display: flex; align-items: center; gap: 8px;
 }
 
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.section-title-row h3 {
+  margin: 0;
+}
+
 .invite-section { margin-bottom: 0px; }
+
+.config-section { margin-bottom: 0; }
+
+.config-add-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(260px, 1.2fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 18px;
+  background: rgba(0, 0, 0, 0.15);
+  padding: 16px;
+  border-radius: 16px;
+}
+
+.config-key-input {
+  text-transform: uppercase;
+}
+
+.config-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #fca5a5;
+  font-size: 13px;
+}
+
+.config-table-wrap {
+  overflow-x: auto;
+}
+
+.config-table {
+  margin-top: 0;
+}
+
+.config-key {
+  color: #c4b5fd;
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+}
+
+.empty-config {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.45);
+}
 
 .invite-row {
   display: flex;
@@ -280,5 +437,7 @@ onMounted(() => {
   .user-table th, .user-table td { padding: 12px 8px; }
   .glass-card { padding: 20px; }
   .row-disabled td { opacity: 0.5; }
+  .section-title-row { align-items: flex-start; flex-direction: column; }
+  .config-add-panel { grid-template-columns: 1fr; }
 }
 </style>

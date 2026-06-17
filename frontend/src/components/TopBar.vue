@@ -1,4 +1,6 @@
 <script setup>
+import { getCurrentInstance } from 'vue'
+import { useRouter } from 'vue-router'
 import ThemeSwitcher from './ThemeSwitcher.vue'
 
 defineProps({
@@ -8,9 +10,26 @@ defineProps({
 })
 
 const emit = defineEmits(['back'])
+const router = useRouter()
+const instance = getCurrentInstance()
+
+function hasCustomBackListener() {
+  const listener = instance?.vnode?.props?.onBack
+  return typeof listener === 'function' || Array.isArray(listener)
+}
 
 function handleBack() {
   emit('back')
+  if (hasCustomBackListener()) return
+  if (router?.back) {
+    router.back()
+    return
+  }
+  if (window.history.length > 1) {
+    window.history.back()
+    return
+  }
+  window.location.assign('/')
 }
 </script>
 
