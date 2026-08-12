@@ -22,4 +22,7 @@ data/tripstar/tasks/
 outputs/
 tmp/
 work/
+
+# Claude Code 运行时文件
 .agents/.skill-lock.json
+.agents/skills/
