@@ -33,7 +33,7 @@ describe('TripStarXhsPanel', () => {
 
   it('根据城市和偏好加载小红书推荐并展示笔记卡片', async () => {
     mockSearchXhs.mockResolvedValueOnce({
-      query: '武汉 历史文化 本地美食 黄鹤楼',
+      query: '武汉 旅行攻略 本地美食 黄鹤楼',
       items: [
         {
           id: 'note-1',
@@ -54,7 +54,7 @@ describe('TripStarXhsPanel', () => {
     expect(mockSearchXhs).toHaveBeenCalledTimes(1)
     expect(mockSearchXhs.mock.calls[0][0]).toEqual({
       city: '武汉',
-      keyword: '历史文化 本地美食 黄鹤楼 户部巷',
+      keyword: '旅行攻略 本地美食 黄鹤楼',
       limit: 6,
     })
     expect(wrapper.text()).toContain('小红书推荐')
@@ -72,5 +72,22 @@ describe('TripStarXhsPanel', () => {
 
     expect(wrapper.text()).toContain('小红书推荐暂不可用')
     expect(wrapper.text()).toContain('TripStar 小红书 Cookie 未配置')
+  })
+
+  it('小红书接口成功但无笔记时显示暂无推荐而不是待加载', async () => {
+    mockSearchXhs.mockResolvedValueOnce({
+      query: '武汉 旅行攻略 本地美食 黄鹤楼',
+      items: [],
+    })
+
+    const { default: TripStarXhsPanel } = await import('../components/tripstar/TripStarXhsPanel.vue')
+    const wrapper = mount(TripStarXhsPanel, { props: { plan } })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('暂无推荐')
+    expect(wrapper.text()).toContain('搜索词：武汉 旅行攻略 本地美食 黄鹤楼')
+    expect(wrapper.text()).not.toContain('待加载')
+    expect(wrapper.text()).not.toContain('小红书推荐暂不可用')
   })
 })

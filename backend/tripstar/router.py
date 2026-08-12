@@ -182,7 +182,8 @@ def search_xhs_notes(
     try:
         items = _xhs_service().search_notes(query, limit)
     except XhsCookieExpiredError as exc:
-        raise HTTPException(status_code=401, detail=str(exc)) from exc
+        # 外部小红书 Cookie 失效不是当前应用用户未登录；避免前端通用 401 处理跳转登录页。
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except XhsServiceError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 

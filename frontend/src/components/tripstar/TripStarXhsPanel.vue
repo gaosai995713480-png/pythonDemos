@@ -15,15 +15,25 @@ const notes = ref([])
 const query = ref('')
 
 const keyword = computed(() => {
-  const parts = [
-    ...(props.plan?.preferences || []),
-    ...((props.plan?.days || [])
-      .flatMap((day) => day.attractions || [])
-      .map((item) => item.name)
-      .filter(Boolean)
-      .slice(0, 4)),
-  ]
-  return [...new Set(parts)].join(' ')
+  const preferences = props.plan?.preferences || []
+  const mainPreference = preferences.find((item) => String(item).includes('美食')) || preferences[0]
+  const firstAttraction = (props.plan?.days || [])
+    .flatMap((day) => day.attractions || [])
+    .map((item) => item.name)
+    .find(Boolean)
+
+  return [...new Set(['旅行攻略', mainPreference, firstAttraction]
+    .map((item) => String(item || '').trim())
+    .filter(Boolean))]
+    .join(' ')
+})
+
+const stateText = computed(() => {
+  if (loading.value) return '加载中'
+  if (errorMsg.value) return '暂不可用'
+  if (notes.value.length) return '已加载'
+  if (query.value) return '暂无推荐'
+  return '待加载'
 })
 
 function formatCount(value) {
@@ -72,7 +82,7 @@ watch(
         <h2>小红书推荐</h2>
       </div>
       <span class="xhs-state" :class="{ ready: notes.length, error: errorMsg }">
-        {{ loading ? '加载中' : errorMsg ? '暂不可用' : notes.length ? '已加载' : '待加载' }}
+        {{ stateText }}
       </span>
     </div>
 
@@ -82,6 +92,9 @@ watch(
     <p v-if="query" class="xhs-query">搜索词：{{ query }}</p>
     <p v-if="loading" class="xhs-tip">正在加载小红书推荐...</p>
     <p v-if="errorMsg" class="xhs-error">小红书推荐暂不可用：{{ errorMsg }}</p>
+    <p v-if="query && !loading && !errorMsg && !notes.length" class="xhs-empty">
+      当前搜索词暂无匹配笔记，可以刷新页面或重新生成计划后再试。
+    </p>
 
     <div v-if="notes.length" class="xhs-grid">
       <a
@@ -155,7 +168,8 @@ h3 {
 .xhs-desc,
 .xhs-query,
 .xhs-tip,
-.xhs-error {
+.xhs-error,
+.xhs-empty {
   color: var(--text-secondary);
   line-height: 1.7;
 }

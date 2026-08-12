@@ -90,3 +90,23 @@ def test_tripstar_xhs_search_requires_cookie(monkeypatch):
 
     assert response.status_code == 503
     assert response.json()["detail"] == "TripStar 小红书 Cookie 未配置"
+
+
+def test_tripstar_xhs_expired_cookie_is_service_unavailable_not_auth_redirect(monkeypatch):
+    from backend.tripstar import router as tripstar_router
+
+    monkeypatch.setattr(
+        tripstar_router,
+        "get_tripstar_settings",
+        lambda: TripStarSettings(enable_xhs=True, xhs_cookie="a1=test; web_session=expired"),
+    )
+
+    def fake_search_notes(self, keyword, limit):
+        raise tripstar_router.XhsCookieExpiredError("小红书 Cookie 可能失效或被风控：登录已过期")
+
+    monkeypatch.setattr(tripstar_router.XhsService, "search_notes", fake_search_notes)
+
+    response = client.get("/api/tripstar/xhs/search?city=武汉&keyword=美食")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "小红书 Cookie 可能失效或被风控：登录已过期"
