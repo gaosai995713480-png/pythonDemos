@@ -122,7 +122,7 @@ const THEMES = [
 ]
 
 export const useThemeStore = defineStore('theme', () => {
-  const currentName = ref('流星')
+  const currentName = ref('星空')
   const themes = THEMES
 
   const currentEffect = computed(() => {
