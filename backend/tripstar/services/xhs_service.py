@@ -211,6 +211,10 @@ class XhsService:
         if not a1:
             raise XhsServiceError("小红书 Cookie 缺少 a1 字段，请重新复制完整 Cookie")
 
+        # 验证 a1 格式，防止注入
+        if not a1.replace("-", "").replace("_", "").isalnum():
+            raise XhsServiceError("小红书 Cookie a1 字段格式非法")
+
         sign_file = Path(__file__).resolve().parent / "xhs_sign" / "xhs_xs_xsc_56.js"
         if not sign_file.exists():
             raise XhsServiceError("小红书签名文件缺失，无法调用真实搜索接口")

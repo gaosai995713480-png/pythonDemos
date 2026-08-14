@@ -627,6 +627,11 @@ class TripStarPlanner:
         end_lat = math.radians(float(end["latitude"]))
         delta_lat = end_lat - start_lat
         delta_lng = math.radians(float(end["longitude"]) - float(start["longitude"]))
+        # 标准化到 [-180, 180] 度以处理国际日期变更线跨越
+        if delta_lng > math.pi:
+            delta_lng -= 2 * math.pi
+        elif delta_lng < -math.pi:
+            delta_lng += 2 * math.pi
         value = (
             math.sin(delta_lat / 2) ** 2
             + math.cos(start_lat) * math.cos(end_lat) * math.sin(delta_lng / 2) ** 2

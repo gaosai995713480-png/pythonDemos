@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 from typing import Any, Callable
 
@@ -11,6 +12,8 @@ from .services.amap_service import AmapService, AmapServiceError, parse_amap_loc
 from .services.llm_service import TripStarLLMClient, TripStarLLMError
 from .services.xhs_service import XhsService, XhsServiceError
 
+
+logger = logging.getLogger(__name__)
 
 ProgressCallback = Callable[[str, str, int], None]
 
@@ -117,18 +120,24 @@ class RealTripStarPlanner:
         xhs_notes: list[dict[str, Any]],
         poi_candidates: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        try:
-            return self.llm.chat_json(
-                system_prompt=(
-                    "你是 TripStar 旅行规划智能体。你必须基于用户需求、小红书游记摘要和地图 POI 候选，"
-                    "输出严格 JSON 对象；不得输出 markdown；不得编造不存在的字段。"
-                ),
-                user_prompt=self._build_user_prompt(request, xhs_notes, poi_candidates),
-            )
-        except TripStarLLMError:
-            raise
-        except Exception as exc:
-            raise RealTripStarPlannerError(f"大模型规划失败：{exc}") from exc
+        # LLM 输出格式错误多为偶发：失败重试一次；仍失败则抛出明确错误，
+        # 不返回伪成功的空行程掩盖问题
+        last_error: TripStarLLMError | None = None
+        for attempt in range(2):
+            try:
+                return self.llm.chat_json(
+                    system_prompt=(
+                        "你是 TripStar 旅行规划智能体。你必须基于用户需求、小红书游记摘要和地图 POI 候选，"
+                        "输出严格 JSON 对象；不得输出 markdown；不得编造不存在的字段。"
+                    ),
+                    user_prompt=self._build_user_prompt(request, xhs_notes, poi_candidates),
+                )
+            except TripStarLLMError as exc:
+                last_error = exc
+                logger.warning("LLM 规划调用失败（第 %d 次）：%s", attempt + 1, exc)
+            except Exception as exc:
+                raise RealTripStarPlannerError(f"大模型规划失败：{exc}") from exc
+        raise last_error
 
     def _build_user_prompt(
         self,
@@ -419,6 +428,11 @@ class RealTripStarPlanner:
         end_lat = math.radians(float(end["latitude"]))
         delta_lat = end_lat - start_lat
         delta_lng = math.radians(float(end["longitude"]) - float(start["longitude"]))
+        # 标准化到 [-180, 180] 度以处理国际日期变更线跨越
+        if delta_lng > math.pi:
+            delta_lng -= 2 * math.pi
+        elif delta_lng < -math.pi:
+            delta_lng += 2 * math.pi
         value = (
             math.sin(delta_lat / 2) ** 2
             + math.cos(start_lat) * math.cos(end_lat) * math.sin(delta_lng / 2) ** 2

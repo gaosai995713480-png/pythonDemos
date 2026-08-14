@@ -67,25 +67,27 @@ def like_danmu(body: dict, request: Request, _=Depends(require_auth)):
                     (danmu_id,),
                 )
                 row = cursor.fetchone()
-                return {
+                result = {
                     "ok": True,
                     "id": danmu_id,
                     "likes": row[0] if row else 0,
                     "liked": False,
                 }
-            cursor.execute(
-                f"UPDATE `{settings.danmu_table}` SET likes = likes + 1 WHERE id = %s",
-                (danmu_id,),
-            )
-            conn.commit()
-            cursor.execute(
-                f"SELECT likes FROM `{settings.danmu_table}` WHERE id = %s",
-                (danmu_id,),
-            )
-            row = cursor.fetchone()
-    return {
-        "ok": True,
-        "id": danmu_id,
-        "likes": row[0] if row else 0,
-        "liked": True,
-    }
+            else:
+                cursor.execute(
+                    f"UPDATE `{settings.danmu_table}` SET likes = likes + 1 WHERE id = %s",
+                    (danmu_id,),
+                )
+                cursor.execute(
+                    f"SELECT likes FROM `{settings.danmu_table}` WHERE id = %s",
+                    (danmu_id,),
+                )
+                row = cursor.fetchone()
+                result = {
+                    "ok": True,
+                    "id": danmu_id,
+                    "likes": row[0] if row else 0,
+                    "liked": True,
+                }
+        conn.commit()
+    return result

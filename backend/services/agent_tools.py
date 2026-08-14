@@ -1,12 +1,13 @@
 """
 Agent 工具注册中心 + 内置工具实现
 
-使用装饰器注册工具，支持动态发现和调用。
+使用装饰器注册工具,支持动态发现和调用。
 架构预留扩展：未来可通过此模块注册自定义工具。
 """
 import json
 import logging
 from typing import Callable, Any
+from contextvars import ContextVar
 
 from ..database import get_db, get_config
 from ..config import settings
@@ -364,7 +365,8 @@ def tool_wish_list() -> dict:
 )
 def tool_photo_search(limit: int = 10) -> dict:
     """搜索相册"""
-    if not _current_context.is_admin and not _current_context.gallery_unlocked:
+    ctx = _current_context.get()
+    if not ctx.is_admin and not ctx.gallery_unlocked:
         return {"error": "权限不足：必须解锁画廊或具有管理员权限才能通过 AI 搜索相册"}
 
     with get_db() as conn:
@@ -396,15 +398,16 @@ class AgentContext:
     is_admin: bool = False
     gallery_unlocked: bool = False
 
-_current_context = AgentContext()
+_current_context: ContextVar[AgentContext] = ContextVar('agent_context', default=AgentContext())
 
 
 def set_current_user_context(username: str, role: str, gallery_unlocked: bool):
     """设置当前工具调用上下文的用户权限"""
-    global _current_context
-    _current_context.username = username
-    _current_context.is_admin = (role == 'admin')
-    _current_context.gallery_unlocked = gallery_unlocked
+    _current_context.set(AgentContext(
+        username=username,
+        is_admin=(role == 'admin'),
+        gallery_unlocked=gallery_unlocked
+    ))
 
 
 @register_tool(
@@ -426,9 +429,10 @@ def set_current_user_context(username: str, role: str, gallery_unlocked: bool):
 def tool_remember_fact(content: str, category: str = "general") -> dict:
     """主动记忆用户事实"""
     from .user_memory import save_fact
-    if not _current_context.username:
+    ctx = _current_context.get()
+    if not ctx.username:
         return {"error": "无法确定当前用户"}
-    fact_id = save_fact(_current_context.username, content, category, source="tool")
+    fact_id = save_fact(ctx.username, content, category, source="tool")
     return {"ok": True, "id": fact_id, "message": f"已记住: {content}"}
 
 
@@ -446,9 +450,10 @@ def tool_remember_fact(content: str, category: str = "general") -> dict:
 def tool_recall_facts(keyword: str = "") -> dict:
     """检索用户记忆"""
     from .user_memory import get_user_facts
-    if not _current_context.username:
+    ctx = _current_context.get()
+    if not ctx.username:
         return {"error": "无法确定当前用户"}
-    facts = get_user_facts(_current_context.username, limit=30)
+    facts = get_user_facts(ctx.username, limit=30)
     if keyword:
         keyword_lower = keyword.lower()
         facts = [f for f in facts if keyword_lower in f["content"].lower()]

@@ -171,8 +171,39 @@ async def codex_agent_loop(
                 "content": result,
             })
 
-    # 超过最大轮数
-    yield json.dumps("[提示] 已达到最大工具调用轮数")
+    # 超过最大轮数：不带 tools 再请求一次，强制模型基于已有工具结果收尾
+    working_messages.append({
+        "role": "system",
+        "content": "你已达到工具调用次数上限，请基于已获取的信息直接回答用户问题，不要再调用工具。"
+    })
+    yield json.dumps("[提示] 已达到最大工具调用轮数，正在生成总结...")
+
+    summary_body = {"model": model, "messages": working_messages, "stream": True}
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
+            async with client.stream("POST", url, headers=headers, json=summary_body) as resp:
+                if resp.status_code != 200:
+                    yield json.dumps(f"\n\n抱歉，无法生成总结（HTTP {resp.status_code}）")
+                    return
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    data_str = line[6:]
+                    if data_str.strip() == "[DONE]":
+                        break
+                    try:
+                        event = json.loads(data_str)
+                    except json.JSONDecodeError:
+                        continue
+                    choices = event.get("choices", [])
+                    if not choices:
+                        continue
+                    content = (choices[0].get("delta") or {}).get("content")
+                    if content:
+                        yield json.dumps(content)
+    except Exception as e:
+        logger.error("超轮数总结生成失败: %s", e, exc_info=True)
+        yield json.dumps(f"\n\n总结生成失败：{e}")
 
 
 # ==================== Claude (Anthropic) Agent ====================
@@ -322,4 +353,39 @@ async def claude_agent_loop(
 
         chat_messages.append({"role": "user", "content": tool_results})
 
-    yield json.dumps("[提示] 已达到最大工具调用轮数")
+    # 超过最大轮数：不带 tools 再请求一次，强制模型基于已有工具结果收尾
+    yield json.dumps("[提示] 已达到最大工具调用轮数，正在生成总结...")
+
+    summary_body = {
+        "model": model,
+        "max_tokens": 4096,
+        "stream": True,
+        "messages": chat_messages + [{
+            "role": "user",
+            "content": "你已达到工具调用次数上限，请基于以上工具结果直接回答用户的原始问题，不要再调用工具。"
+        }],
+    }
+    if system_text:
+        summary_body["system"] = system_text
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
+            async with client.stream("POST", url, headers=headers, json=summary_body) as resp:
+                if resp.status_code != 200:
+                    yield json.dumps(f"\n\n抱歉，无法生成总结（HTTP {resp.status_code}）")
+                    return
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    try:
+                        event = json.loads(line[6:])
+                    except json.JSONDecodeError:
+                        continue
+                    if event.get("type") == "content_block_delta":
+                        delta = event.get("delta", {})
+                        if delta.get("type") == "text_delta":
+                            text = delta.get("text", "")
+                            if text:
+                                yield json.dumps(text)
+    except Exception as e:
+        logger.error("超轮数总结生成失败: %s", e, exc_info=True)
+        yield json.dumps(f"\n\n总结生成失败：{e}")

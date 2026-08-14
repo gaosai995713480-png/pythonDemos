@@ -30,6 +30,9 @@ from ..services.ai_chat import (
 
 logger = logging.getLogger(__name__)
 
+# 记忆提取后台任务引用：asyncio.create_task 若不持有引用，任务可能被 GC 中断
+_memory_tasks: set = set()
+
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
 
@@ -179,6 +182,9 @@ async def ai_chat(req: ChatRequest, request: Request, _=Depends(require_auth)):
         })
 
     for h in req.history[-20:]:
+        # 强制过滤 system 角色，防止注入攻击
+        if h.role not in ("user", "assistant"):
+            continue
         messages.append({"role": h.role, "content": h.content})
     messages.append({"role": "user", "content": req.message})
 
@@ -197,15 +203,17 @@ async def ai_chat(req: ChatRequest, request: Request, _=Depends(require_auth)):
                     pass
             yield chunk
 
-        # 流结束后异步提取事实
+        # 流结束后异步提取事实（提取失败由任务内部记录日志）
         if username and ai_response_text and req.provider in ("codex", "claude"):
             import asyncio
             from ..services.user_memory import extract_facts_from_conversation
-            asyncio.create_task(
+            task = asyncio.create_task(
                 extract_facts_from_conversation(
                     username, req.message, ai_response_text, req.provider
                 )
             )
+            _memory_tasks.add(task)
+            task.add_done_callback(_memory_tasks.discard)
 
     return StreamingResponse(
         _sse_with_extraction(),

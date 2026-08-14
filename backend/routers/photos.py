@@ -121,6 +121,15 @@ async def upload_photo(request: Request, _=Depends(require_role("admin"))):
                     conn.commit()
             except Exception as e:
                 logger.error(f"DB Insert error: {e}")
+                # 回滚：删除 OSS 文件
+                try:
+                    bucket = get_oss_bucket()
+                    if bucket:
+                        bucket.delete_object(f"photos/{safe_name}")
+                        logger.info(f"已回滚 OSS 文件: {safe_name}")
+                except Exception as cleanup_err:
+                    logger.error(f"OSS 回滚失败: {cleanup_err}")
+                return JSONResponse({"error": "数据库写入失败"}, status_code=500)
             return {"ok": True, "saved": 1, "name": safe_name}
         return JSONResponse({"error": "failed to upload to OSS"}, status_code=500)
 

@@ -71,7 +71,7 @@ def open_capsule(body: dict, _=Depends(require_auth)):
             if not row:
                 return {"error": "not found"}, 404
             open_date = row[2]
-            if open_date > today:
+            if not open_date or open_date > today:
                 return {"error": "还没到开启日期哦", "can_open": False}, 403
             if not row[3]:
                 cursor.execute(

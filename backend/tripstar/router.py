@@ -286,7 +286,17 @@ async def websocket_status(websocket: WebSocket, task_id: str):
             await websocket.close()
             return
         await asyncio.sleep(1)
-        task = _store.get(task_id) or task
+        task = _store.get(task_id)
+        if task is None:
+            await websocket.send_json(
+                {
+                    "task_id": task_id,
+                    "status": "failed",
+                    "error": "任务状态丢失",
+                }
+            )
+            await websocket.close()
+            return
 
     await websocket.send_json(
         {

@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 import httpx
 
 from ..config import TripStarSettings
+
+logger = logging.getLogger(__name__)
 
 
 class TripStarLLMError(RuntimeError):
@@ -37,7 +40,8 @@ def _extract_json_object(text: str) -> dict[str, Any]:
         try:
             parsed = json.loads(content[start : end + 1])
         except json.JSONDecodeError as exc:
-            raise TripStarLLMError("大模型返回 JSON 解析失败") from exc
+            logger.warning("LLM JSON 解析失败，尝试修复: %s", content[:200])
+            raise TripStarLLMError("大模型返回 JSON 解析失败，请重试") from exc
 
     if not isinstance(parsed, dict):
         raise TripStarLLMError("大模型返回 JSON 顶层必须是对象")
