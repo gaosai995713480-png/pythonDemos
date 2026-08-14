@@ -74,6 +74,51 @@ const THEMES = [
       '--bg-grad-3': '#0ea5e9', '--bg-grad-4': '#0369a1',
     }
   },
+  {
+    name: '日落', emoji: '🌇', effect: 'hearts',
+    color: 'linear-gradient(135deg, #ff9966 0%, #ff5e62 100%)',
+    vars: {
+      '--primary': '#ff5e62', '--secondary': '#c44569', '--accent': '#ffd700',
+      '--bg-grad-1': '#ff9966', '--bg-grad-2': '#ff5e62',
+      '--bg-grad-3': '#f5576c', '--bg-grad-4': '#7a1f3d',
+    }
+  },
+  {
+    name: '霓虹', emoji: '🌃', effect: 'meteors',
+    color: 'linear-gradient(135deg, #0f0c29 0%, #c33764 100%)',
+    vars: {
+      '--primary': '#ff6ec4', '--secondary': '#7873f5', '--accent': '#00d2ff',
+      '--bg-grad-1': '#0f0c29', '--bg-grad-2': '#302b63',
+      '--bg-grad-3': '#c33764', '--bg-grad-4': '#1a1a2e',
+    }
+  },
+  {
+    name: '森语', emoji: '🌲', effect: 'leaves',
+    color: 'linear-gradient(135deg, #134e5e 0%, #71b280 100%)',
+    vars: {
+      '--primary': '#71b280', '--secondary': '#2e7d32', '--accent': '#c8e6c9',
+      '--bg-grad-1': '#134e5e', '--bg-grad-2': '#71b280',
+      '--bg-grad-3': '#2c6e49', '--bg-grad-4': '#0d2818',
+    }
+  },
+  {
+    name: '蜜桃', emoji: '🍑', effect: 'petals',
+    color: 'linear-gradient(135deg, #ffafbd 0%, #ffc3a0 100%)',
+    vars: {
+      '--primary': '#ff6b9d', '--secondary': '#e0569d', '--accent': '#ffd3b6',
+      '--bg-grad-1': '#ffafbd', '--bg-grad-2': '#ffc3a0',
+      '--bg-grad-3': '#ff9a9e', '--bg-grad-4': '#fad0c4',
+    }
+  },
+  {
+    name: '星黛', emoji: '💜', effect: 'aurora',
+    color: 'linear-gradient(135deg, #5f2c82 0%, #49a09d 100%)',
+    vars: {
+      '--primary': '#b39ddb', '--secondary': '#7c4dff', '--accent': '#80deea',
+      '--bg-grad-1': '#5f2c82', '--bg-grad-2': '#49a09d',
+      '--bg-grad-3': '#3a1c71', '--bg-grad-4': '#24243e',
+    }
+  },
 ]
 
 export const useThemeStore = defineStore('theme', () => {
