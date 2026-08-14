@@ -86,7 +86,7 @@ onMounted(() => {
 
 <template>
   <main class="tripstar-page">
-    <TopBar title="旅行星辰" subtitle="AI 旅行智能体" />
+    <TopBar title="旅行星辰" subtitle="AI 旅行智能体" @back="router.push('/')" />
 
     <section class="hero glass">
       <p class="eyebrow">TripStar Agent</p>

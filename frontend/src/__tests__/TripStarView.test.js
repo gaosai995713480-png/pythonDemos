@@ -97,4 +97,19 @@ describe('TripStarView', () => {
     expect(mockGetStatus).toHaveBeenCalledWith('task-online-002')
     expect(mockReplace).toHaveBeenCalledWith('/tripstar/result/task-online-002')
   })
+
+  it('规划页点击返回固定回到主界面，而不是沿历史记录回到结果页（避免两页互相弹跳）', async () => {
+    const { default: TripStarView } = await import('../views/TripStarView.vue')
+    const wrapper = mount(TripStarView, {
+      global: {
+        stubs: {
+          TopBar: { template: '<button class="top-bar-back" @click="$emit(\'back\')" />' },
+        },
+      },
+    })
+
+    await wrapper.find('.top-bar-back').trigger('click')
+
+    expect(mockPush).toHaveBeenCalledWith('/')
+  })
 })

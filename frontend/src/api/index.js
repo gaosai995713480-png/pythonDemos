@@ -125,7 +125,20 @@ export const authApi = {
       return { authenticated: false }
     }
   },
-  login: (username, password) => post('/auth/login', { username, password }),
+  login: async (username, password) => {
+    // login 也不走通用 request()：登录失败本身就是 401，
+    // 通用层会 replace 回 /login 整页刷新，导致错误提示永远显示不出来
+    try {
+      const res = await fetch('/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      })
+      return await res.json()
+    } catch {
+      return { error: '网络错误，请检查连接' }
+    }
+  },
   register: (username, password, invite_code) => post('/auth/register', { username, password, invite_code }),
   logout: () => post('/auth/logout', {}),
 }
