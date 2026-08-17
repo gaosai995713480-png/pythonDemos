@@ -27,7 +27,7 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Love Page", docs_url="/docs/api")
+app = FastAPI(title="xiguasaiLove", docs_url="/docs/api")
 
 # GZip 压缩 (对超过 1KB 的响应进行压缩传输)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -154,7 +154,7 @@ def main():
     if args.gaode_key:
         settings.gaode_key = args.gaode_key
 
-    logger.info("Love Page (FastAPI) starting at http://%s:%d/", args.host, args.port)
+    logger.info("xiguasaiLove (FastAPI) starting at http://%s:%d/", args.host, args.port)
     try:
         webbrowser.open(f"http://{args.host}:{args.port}/", new=1)
     except Exception:

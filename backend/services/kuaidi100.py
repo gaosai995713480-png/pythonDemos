@@ -78,7 +78,7 @@ def query_express(
             data=post_data,
             headers={
                 "Content-Type": "application/x-www-form-urlencoded",
-                "User-Agent": "LovePage/1.0",
+                "User-Agent": "xiguasaiLove/1.0",
             },
             method="POST",
         )
@@ -101,7 +101,7 @@ def detect_company(num: str) -> list:
     """
     url = f"https://www.kuaidi100.com/autonumber/autoComNum?resultv2=1&text={num}"
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "LovePage/1.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "xiguasaiLove/1.0"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             return data.get("auto", [])

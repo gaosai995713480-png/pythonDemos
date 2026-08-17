@@ -1,4 +1,4 @@
-# Love Page（PythonDemos）
+# xiguasaiLove
 
 一个集生活记录、旅行规划与 AI 助手于一体的个人全栈应用。
 

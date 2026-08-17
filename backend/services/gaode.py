@@ -15,7 +15,7 @@ def proxy_gaode(url: str, params: dict, gaode_key: str) -> dict:
     qs = "&".join(f"{k}={quote(str(v))}" for k, v in params.items())
     full_url = f"{url}?{qs}"
     try:
-        req = urllib.request.Request(full_url, headers={"User-Agent": "LovePage/1.0"})
+        req = urllib.request.Request(full_url, headers={"User-Agent": "xiguasaiLove/1.0"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except Exception as e:
