@@ -35,7 +35,6 @@ async function handleLogin() {
   <main class="login-shell">
     <section class="hero">
       <h1>只道当时是寻常</h1>
-      <p>先登录，再一起进入我们的回忆与心动时刻。</p>
       <div class="hero-note">系统已开启访问控制，仅允许授权用户进入。</div>
     </section>
     <section class="panel">
