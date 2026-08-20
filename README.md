@@ -85,3 +85,6 @@ python -m pytest tests/
 - AI 服务配置（模型 API Key 等）
 
 > ⚠️ 请勿将 `.env` 提交到仓库（已在 `.gitignore` 中排除）
+
+---
+部署：GitHub Actions → 新服务器 94.103.173.47 (2026-08-20)
