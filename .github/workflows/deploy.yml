@@ -7,9 +7,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      DEPLOY_HOST: 8.148.6.115
-      DEPLOY_USER: admin
-      DEPLOY_PORT: "22"
+      DEPLOY_HOST: 94.103.173.47
+      DEPLOY_USER: root
+      DEPLOY_PORT: "37167"
       DEPLOY_KEY_B64: ${{ secrets.DEPLOY_KEY_B64 }}
     steps:
       - name: Setup SSH
@@ -22,7 +22,7 @@ jobs:
           printf '%s' "$DEPLOY_KEY_B64" | base64 -d > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           if ! [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]; then
-            echo "DEPLOY_PORT secret invalid. Set it to a number like 22."
+            echo "DEPLOY_PORT secret invalid. Set it to a number like 37167."
             exit 1
           fi
           ssh-keyscan -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
@@ -32,14 +32,13 @@ jobs:
           ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" << 'EOF'
           set -e
           cd /srv/love
-          git config --global --add safe.directory /srv/love
-          git checkout -- .
-          git clean -fd docs/assets
-          git pull origin master
-          /srv/love/.venv/bin/pip install -r requirements.txt
-          /srv/love/.venv/bin/python tools/ensure_howtocook_recipes.py
-          cd /srv/love/frontend && npm install && npm run build
+          sudo -u love git config --global --add safe.directory /srv/love || true
+          sudo -u love git checkout -- .
+          sudo -u love git pull origin master
+          sudo -u love /srv/love/.venv/bin/pip install -r /srv/love/requirements.txt
+          sudo -u love /srv/love/.venv/bin/python tools/ensure_howtocook_recipes.py
+          cd /srv/love/frontend && sudo -u love npm install && sudo -u love npm run build
           cd /srv/love
-          sudo systemctl restart love
-          sudo systemctl status love --no-pager
+          systemctl restart love
+          systemctl status love --no-pager
           EOF
