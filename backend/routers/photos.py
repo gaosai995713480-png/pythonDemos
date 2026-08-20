@@ -1,6 +1,5 @@
 """照片路由"""
 import io
-import time
 import zipfile
 import logging
 from urllib.parse import quote, unquote
@@ -9,7 +8,7 @@ from fastapi import APIRouter, Request, Depends
 from fastapi.responses import FileResponse, JSONResponse
 from ..config import settings
 from ..dependencies import require_gallery_access, require_role
-from ..utils import is_image_filename, sanitize_upload_filename, photo_sort_key
+from ..utils import is_image_filename, sanitize_upload_filename, photo_sort_key, aligned_expires
 from ..services.oss_storage import upload_to_oss, get_oss_bucket, get_oss_domain
 from ..database import get_db
 
@@ -18,18 +17,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["photos"])
 
 
-def _aligned_expires() -> int:
-    """计算到下一个整点小时的剩余秒数，保证同一小时内签名 URL 完全一致，命中浏览器缓存"""
-    now = int(time.time())
-    next_hour = (now // 3600 + 1) * 3600
-    return max(next_hour - now, 300)  # 最少保证 5 分钟有效
-
-
 @router.get("/photos.json")
 def list_photos(_=Depends(require_gallery_access)):
     # 彻底元数据化：优先查询数据库中的结构化对象
     bucket = get_oss_bucket()
-    expires = _aligned_expires()
+    expires = aligned_expires()
     try:
         with get_db() as conn:
             with conn.cursor() as cursor:

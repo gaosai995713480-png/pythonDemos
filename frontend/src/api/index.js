@@ -199,6 +199,14 @@ export const musicApi = {
     get(`/api/music/lyric?id=${id}&platform=${platform}`),
 }
 
+// 首页背景音乐：管理员设置，所有登录用户共享同一首
+export const bgmApi = {
+  get: () => get('/api/music/bgm'),
+  set: (data) => put('/api/music/bgm', data),
+  clear: () => del('/api/music/bgm'),
+  upload: (file) => uploadFile('/api/music/bgm/upload', file, file.name),
+}
+
 export const photoApi = {
   list: async () => {
     const res = await fetch(`${BASE}/photos.json`)

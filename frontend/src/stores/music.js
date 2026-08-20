@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed, markRaw } from 'vue'
-import { musicApi } from '../api'
+import { musicApi, bgmApi } from '../api'
 
 export const useMusicStore = defineStore('music', () => {
   const songs = ref([])
@@ -11,6 +11,8 @@ export const useMusicStore = defineStore('music', () => {
   const currentTime = ref(0)
   const duration = ref(0)
   const playError = ref('')  // B1: 播放失败时展示错误信息
+  const bgm = ref(null)          // 首页背景音乐配置（管理员设置，全局共享）
+  const bgmBlocked = ref(false)  // 浏览器拦截了自动播放，需要用户点一下
 
   // 使用 markRaw 避免 Vue 对 Audio 做响应式代理
   const audio = markRaw(new Audio())
@@ -102,6 +104,7 @@ export const useMusicStore = defineStore('music', () => {
     currentIndex.value = index
     const s = songs.value[index]
     playError.value = ''
+    audio.loop = false  // 歌单按顺序播放，清掉 BGM 留下的循环标记
     loadLyrics(s.netease_id, s.platform || 'netease')
     try {
       const data = await musicApi.url(s.netease_id, s.platform || 'netease')
@@ -126,26 +129,86 @@ export const useMusicStore = defineStore('music', () => {
     }
   }
 
+  // ===== 首页背景音乐 =====
+
+  // 进入首页时调用：拉取管理员设置的 BGM 并循环播放。
+  // 复用同一个 audio 实例，保证首页 BGM 和音乐页播放器不会同时出声。
+  async function startBgm() {
+    if (isPlaying.value) return  // 音乐页已经在放歌，不打断
+    try {
+      const data = await bgmApi.get()
+      bgm.value = data.enabled ? data : null
+    } catch {
+      bgm.value = null
+      return
+    }
+    if (!bgm.value) return
+
+    currentIndex.value = -1
+    playError.value = ''
+    if (bgm.value.source === 'meting' && bgm.value.song_id) {
+      loadLyrics(bgm.value.song_id, bgm.value.platform || 'netease')
+    } else {
+      lyricLines.value = []
+      currentLyricIndex.value = -1
+    }
+
+    audio.src = bgm.value.url
+    audio.loop = true
+    try {
+      await audio.play()
+      isPlaying.value = true
+      bgmBlocked.value = false
+    } catch (e) {
+      // NotAllowedError = 浏览器自动播放策略拦截，点一下即可；
+      // 其他错误（NotSupportedError/AbortError）说明音频源本身有问题，必须暴露出来
+      console.warn('[BGM] 自动播放失败:', e.name, e.message, '音频源:', bgm.value.url)
+      isPlaying.value = false
+      bgmBlocked.value = true
+      if (e.name !== 'NotAllowedError') {
+        playError.value = `音频加载失败（${e.name}）`
+      }
+    }
+  }
+
+  // 用户点击「播放」后重试，用于绕过自动播放拦截
+  async function resumeBgm() {
+    if (!bgm.value) return
+    try {
+      await audio.play()
+      isPlaying.value = true
+      bgmBlocked.value = false
+    } catch {
+      isPlaying.value = false
+      playError.value = '播放失败，请重试'
+    }
+  }
+
   function togglePlay() {
-    if (!songs.value.length) return
     if (isPlaying.value) {
       audio.pause()
       isPlaying.value = false
+      return
+    }
+    // 当前播的是首页 BGM（不属于歌单）时，恢复它而不是去放歌单第一首
+    if (bgm.value && currentIndex.value < 0) {
+      resumeBgm()
+      return
+    }
+    if (!songs.value.length) return
+    if (currentIndex.value < 0) {
+      play(0).catch(() => {
+        isPlaying.value = false
+        playError.value = '播放请求失败'
+      })
     } else {
-      if (currentIndex.value < 0) {
-        play(0).catch(() => {
-          isPlaying.value = false
-          playError.value = '播放请求失败'
-        })
-      } else {
-        // B2: await play() 并 catch，确保状态同步
-        audio.play().then(() => {
-          isPlaying.value = true
-        }).catch(() => {
-          isPlaying.value = false
-          playError.value = '播放失败，请重试'
-        })
-      }
+      // B2: await play() 并 catch，确保状态同步
+      audio.play().then(() => {
+        isPlaying.value = true
+      }).catch(() => {
+        isPlaying.value = false
+        playError.value = '播放失败，请重试'
+      })
     }
   }
 
@@ -197,6 +260,7 @@ export const useMusicStore = defineStore('music', () => {
   function reset() {
     audio.pause()
     audio.src = ''
+    audio.loop = false
     isPlaying.value = false
     currentIndex.value = -1
     currentTime.value = 0
@@ -204,14 +268,17 @@ export const useMusicStore = defineStore('music', () => {
     lyricLines.value = []
     currentLyricIndex.value = -1
     playError.value = ''
+    bgm.value = null
+    bgmBlocked.value = false
   }
 
   return {
     songs, currentIndex, isPlaying, lyricLines, currentLyricIndex,
     currentTime, duration, currentSong, currentPlatformName,
-    playError,
+    playError, bgm, bgmBlocked,
     audio, PLATFORM_NAMES,
     loadSongs, loadLyrics, play, togglePlay, next, prev,
+    startBgm, resumeBgm,
     seekTo, fmtTime, handleSongRemoved, reset,
   }
 })

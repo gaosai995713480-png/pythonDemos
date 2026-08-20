@@ -5,11 +5,13 @@ import TopBar from '../components/TopBar.vue'
 import GlassModal from '../components/GlassModal.vue'
 import { useMusicStore } from '../stores/music'
 import { useContextStore } from '../stores/context'
-import { musicApi, configApi } from '../api'
+import { useAuthStore } from '../stores/auth'
+import { musicApi, configApi, bgmApi } from '../api'
 
 const router = useRouter()
 const musicStore = useMusicStore()
 const contextStore = useContextStore()
+const authStore = useAuthStore()
 
 const showAddModal = ref(false)
 const searchKeyword = ref('')
@@ -162,12 +164,77 @@ function openCookieModal() {
   loadCookies()
 }
 
+// ===== 首页背景音乐（仅管理员）=====
+const showBgmModal = ref(false)
+const bgmCurrent = ref(null)
+const bgmSaving = ref(false)
+const bgmFileInput = ref(null)
+
+async function loadBgm() {
+  try {
+    const data = await bgmApi.get()
+    bgmCurrent.value = data.enabled ? data : null
+  } catch { bgmCurrent.value = null }
+}
+
+function openBgmModal() {
+  showBgmModal.value = true
+  loadBgm()
+}
+
+// 把歌单里的某首歌设为首页 BGM
+async function setBgmFromSong(song) {
+  bgmSaving.value = true
+  try {
+    await bgmApi.set({
+      source: 'meting',
+      song_id: song.netease_id,
+      platform: song.platform || 'netease',
+      title: song.title,
+      artist: song.artist,
+    })
+    await loadBgm()
+  } catch { /* 错误已由 api 层 Toast */ }
+  bgmSaving.value = false
+}
+
+// 上传本地音频并直接设为首页 BGM
+async function uploadBgmFile(e) {
+  const file = e.target.files?.[0]
+  if (!file) return
+  bgmSaving.value = true
+  try {
+    const up = await bgmApi.upload(file)
+    await bgmApi.set({
+      source: 'local',
+      audio_key: up.audio_key,
+      storage: up.storage,
+      title: up.filename.replace(/\.[^.]+$/, ''),
+      artist: '本地音乐',
+    })
+    await loadBgm()
+  } catch { /* 错误已由 api 层 Toast */ }
+  bgmSaving.value = false
+  if (bgmFileInput.value) bgmFileInput.value.value = ''
+}
+
+async function clearBgm() {
+  if (!confirm('确定关闭首页背景音乐吗？')) return
+  bgmSaving.value = true
+  try {
+    await bgmApi.clear()
+    bgmCurrent.value = null
+  } catch { /* ignore */ }
+  bgmSaving.value = false
+}
+
 onMounted(() => musicStore.loadSongs())
 </script>
 
 <template>
   <TopBar title="🎵 音乐时光" @back="router.push('/')">
     <button class="btn-icon setting-btn" @click="openCookieModal" title="Cookie 设置">⚙️</button>
+    <button v-if="authStore.isAdmin" class="btn-icon setting-btn" @click="openBgmModal" title="首页背景音乐">🏠</button>
     <button class="btn-primary add-btn" @click="showAddModal = true">+ 添加歌曲</button>
   </TopBar>
 
@@ -292,6 +359,45 @@ onMounted(() => musicStore.loadSongs())
       </button>
     </div>
     <p class="cookie-help">获取方式：浏览器登录音乐平台 → F12 → Application → Cookies</p>
+  </GlassModal>
+
+  <!-- 首页背景音乐设置（仅管理员）-->
+  <GlassModal v-model="showBgmModal" title="🏠 首页背景音乐">
+    <p class="cookie-tip">设置后，任何账号登录进入首页都会自动播放这首音乐</p>
+
+    <div class="bgm-current">
+      <template v-if="bgmCurrent">
+        <div class="bgm-now">
+          <div class="sr-title">{{ bgmCurrent.title || '未命名' }}</div>
+          <div class="sr-artist">{{ bgmCurrent.artist }}（{{ bgmCurrent.source === 'local' ? '本地音频' : '在线音乐' }}）</div>
+        </div>
+        <button class="song-del" @click="clearBgm" :disabled="bgmSaving" title="关闭背景音乐">✕</button>
+      </template>
+      <span v-else class="sr-artist">当前未设置背景音乐</span>
+    </div>
+
+    <div class="divider">从歌单中选择</div>
+    <div class="search-results" v-if="musicStore.songs.length">
+      <div v-for="song in musicStore.songs" :key="song.id" class="search-item">
+        <div class="sr-meta">
+          <div class="sr-title">{{ song.title }}</div>
+          <div class="sr-artist">{{ song.artist }}</div>
+        </div>
+        <button class="sr-add-btn" @click="setBgmFromSong(song)" :disabled="bgmSaving" title="设为首页背景音乐">✓</button>
+      </div>
+    </div>
+    <p v-else class="cookie-help">歌单还是空的，先去添加歌曲，或直接上传本地音频</p>
+
+    <div class="divider">或上传本地音频</div>
+    <input
+      ref="bgmFileInput"
+      type="file"
+      accept=".mp3,.m4a,.aac,.wav,audio/mpeg,audio/mp4,audio/aac,audio/wav"
+      class="bgm-file"
+      :disabled="bgmSaving"
+      @change="uploadBgmFile"
+    />
+    <p class="cookie-help">支持 mp3/m4a/aac/wav，单文件不超过 30MB</p>
   </GlassModal>
 </template>
 
@@ -440,6 +546,20 @@ onMounted(() => musicStore.loadSongs())
 .cookie-actions { text-align: center; margin: 16px 0 8px; }
 .cookie-actions .btn-primary { padding: 10px 32px; }
 .cookie-help { font-size: 11px; color: rgba(255, 255, 255, 0.3); text-align: center; margin-top: 8px; }
+
+.bgm-current {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
+}
+.bgm-now { flex: 1; min-width: 0; text-align: left; }
+.bgm-file {
+  width: 100%; font-size: 13px; color: var(--text-secondary);
+  padding: 10px; border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px dashed var(--glass-border);
+}
 
 @media (max-width: 720px) {
   .music-container {

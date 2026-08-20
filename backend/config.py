@@ -58,5 +58,10 @@ class Settings:
     def photos_dir(self) -> Path:
         return self.web_dir / "photos"
 
+    @property
+    def music_dir(self) -> Path:
+        """本地音频目录（未配置 OSS 时的降级存储）"""
+        return self.web_dir / "music"
+
 
 settings = Settings()

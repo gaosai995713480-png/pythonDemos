@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useMusicStore } from '../stores/music'
@@ -31,6 +31,12 @@ const currentLyric = computed(() => {
     return musicStore.lyricLines[musicStore.currentLyricIndex]?.text || ''
   }
   return ''
+})
+
+// ===== 首页背景音乐 =====
+// 管理员设置的全局 BGM，任何账号进首页都自动播放
+onMounted(() => {
+  musicStore.startBgm()
 })
 
 // ===== Logout =====
@@ -82,6 +88,11 @@ async function logout() {
   <button class="play-button" :class="{ 'is-playing': musicStore.isPlaying }" @click="musicStore.togglePlay">
     <span>{{ musicStore.isPlaying ? '⏸' : '▶' }}</span>
   </button>
+
+  <!-- 自动播放被浏览器拦截时的提示，点一下即可开始 -->
+  <div v-if="musicStore.bgmBlocked" class="bgm-hint" @click="musicStore.resumeBgm">
+    🎵 点击播放 {{ musicStore.bgm?.title || '背景音乐' }}
+  </div>
 </template>
 
 <style scoped>
@@ -222,6 +233,14 @@ h1 {
 
 .play-button.is-playing::before { animation: spin 3s linear infinite; }
 .play-button span { position: relative; z-index: 1; }
+
+.bgm-hint {
+  position: fixed; right: 108px; bottom: 44px; z-index: 4;
+  padding: 8px 14px; border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 13px;
+  cursor: pointer; backdrop-filter: blur(6px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
 
 /* Mobile */
 @media (max-width: 720px) {

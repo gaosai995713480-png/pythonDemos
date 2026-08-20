@@ -1,9 +1,18 @@
 """通用工具函数"""
 import re
+import time
 from pathlib import Path
 
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
+# 只保留 iOS/Safari 也能解码的格式：flac/ogg 在苹果设备上放不出来，提前拒绝好过传完才发现
+AUDIO_EXTENSIONS = {".mp3", ".m4a", ".aac", ".wav"}
+AUDIO_MIME_TYPES = {
+    ".mp3": "audio/mpeg",
+    ".m4a": "audio/mp4",
+    ".aac": "audio/aac",
+    ".wav": "audio/wav",
+}
 WINDOWS_RESERVED_NAMES = {
     "con", "prn", "aux", "nul",
     *(f"com{i}" for i in range(1, 10)),
@@ -25,6 +34,16 @@ def is_image_filename(name: str) -> bool:
     return Path(name).suffix.lower() in IMAGE_EXTENSIONS
 
 
+def is_audio_filename(name: str) -> bool:
+    """判断是否为支持的音频文件名"""
+    return Path(name).suffix.lower() in AUDIO_EXTENSIONS
+
+
+def audio_mime_type(name: str) -> str:
+    """根据音频文件名推断 Content-Type"""
+    return AUDIO_MIME_TYPES.get(Path(name).suffix.lower(), "application/octet-stream")
+
+
 def sanitize_upload_filename(raw_name: str) -> str:
     """清理上传文件名，防止路径穿越和特殊字符"""
     name = (raw_name or "").strip().replace("\x00", "")
@@ -37,6 +56,13 @@ def sanitize_upload_filename(raw_name: str) -> str:
     if Path(name).stem.lower() in WINDOWS_RESERVED_NAMES:
         name = f"_{name}"
     return name
+
+
+def aligned_expires() -> int:
+    """计算到下一个整点小时的剩余秒数，保证同一小时内签名 URL 完全一致，命中浏览器缓存"""
+    now = int(time.time())
+    next_hour = (now // 3600 + 1) * 3600
+    return max(next_hour - now, 300)  # 最少保证 5 分钟有效
 
 
 def photo_sort_key(path: Path) -> tuple:
